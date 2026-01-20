@@ -103,11 +103,16 @@ export default function ProjectPage() {
                 <div className="space-y-6">
                     <Card className="bg-zinc-900 border-zinc-800">
                         <CardHeader>
-                            <CardTitle>Multitrack Mixer</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                Multitrack Mixer
+                                <span className="text-xs font-normal text-muted-foreground bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+                                    AI BPM: {project.bpm || 'Unknown'}
+                                </span>
+                            </CardTitle>
                             <CardDescription>각 파트의 볼륨을 조절하여 연습하세요.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <MultiTrackPlayer stems={stems} />
+                            <MultiTrackPlayer stems={stems} projectId={project.id} initialBpm={project.bpm} />
                         </CardContent>
                     </Card>
 

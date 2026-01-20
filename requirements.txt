@@ -1,6 +1,6 @@
 absl-py==2.3.1
 aiofiles==25.1.0
-altgraph @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/altgraph-0.17.2-py2.py3-none-any.whl
+altgraph==0.17.2
 annotated-doc==0.0.4
 annotated-types==0.7.0
 antlr4-python3-runtime==4.9.3
@@ -30,7 +30,7 @@ filelock==3.19.1
 flatbuffers==25.12.19
 fonttools==4.60.2
 fsspec==2025.10.0
-future @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/future-0.18.2-py3-none-any.whl
+future==0.18.3
 gast==0.7.0
 google-auth==2.41.1
 google-auth-oauthlib==1.2.3
@@ -52,7 +52,7 @@ lazy_loader==0.4
 libclang==18.1.1
 librosa==0.11.0
 llvmlite==0.43.0
-macholib @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/macholib-1.15.2-py2.py3-none-any.whl
+macholib==1.15.2
 Markdown==3.9
 markdown-it-py==3.0.0
 MarkupSafe==3.0.3
@@ -100,7 +100,7 @@ rich==14.2.0
 rsa==4.9.1
 scikit-learn==1.6.1
 scipy==1.13.1
-six @ file:///AppleInternal/Library/BuildRoots/39d9dc1a-2111-11f0-be06-226177e5bb69/Library/Caches/com.apple.xbs/Sources/python3/six-1.15.0-py2.py3-none-any.whl
+six==1.16.0
 soundfile==0.13.1
 soxr==1.0.0
 starlette==0.49.3
@@ -125,3 +125,4 @@ webcolors==24.11.1
 Werkzeug==3.1.4
 wrapt==1.14.2
 zipp==3.23.0
+SQLAlchemy==2.0.25

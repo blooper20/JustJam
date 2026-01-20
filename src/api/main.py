@@ -4,6 +4,9 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from src.api.routes import projects
+from src.api.database import engine, Base
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Band-Mate AI API",

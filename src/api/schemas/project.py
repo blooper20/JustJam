@@ -21,6 +21,7 @@ class Project(ProjectBase):
     status: TaskStatus
     created_at: datetime
     progress: int = 0
+    bpm: Optional[int] = None
     stems_path: Optional[str] = None
     
     class Config:
@@ -33,3 +34,4 @@ class StemFiles(BaseModel):
     guitar: Optional[str] = None
     piano: Optional[str] = None
     other: Optional[str] = None
+    master: Optional[str] = None

@@ -23,6 +23,10 @@ class Project(ProjectBase):
     progress: int = 0
     bpm: Optional[int] = None
     stems_path: Optional[str] = None
+    has_score: bool = False
+    has_tab: bool = False
+    score_instruments: List[str] = []
+    tab_instruments: List[str] = []
     
     class Config:
         from_attributes = True

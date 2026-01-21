@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Depends, Response
-from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session, joinedload
 import shutil
 import os
 import uuid
@@ -11,12 +12,14 @@ import librosa
 from pydub import AudioSegment
 import soundfile as sf
 import tempfile
+import json
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from src.api.schemas.project import Project, TaskStatus, StemFiles
 from src.api.database import get_db, SessionLocal
-from src.api.models import ProjectModel
+from src.api.models import ProjectModel, User, ProjectAsset
+from src.api.dependencies import get_current_user, get_optional_current_user
 from src.audio_processor import separate_audio
 from src.transcriber import transcribe_audio
 from src.tab_generator import TabGenerator
@@ -108,7 +111,12 @@ def process_audio_task(project_id: str):
         db.close()
 
 @router.post("/", response_model=Project)
-async def create_project(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def create_project(
+    file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """프로젝트 생성 (인증 선택적)"""
     project_id = str(uuid.uuid4())
     file_ext = os.path.splitext(file.filename)[1]
     saved_filename = f"{project_id}{file_ext}"
@@ -126,6 +134,7 @@ async def create_project(file: UploadFile = File(...), db: Session = Depends(get
         original_filename=saved_filename,
         status=TaskStatus.PENDING.value,
         progress=0,
+        user_id=current_user.id if current_user else None,  # 사용자 ID 할당
         created_at=datetime.utcnow()
     )
     
@@ -135,10 +144,19 @@ async def create_project(file: UploadFile = File(...), db: Session = Depends(get
     return project
 
 @router.post("/{project_id}/process", response_model=Project)
-async def process_project(project_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def process_project(
+    project_id: str, 
+    background_tasks: BackgroundTasks, 
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this project")
         
     if project.status == TaskStatus.PROCESSING.value:
          raise HTTPException(status_code=400, detail="Already processing")
@@ -150,31 +168,85 @@ async def process_project(project_id: str, background_tasks: BackgroundTasks, db
     return project
 
 @router.get("/{project_id}", response_model=Project)
-async def get_project(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+async def get_project(
+    project_id: str, 
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    project = db.query(ProjectModel).options(joinedload(ProjectModel.assets)).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+        
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this project")
+
+    # 자산 보유 여부 설정
+    project.has_score = any(a.asset_type == 'score' for a in project.assets)
+    project.has_tab = any(a.asset_type == 'tab' for a in project.assets)
+    project.score_instruments = [a.instrument for a in project.assets if a.asset_type == 'score']
+    project.tab_instruments = [a.instrument for a in project.assets if a.asset_type == 'tab']
+    
     return project
 
 @router.get("/", response_model=List[Project])
-async def list_projects(db: Session = Depends(get_db)):
-    return db.query(ProjectModel).all()
+async def list_projects(
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """프로젝트 목록 조회 (로그인한 사용자는 본인 프로젝트만, 비로그인은 모든 프로젝트)"""
+    if current_user:
+        # 로그인한 사용자: 본인의 프로젝트만 반환
+        projects = db.query(ProjectModel).options(joinedload(ProjectModel.assets)).filter(ProjectModel.user_id == current_user.id).all()
+    else:
+        # 비로그인 사용자: 모든 프로젝트 반환
+        projects = db.query(ProjectModel).options(joinedload(ProjectModel.assets)).filter(ProjectModel.user_id == None).all()
+    
+    # 자산 보유 여부 일괄 설정
+    for p in projects:
+        p.has_score = any(a.asset_type == 'score' for a in p.assets)
+        p.has_tab = any(a.asset_type == 'tab' for a in p.assets)
+        p.score_instruments = [a.instrument for a in p.assets if a.asset_type == 'score']
+        p.tab_instruments = [a.instrument for a in p.assets if a.asset_type == 'tab']
+        
+    return projects
 
 @router.delete("/{project_id}")
-async def delete_project(project_id: str, db: Session = Depends(get_db)):
+async def delete_project(
+    project_id: str,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """프로젝트 삭제 (소유자만 가능)"""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    # 권한 확인: 프로젝트 소유자이거나 user_id가 None인 경우만 삭제 가능
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="이 프로젝트를 삭제할 권한이 없습니다"
+            )
     
     db.delete(project)
     db.commit()
     return {"message": "Project deleted successfully"}
 
 @router.get("/{project_id}/stems", response_model=StemFiles)
-async def get_project_stems(project_id: str, db: Session = Depends(get_db)):
+async def get_project_stems(
+    project_id: str, 
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
          raise HTTPException(status_code=404, detail="Project not found")
+    
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
     if project.status != TaskStatus.COMPLETED.value:
         raise HTTPException(status_code=400, detail="Processing not completed")
@@ -191,34 +263,92 @@ async def get_project_stems(project_id: str, db: Session = Depends(get_db)):
     )
 
 @router.post("/{project_id}/score/{instrument}")
-def generate_project_score(project_id: str, instrument: str, db: Session = Depends(get_db)):
+def generate_project_score(
+    project_id: str, 
+    instrument: str, 
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
     if project.status != TaskStatus.COMPLETED.value:
          raise HTTPException(status_code=400, detail="Audio separation required first")
          
+    # DB에서 이미 생성된 악보가 있는지 확인
+    existing_asset = db.query(ProjectAsset).filter(
+        ProjectAsset.project_id == project_id,
+        ProjectAsset.asset_type == 'score',
+        ProjectAsset.instrument == instrument
+    ).first()
+    
+    if existing_asset:
+        logger.info(f"Returning cached score for {project_id} ({instrument})")
+        return Response(
+            content=existing_asset.content, 
+            media_type="application/xml",
+            headers={"X-Cache": "HIT"}
+        )
+
     input_path = os.path.join(UPLOAD_DIR, project.original_filename)
     target_stem = instrument.lower()
     
     try:
         notes, bpm = transcribe_audio(input_path, target_stem=target_stem)
         xml_content = create_score(notes, bpm, instrument)
+        
+        # 생성된 악보 DB에 저장
+        new_asset = ProjectAsset(
+            project_id=project_id,
+            asset_type='score',
+            instrument=instrument,
+            content=xml_content
+        )
+        db.add(new_asset)
+        db.commit()
+        
         return Response(content=xml_content, media_type="application/xml")
     except Exception as e:
         logger.exception(f"Score generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Score generation failed: {str(e)}")
 
 @router.post("/{project_id}/tabs/{instrument}")
-def generate_project_tab(project_id: str, instrument: str, db: Session = Depends(get_db)):
+def generate_project_tab(
+    project_id: str, 
+    instrument: str, 
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
     if project.status != TaskStatus.COMPLETED.value:
          raise HTTPException(status_code=400, detail="Audio separation required first")
          
+    # DB에서 이미 생성된 타브가 있는지 확인
+    existing_asset = db.query(ProjectAsset).filter(
+        ProjectAsset.project_id == project_id,
+        ProjectAsset.asset_type == 'tab',
+        ProjectAsset.instrument == instrument
+    ).first()
+    
+    if existing_asset:
+        logger.info(f"Returning cached tab for {project_id} ({instrument})")
+        return JSONResponse(
+            content=json.loads(existing_asset.content),
+            headers={"X-Cache": "HIT"}
+        )
+
     input_path = os.path.join(UPLOAD_DIR, project.original_filename)
     
     tuning = None
@@ -238,13 +368,25 @@ def generate_project_tab(project_id: str, instrument: str, db: Session = Depends
         generator = TabGenerator(tuning=tuning, bpm=bpm)
         ascii_tab = generator.generate_ascii_tab(notes)
         
-        return {
+        result = {
             "project_id": project_id,
             "instrument": instrument,
             "bpm": bpm,
             "tab": ascii_tab,
             "notes_count": len(notes)
         }
+        
+        # 생성된 타브 DB에 저장
+        new_asset = ProjectAsset(
+            project_id=project_id,
+            asset_type='tab',
+            instrument=instrument,
+            content=json.dumps(result)
+        )
+        db.add(new_asset)
+        db.commit()
+        
+        return result
     except Exception as e:
         logger.exception(f"Tab generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Tab generation failed: {str(e)}")
@@ -256,10 +398,19 @@ class MixRequest(BaseModel):
     start_offset: float = 0.0
 
 @router.post("/{project_id}/mix")
-def mix_audio(project_id: str, request: MixRequest, db: Session = Depends(get_db)):
+def mix_audio(
+    project_id: str, 
+    request: MixRequest, 
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this project")
     
     if project.status != TaskStatus.COMPLETED.value:
          raise HTTPException(status_code=400, detail="Audio separation not completed")

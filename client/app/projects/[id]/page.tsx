@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Play, AlertCircle, ArrowLeft, Download } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Progress } from "@/components/ui/progress"
 import { MultiTrackPlayer } from "@/components/multitrack-player";
 import { TabViewer } from "@/components/tab-viewer";
@@ -15,8 +15,11 @@ import { useState } from 'react';
 
 export default function ProjectPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const id = params.id as string;
+    const view = searchParams.get('view');
     const queryClient = useQueryClient();
+    const [loadMixer, setLoadMixer] = useState(false);
     // Removed local progress state
 
     const { data: project, isLoading } = useQuery({
@@ -101,42 +104,64 @@ export default function ProjectPage() {
 
             {project.status === 'completed' && stems && (
                 <div className="space-y-6">
-                    <Card className="bg-zinc-900 border-zinc-800">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                Multitrack Mixer
-                                <span className="text-xs font-normal text-muted-foreground bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
-                                    AI BPM: {project.bpm || 'Unknown'}
-                                </span>
-                            </CardTitle>
-                            <CardDescription>각 파트의 볼륨을 조절하여 연습하세요.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <MultiTrackPlayer stems={stems} projectId={project.id} initialBpm={project.bpm} />
-                        </CardContent>
-                    </Card>
+                    {/* Only show Mixer if no specific view is requested */}
+                    {(!view || view === 'mixer') && (
+                        <Card className="bg-zinc-900 border-zinc-800">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    Multitrack Mixer
+                                    <span className="text-xs font-normal text-muted-foreground bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+                                        AI BPM: {project.bpm || 'Unknown'}
+                                    </span>
+                                </CardTitle>
+                                <CardDescription>각 파트의 볼륨을 조절하여 연습하세요.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {!loadMixer ? (
+                                    <div className="flex flex-col items-center justify-center py-12 bg-zinc-950 rounded-lg border border-zinc-800 space-y-4">
+                                        <div className="p-4 rounded-full bg-zinc-900">
+                                            <Play className="w-8 h-8 text-primary fill-current" />
+                                        </div>
+                                        <div className="text-center">
+                                            <h4 className="font-medium">곡 분석 완료됨</h4>
+                                            <p className="text-sm text-muted-foreground">멀티트랙 믹서를 불러와서 연습을 시작하세요.</p>
+                                        </div>
+                                        <Button onClick={() => setLoadMixer(true)} size="lg" className="rounded-full px-8">
+                                            믹서 불러오기 (Load Mixer)
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <MultiTrackPlayer stems={stems} projectId={project.id} initialBpm={project.bpm} />
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
+                    {/* Only show Score if explicitly requested or in default view */}
+                    {(!view || view === 'score') && (
+                        <Card className="bg-zinc-900 border-zinc-800">
+                            <CardHeader>
+                                <CardTitle>Sheet Music (Standard Score)</CardTitle>
+                                <CardDescription>모든 파트(드럼, 보컬, 기타 등)의 정식 악보입니다.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <ScoreViewer projectId={project.id} existingInstruments={project.score_instruments} />
+                            </CardContent>
+                        </Card>
+                    )}
 
-
-                    <Card className="bg-zinc-900 border-zinc-800">
-                        <CardHeader>
-                            <CardTitle>Sheet Music (Standard Score)</CardTitle>
-                            <CardDescription>모든 파트(드럼, 보컬, 기타 등)의 정식 악보를 생성합니다.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ScoreViewer projectId={project.id} />
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-zinc-900 border-zinc-800">
-                        <CardHeader>
-                            <CardTitle>Tablature Viewer (Guitar/Bass Only)</CardTitle>
-                            <CardDescription>AI가 분석한 정밀 타브 악보입니다.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <TabViewer projectId={project.id} />
-                        </CardContent>
-                    </Card>
+                    {/* Only show Tab if explicitly requested or in default view */}
+                    {(!view || view === 'tab') && (
+                        <Card className="bg-zinc-900 border-zinc-800">
+                            <CardHeader>
+                                <CardTitle>Tablature Viewer (Guitar/Bass Only)</CardTitle>
+                                <CardDescription>AI가 분석한 정밀 타브 악보입니다.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <TabViewer projectId={project.id} existingInstruments={project.tab_instruments} />
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             )}
 

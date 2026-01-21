@@ -1,5 +1,4 @@
-'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateTab, TabResponse } from '@/lib/api';
@@ -8,10 +7,13 @@ import { toast } from 'sonner';
 
 interface TabViewerProps {
     projectId: string;
+    autoLoad?: boolean;
+    existingInstruments?: string[];
 }
 
-export function TabViewer({ projectId }: TabViewerProps) {
+export function TabViewer({ projectId, autoLoad = false, existingInstruments = [] }: TabViewerProps) {
     const [activeTab, setActiveTab] = useState('guitar');
+    const initializedRef = useRef(false);
     const [tabs, setTabs] = useState<Record<string, TabResponse | null>>({
         guitar: null,
         bass: null
@@ -20,9 +22,14 @@ export function TabViewer({ projectId }: TabViewerProps) {
         guitar: false,
         bass: false
     });
+    const [loadingMessage, setLoadingMessage] = useState<Record<string, string>>({
+        guitar: "Loading...",
+        bass: "Loading..."
+    });
 
-    const handleGenerate = async (instrument: 'guitar' | 'bass') => {
+    const handleGenerate = async (instrument: 'guitar' | 'bass', isFirstLoad = false) => {
         setLoading(prev => ({ ...prev, [instrument]: true }));
+        setLoadingMessage(prev => ({ ...prev, [instrument]: isFirstLoad ? "불러오는 중..." : "생성 중..." }));
         try {
             const data = await generateTab(projectId, instrument);
             setTabs(prev => ({ ...prev, [instrument]: data }));
@@ -34,6 +41,8 @@ export function TabViewer({ projectId }: TabViewerProps) {
             setLoading(prev => ({ ...prev, [instrument]: false }));
         }
     };
+
+    // Removed automatic handleGenerate on mount. User must explicitly click buttons.
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -54,16 +63,22 @@ export function TabViewer({ projectId }: TabViewerProps) {
                     {!tabs[inst] ? (
                         <div className="flex flex-col items-center justify-center p-12 border border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
                             <FileText className="w-12 h-12 text-zinc-600 mb-4" />
-                            <h3 className="text-lg font-medium mb-2 capitalize">{inst} Tab Not Generated</h3>
+                            <h3 className="text-lg font-medium mb-2 capitalize">
+                                {inst} Tab {existingInstruments.includes(inst) ? "보관함 보관됨" : "Not Generated"}
+                            </h3>
                             <p className="text-zinc-500 text-sm mb-6 text-center max-w-sm">
-                                Generate a precision {inst} tablature from the separated stems using AI transcription.
+                                {existingInstruments.includes(inst)
+                                    ? "이 악보는 이미 보관함에 보관되어 있습니다. 아래 버튼을 눌러 즉시 불러오세요."
+                                    : `Generate a precision ${inst} tablature from the separated stems using AI transcription.`}
                             </p>
                             <Button
                                 onClick={() => handleGenerate(inst as 'guitar' | 'bass')}
                                 disabled={loading[inst]}
+                                variant={existingInstruments.includes(inst) ? "default" : "outline"}
                             >
                                 {loading[inst] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Generate {inst.charAt(0).toUpperCase() + inst.slice(1)} Tab
+                                {loading[inst] ? loadingMessage[inst] :
+                                    existingInstruments.includes(inst) ? `보관함에서 불러오기 (${inst.charAt(0).toUpperCase() + inst.slice(1)})` : `생성하기 (${inst.charAt(0).toUpperCase() + inst.slice(1)})`}
                             </Button>
                         </div>
                     ) : (

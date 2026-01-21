@@ -9,22 +9,29 @@ import { toast } from 'sonner';
 
 interface ScoreViewerProps {
     projectId: string;
+    autoLoad?: boolean;
+    existingInstruments?: string[];
 }
 
-export function ScoreViewer({ projectId }: ScoreViewerProps) {
+export function ScoreViewer({ projectId, autoLoad = false, existingInstruments = [] }: ScoreViewerProps) {
     const [instrument, setInstrument] = useState<string>('vocals');
     const [xmlContent, setXmlContent] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState("생성 중...");
     const [zoom, setZoom] = useState(0.8);
     const containerRef = useRef<HTMLDivElement>(null);
     const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
+    const initializedRef = useRef(false);
 
-    const loadScore = async () => {
+    const loadScore = async (targetInstrument?: string) => {
+        const instToLoad = targetInstrument || instrument;
         setLoading(true);
+        // We don't know for sure if it's in DB yet, but we can assume if it's autoLoad it might be
+        setLoadingMessage("악보를 불러오는 중...");
         try {
-            const xml = await generateScore(projectId, instrument);
+            const xml = await generateScore(projectId, instToLoad);
             setXmlContent(xml);
-            toast.success(`${instrument} 악보 생성 완료!`);
+            toast.success(`${instToLoad} 악보 생성 완료!`);
         } catch (error) {
             console.error(error);
             toast.error("악보 생성 실패");
@@ -32,6 +39,8 @@ export function ScoreViewer({ projectId }: ScoreViewerProps) {
             setLoading(false);
         }
     };
+
+    // Removed automatic loadScore on mount. User must explicitly click buttons.
 
     useEffect(() => {
         if (!xmlContent || !containerRef.current) return;
@@ -96,9 +105,9 @@ export function ScoreViewer({ projectId }: ScoreViewerProps) {
                         </SelectContent>
                     </Select>
 
-                    <Button onClick={loadScore} disabled={loading}>
+                    <Button onClick={() => { setLoadingMessage(existingInstruments.includes(instrument) ? "악보를 불러오는 중..." : "악보 생성 중..."); loadScore(); }} disabled={loading}>
                         {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-                        {loading ? "생성 중..." : "악보 생성 (Generate Score)"}
+                        {loading ? loadingMessage : existingInstruments.includes(instrument) ? "보관함에서 불러오기 (Load From Archive)" : "악보 생성 (Generate Score)"}
                     </Button>
                 </div>
 
@@ -123,8 +132,11 @@ export function ScoreViewer({ projectId }: ScoreViewerProps) {
                 {!xmlContent && !loading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400">
                         <FileMusic className="w-16 h-16 mb-4 opacity-50" />
-                        <p>상단에서 악기를 선택하고 '악보 생성' 버튼을 눌러주세요.</p>
-                        <p className="text-sm mt-2">Drums, Vocals, Keyboards 등 모든 악기를 지원합니다.</p>
+                        <p>상단에서 악기를 선택하고 버튼을 눌러주세요.</p>
+                        {existingInstruments.includes(instrument) && (
+                            <p className="text-pink-500 font-medium mt-2">✨ {instrument} 악보가 이미 보관함에 보관되어 있습니다!</p>
+                        )}
+                        <p className="text-sm mt-2 text-zinc-500">Drums, Vocals, Keyboards 등 모든 악기를 지원합니다.</p>
                     </div>
                 )}
 

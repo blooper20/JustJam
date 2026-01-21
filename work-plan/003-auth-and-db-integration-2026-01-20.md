@@ -212,11 +212,11 @@ FastAPI에서 OAuth 플로우를 전체적으로 처리하는 대신(리다이�
   - [x] `jwt` callback: 토큰 갱신 로직 (초기 로그인 시 토큰 획득 구현함)
 
 #### 2.2 OAuth 자격 증명 생성
-- [ ] Google Cloud Console에서 OAuth 2.0 클라이언트 ID 생성
-  - [ ] 승인된 리디렉션 URI 설정: `http://localhost:3000/api/auth/callback/google`
-- [ ] Kakao Developers에서 애플리케이션 생성
-  - [ ] Redirect URI 설정: `http://localhost:3000/api/auth/callback/kakao`
-  - [ ] 동의 항목 설정: 이메일, 프로필 정보
+- [x] Google Cloud Console에서 OAuth 2.0 클라이언트 ID 생성
+  - [x] 승인된 리디렉션 URI 설정: `http://localhost:3000/api/auth/callback/google`
+- [x] Kakao Developers에서 애플리케이션 생성
+  - [x] Redirect URI 설정: `http://localhost:3000/api/auth/callback/kakao`
+  - [x] 동의 항목 설정: 이메일, 프로필 정보
 
 #### 2.3 환경 변수 설정
 - [x] `.env.local` 파일 생성
@@ -260,10 +260,10 @@ FastAPI에서 OAuth 플로우를 전체적으로 처리하는 대신(리다이�
 
 #### 4.1 로그인 페이지
 - [x] `app/login/page.tsx` 생성
-  - [x] "Google로 계속하기" 버튼 (Google 브랜드 가이드라인 준수)
-  - [x] "Kakao로 계속하기" 버튼 (Kakao 브랜드 가이드라인 준수)
-  - [ ] 로딩 상태 표시 (NextAuth 내장 기능 사용)
-  - [ ] 에러 메시지 표시 (NextAuth 내장 기능 사용)
+- [x] "Google로 계속하기" 버튼 (Google 브랜드 가이드라인 준수)
+- [x] "Kakao로 계속하기" 버튼 (Kakao 브랜드 가이드라인 준수)
+- [x] 로딩 상태 표시 (자체 로딩 UI 및 Sonner 토스트 적용)
+- [x] 에러 메시지 표시 (로그인 실패 시 사용자 알림 적용)
 
 #### 4.2 헤더 컴포넌트
 - [x] `components/Header.tsx` 업데이트
@@ -279,10 +279,10 @@ FastAPI에서 OAuth 플로우를 전체적으로 처리하는 대신(리다이�
   - [x] 계정 삭제 버튼 (확인 모달 포함)
 
 #### 4.4 에러 처리 및 UX
-- [ ] 전역 에러 바운더리 설정
-- [ ] 토스트 알림 라이브러리 추가: `react-hot-toast`
-- [ ] 로그인 실패 시 사용자 친화적인 메시지
-- [ ] 네트워크 에러 처리
+- [x] 전역 에러 바운더리 설정 (Next.js error.tsx 활용)
+- [x] 토스트 알림 라이브러리 추가: `sonner` 적용됨
+- [x] 로그인 실패 시 사용자 친화적인 메시지
+- [x] 네트워크 에러 처리 (Axios Interceptor 및 Toast 알림)
 
 ---
 
@@ -298,15 +298,24 @@ FastAPI에서 OAuth 플로우를 전체적으로 처리하는 대신(리다이�
 - [ ] 프로젝트 생성 및 조회 권한 테스트
 
 #### 5.3 보안 검토
-- [ ] JWT 시크릿 키 강도 확인
+- [ ] JWT 시크릿 키 강도 확인 (프로덕션 배포 전 필수)
 - [ ] HTTPS 사용 여부 확인 (프로덕션)
-- [ ] CORS 설정 검토
-- [ ] SQL Injection 방지 확인 (SQLAlchemy ORM 사용)
+- [x] CORS 설정 검토 (FastAPI CORSMiddleware 적용됨)
+- [x] SQL Injection 방지 확인 (SQLAlchemy ORM 사용)
 
 #### 5.4 문서화
-- [ ] API 문서 업데이트: FastAPI Swagger UI
-- [ ] README.md 업데이트: 환경 변수 설정 가이드
-- [ ] 배포 가이드 작성
+- [x] API 문서 업데이트: FastAPI Swagger UI (/docs)
+- [x] README.md 업데이트: 환경 변수 설정 가이드
+- [ ] 배포 가이드 작성 (Vercel + Fly.io/CloudType 등)
+
+---
+
+### ✅ Phase 6: 대시보드 고도화 및 리소스 최적화 (2026-01-21)
+- [x] **통계 로직 정밀화**: '보유 중' vs '생성 가능' 상태 구분 (백엔드 `joinedload` 최적화)
+- [x] **온디맨드 로딩 구현**: 페이지 진입 시 자동 로드 제거 및 [믹서/악보 불러오기] 버튼 도입
+- [x] **용어 순화**: 'DB 보관' → **'보관함에 보관'**으로 사용자 친화적 용어 변경
+- [x] **베이스 타브 에러 수정**: 4현 악기(Bass) 분석 시 발생하던 `IndexError` 해결 및 동적 헤더 적용
+- [x] **데이터 동기화**: 프로젝트 상세 페이지에서 파트별 생성 정보를 리스트로 받아 버튼 상태 정밀 제어
 
 ---
 

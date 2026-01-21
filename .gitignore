@@ -70,6 +70,8 @@ env/
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.db
+*.sqlite3
 
 # MyPy
 .mypy_cache/

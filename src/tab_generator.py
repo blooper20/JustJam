@@ -31,6 +31,7 @@ class TabGenerator:
             tuning = config.get('tablature', 'standard_tuning', ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'])
 
         try:
+            self.tuning_names = [pitch.Pitch(t).name.replace('-', 'b') for t in tuning]
             self.tuning = [pitch.Pitch(t).midi for t in tuning]
         except Exception as e:
             logger.error(_("Invalid tuning specification: {}").format(str(e)))
@@ -262,8 +263,9 @@ class TabGenerator:
                     # Calculate allowable pitches (semitone classes 0-11)
                     allowable_pcs = set()
                     for s, f in current_shape.items():
-                        p = (self.tuning[s] + f) % 12
-                        allowable_pcs.add(p)
+                        if s < self.num_strings:
+                            p = (self.tuning[s] + f) % 12
+                            allowable_pcs.add(p)
                     
                     if (n['pitch'] % 12) not in allowable_pcs:
                         continue # Skip this note (dissonant / busy)
@@ -328,15 +330,18 @@ class TabGenerator:
         scores = {}
 
         for name, shape in self.chord_templates.items():
-            template_pitches = set([(self.tuning[s] + f) % 12 for s, f in shape.items()])
+            template_pitches = set([(self.tuning[s] + f) % 12 for s, f in shape.items() if s < self.num_strings])
             scores[name] = sum(3 for p in pitches if p in template_pitches)
 
             # Root note bonus
             if shape:
-                first_s = next(iter(shape))
-                root_pitch = (self.tuning[first_s] + shape[first_s]) % 12
-                if root_pitch in pitches:
-                    scores[name] += 5
+                # Find the lowest string used in the shape that exists on this instrument
+                valid_strings = [s for s in sorted(shape.keys()) if s < self.num_strings]
+                if valid_strings:
+                    first_s = valid_strings[0]
+                    root_pitch = (self.tuning[first_s] + shape[first_s]) % 12
+                    if root_pitch in pitches:
+                        scores[name] += 5
             
             # Simplicity Bias: Prefer Triads (Major/Minor) over complex chords (7ths, sus, add9)
             # This makes the chord progression more "standard/popular" unless strong evidence exists.
@@ -357,7 +362,16 @@ class TabGenerator:
 
     def _render_layout(self, full_tab, measure_chords, num_measures, slots_per_measure):
         measures_per_line = config.get('tablature', 'measures_per_line', 4)
-        headers = ['e|', 'B|', 'G|', 'D|', 'A|', 'E|']
+        
+        # Generate headers based on tuning names (high to low)
+        headers = []
+        for i in range(self.num_strings - 1, -1, -1):
+            name = self.tuning_names[i]
+            # Convert to e, B, G, etc.
+            if i == self.num_strings - 1: # Highest string
+                name = name.lower()
+            headers.append(f"{name}|")
+            
         header_text = _("🎸 Fingerstyle Precision Analysis")
         output = [f"{header_text} (BPM: {self.bpm:.1f})\n"]
 

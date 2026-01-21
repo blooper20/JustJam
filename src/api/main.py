@@ -4,17 +4,29 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from src.api.routes import projects
+from src.api.routes import auth, users
 from src.api.database import engine, Base
 
 Base.metadata.create_all(bind=engine)
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from src.api.limiter import limiter
+
 app = FastAPI(
-    title="Band-Mate AI API",
-    description="Band-Mate AI를 위한 백엔드 API (음원 분리 및 타브 생성)",
-    version="0.1.0"
+    title="JustJam API",
+    description="JustJam - 음악 협업 및 타브 생성 플랫폼 API",
+    version="0.2.0"
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 # 라우터 포함
+app.include_router(auth.router)  # /auth
+app.include_router(users.router)  # /users
 app.include_router(projects.router, prefix="/projects", tags=["projects"])
 
 # CORS 설정

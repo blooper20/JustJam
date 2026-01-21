@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 import Providers from "@/components/providers";
-
+import { Header } from "@/components/header";
 import { Toaster } from "@/components/ui/sonner"
 
 export default function RootLayout({
@@ -32,7 +32,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
         <Providers>
-          {children}
+          <Header />
+          <main className="min-h-[calc(100vh-5rem)]">
+            {children}
+          </main>
           <Toaster />
         </Providers>
       </body>

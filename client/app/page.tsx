@@ -1,196 +1,168 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UploadCloud, Music, FileAudio, Loader2, Play, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { fetchProjects, createProject, deleteProject } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Music, Mic2, Guitar, ArrowRight, Layers, Sliders, PlayCircle } from 'lucide-react';
 
-export default function DashboardPage() {
-  const queryClient = useQueryClient();
-  const [uploading, setUploading] = useState(false);
+export default function LandingPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const { data: projects, isLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: fetchProjects,
-  });
-
-  const uploadMutation = useMutation({
-    mutationFn: createProject,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      setUploading(false);
-      toast.success("프로젝트가 생성되었습니다.");
-    },
-    onError: () => {
-      setUploading(false);
-      toast.error("업로드에 실패했습니다.");
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/dashboard');
     }
-  });
+  }, [status, router]);
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteProject,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success("프로젝트가 삭제되었습니다.");
-    },
-    onError: () => {
-      toast.error("프로젝트 삭제에 실패했습니다.");
-    }
-  });
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setUploading(true);
-      uploadMutation.mutate(e.target.files[0]);
-    }
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent, projectId: string) => {
-    e.preventDefault(); // Link 이동 방지
-    e.stopPropagation();
-
-    toast("정말 삭제하시겠습니까?", {
-      action: {
-        label: "삭제",
-        onClick: () => deleteMutation.mutate(projectId),
-      },
-      cancel: {
-        label: "취소",
-        onClick: () => { },
-      },
-    });
-  };
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-8">
-      <header className="mb-12 text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-          Band-Mate AI
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          AI 기반 밴드 합주 & 연습 플랫폼
-        </p>
-      </header>
-
-      {/* Upload Section */}
-      <div className="flex justify-center mb-12">
-        <div className="relative">
-          <input
-            type="file"
-            id="file-upload"
-            className="hidden"
-            accept="audio/*"
-            onChange={handleFileChange}
-            disabled={uploading}
+    <div className="flex flex-col min-h-screen">
+      {/* Hero Section */}
+      <section className="relative flex-1 flex flex-col items-center justify-center text-center px-4 py-32 overflow-hidden h-screen max-h-[1000px]">
+        {/* Background Image & Overlay */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/images/landing/hero-bg-v2.jpg"
+            alt="Concert Stage Atmosphere"
+            fill
+            className="object-cover"
+            priority
           />
-          <label
-            htmlFor="file-upload"
-            className={`flex flex-col items-center justify-center w-64 h-32 border-2 border-dashed rounded-xl cursor-pointer hover:border-primary transition-colors ${uploading ? 'opacity-50 pointer-events-none' : 'border-muted-foreground/50'
-              }`}
-          >
-            {uploading ? (
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            ) : (
-              <UploadCloud className="w-10 h-10 text-muted-foreground mb-2" />
-            )}
-            <span className="text-sm font-medium">
-              {uploading ? "업로드 중..." : "새 프로젝트 업로드 (MP3/WAV)"}
-            </span>
-          </label>
+          {/* Main Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-background"></div>
+          {/* Radial Vignette for Focus */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)]"></div>
         </div>
-      </div>
 
-      {/* Project Grid */}
-      {isLoading ? (
-        <div className="text-center">Loading projects...</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects?.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`} className="group relative block rounded-xl">
-              {/* Glowing Background (Processing: Spin, Pending/Failed: Pulse) */}
-              {(project.status === 'processing' || project.status === 'pending' || project.status === 'failed') && (
-                <div
-                  className={`absolute -inset-[1px] rounded-xl bg-gradient-to-r opacity-75 blur-sm animate-pulse`}
-                  style={{
-                    animationDuration: '2s',
-                    background:
-                      project.status === 'failed' ? 'conic-gradient(from 0deg, transparent 0deg, #ef4444 180deg, transparent 360deg)' :
-                        project.status === 'pending' ? 'conic-gradient(from 0deg, transparent 0deg, #eab308 180deg, transparent 360deg)' :
-                          'conic-gradient(from 0deg, transparent 0deg, #3b82f6 180deg, transparent 360deg)'
-                  }}
-                />
-              )}
+        <div className="relative z-10 space-y-8 max-w-5xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="inline-flex items-center rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-sm font-medium text-purple-300 mb-4 backdrop-blur-sm">
+            <span className="flex h-2 w-2 rounded-full bg-purple-500 mr-2 animate-pulse"></span>
+            AI 기반 음악 분석 플랫폼 v1.0
+          </div>
 
-              <Card className="relative h-full hover:shadow-lg transition-shadow cursor-pointer border-zinc-800 bg-zinc-950 overflow-hidden">
-                {/* Click to Action Overlay for Pending only */}
-                {project.status === 'pending' && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold text-yellow-500">
-                    <Play className="w-6 h-6 mr-2 fill-current" /> 분석 시작하기
-                  </div>
-                )}
+          <h1 className="text-5xl md:text-8xl font-black tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-500 bg-clip-text text-transparent pb-4 drop-shadow-sm">
+            PRACTICE <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">LIKE A PRO</span>
+          </h1>
 
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium truncate pr-4">
-                    {project.name}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {project.status === 'processing' ? (
-                      <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-                    ) : (
-                      <Music className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <button
-                      onClick={(e) => handleDeleteClick(e, project.id)}
-                      className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold flex items-center gap-2">
-                    <StatusBadge status={project.status} />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {new Date(project.created_at).toLocaleDateString()}
-                  </p>
-                </CardContent>
-              </Card>
+          <p className="text-xl md:text-2xl text-muted-foreground font-light max-w-2xl mx-auto leading-relaxed">
+            당신의 음악을 위한 최고의 합주 파트너.
+            <br />
+            AI가 분리한 트랙으로 언제 어디서나 완벽한 합주를 경험하세요.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
+            <Link href="/login">
+              <Button size="lg" className="rounded-full text-lg px-8 h-14 bg-white text-black hover:bg-gray-200 hover:scale-105 transition-all duration-300 shadow-[0_0_30px_-5px_rgba(255,255,255,0.3)]">
+                <PlayCircle className="mr-2 w-6 h-6" /> 지금 시작하기
+              </Button>
             </Link>
-          ))}
-
-          {(!projects || projects.length === 0) && (
-            <div className="col-span-full text-center text-muted-foreground py-12">
-              아직 생성된 프로젝트가 없습니다.
-            </div>
-          )}
+          </div>
         </div>
-      )}
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-32 bg-zinc-950 relative">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-20 space-y-4">
+            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              상상하던 모든 기능을 하나로
+            </h2>
+            <p className="text-xl text-muted-foreground">뮤지션을 위해 설계된 강력한 도구들을 만나보세요</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard
+              title="AI 트랙 분리"
+              description="최첨단 AI 모델이 음악을 보컬, 드럼, 베이스, 기타, 건반으로 정밀하게 분리해드립니다."
+              image="/images/landing/feature-separation.jpg"
+              delay={0}
+            />
+            <FeatureCard
+              title="스마트 믹서"
+              description="각 악기의 볼륨을 자유롭게 조절하고, 특정 파트만 뮤트/솔로하여 집중적으로 연습하세요."
+              image="/images/landing/feature-mixer.jpg"
+              delay={100}
+            />
+            <FeatureCard
+              title="실시간 악보 생성"
+              description="분리된 트랙을 분석하여 즉시 연주 가능한 악보와 타브(Tab) 악보를 생성합니다."
+              image="/images/landing/feature-score.jpg"
+              delay={200}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* How it works Section */}
+      <section className="py-32 bg-background border-t border-white/5">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-20">3단계로 시작하는 연습</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center max-w-5xl mx-auto relative">
+            {/* Connecting Line */}
+            <div className="absolute top-12 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-zinc-700 to-transparent hidden md:block"></div>
+
+            <StepCard number="1" title="음원 업로드" description="연습하고 싶은 곡의 MP3나 WAV 파일을 업로드하세요." />
+            <StepCard number="2" title="AI 자동 분석" description="JustJam AI가 몇 분 안에 곡을 분석하고 트랙을 분리합니다." />
+            <StepCard number="3" title="합주 시작" description="나만의 밴드와 함께 연주를 즐겨보세요." />
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 border-t border-white/10 text-center">
+        <div className="container mx-auto px-4">
+          <h3 className="text-2xl font-bold mb-4">JustJam</h3>
+          <p className="text-zinc-500 mb-8 max-w-md mx-auto">음악을 사랑하는 당신을 위한 최고의 연습 파트너. 지금 바로 시작해보세요.</p>
+          <p className="text-zinc-600 text-sm">© {new Date().getFullYear()} JustJam. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles = {
-    pending: "text-yellow-500",
-    processing: "text-blue-500",
-    completed: "text-green-500",
-    failed: "text-red-500",
-  };
-
-  const labels = {
-    pending: "대기 중",
-    processing: "분리 중...",
-    completed: "완료됨",
-    failed: "실패",
-  };
-
+function FeatureCard({ title, description, image, delay }: { title: string, description: string, image: string, delay: number }) {
   return (
-    <span className={styles[status as keyof typeof styles] || "text-gray-500"}>
-      {labels[status as keyof typeof labels] || status}
-    </span>
+    <div
+      className="group relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/20"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="aspect-[4/3] relative overflow-hidden">
+        <Image
+          src={image}
+          alt={title}
+          fill
+          className="object-cover transition-transform duration-700 group-hover:scale-110"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-80"></div>
+      </div>
+      <div className="p-8 relative -mt-12">
+        <h3 className="text-2xl font-bold mb-3">{title}</h3>
+        <p className="text-muted-foreground leading-relaxed">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function StepCard({ number, title, description }: { number: string, title: string, description: string }) {
+  return (
+    <div className="relative flex flex-col items-center z-10">
+      <div className="w-24 h-24 rounded-full bg-zinc-900 flex items-center justify-center text-3xl font-bold mb-6 border-4 border-zinc-800 shadow-xl group hover:border-purple-500 transition-colors duration-300">
+        <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">{number}</span>
+      </div>
+      <h3 className="text-xl font-bold mb-3">{title}</h3>
+      <p className="text-muted-foreground">{description}</p>
+    </div>
   );
 }

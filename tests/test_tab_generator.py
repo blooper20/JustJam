@@ -1,7 +1,9 @@
 """
 Tests for the tab generator module
 """
+
 import pytest
+
 from src.tab_generator import TabGenerator, create_tab
 
 
@@ -33,11 +35,11 @@ class TestTabGenerator:
     def test_invalid_tuning(self):
         """Test invalid tuning raises error"""
         with pytest.raises(ValueError):
-            TabGenerator(tuning=['InvalidNote'])
+            TabGenerator(tuning=["InvalidNote"])
 
     def test_custom_tuning(self):
         """Test custom tuning (Drop D)"""
-        drop_d = ['D2', 'A2', 'D3', 'G3', 'B3', 'E4']
+        drop_d = ["D2", "A2", "D3", "G3", "B3", "E4"]
         generator = TabGenerator(tuning=drop_d)
         assert generator.num_strings == 6
         # D2 is MIDI note 38
@@ -74,9 +76,9 @@ class TestTabGenerator:
         """Test generating tab with basic notes"""
         generator = TabGenerator(bpm=120)
         notes = [
-            {'start': 0.0, 'end': 0.5, 'pitch': 64, 'velocity': 0.8},
-            {'start': 0.5, 'end': 1.0, 'pitch': 67, 'velocity': 0.7},
-            {'start': 1.0, 'end': 1.5, 'pitch': 60, 'velocity': 0.75},
+            {"start": 0.0, "end": 0.5, "pitch": 64, "velocity": 0.8},
+            {"start": 0.5, "end": 1.0, "pitch": 67, "velocity": 0.7},
+            {"start": 1.0, "end": 1.5, "pitch": 60, "velocity": 0.75},
         ]
         result = generator.generate_ascii_tab(notes)
         assert "🎸" in result
@@ -94,19 +96,19 @@ class TestTabGenerator:
         generator = TabGenerator()
         # C major chord notes (C, E, G)
         notes = [
-            {'pitch': 48, 'start': 0.0, 'end': 1.0, 'velocity': 0.8},  # C3
-            {'pitch': 52, 'start': 0.0, 'end': 1.0, 'velocity': 0.8},  # E3
-            {'pitch': 55, 'start': 0.0, 'end': 1.0, 'velocity': 0.8},  # G3
+            {"pitch": 48, "start": 0.0, "end": 1.0, "velocity": 0.8},  # C3
+            {"pitch": 52, "start": 0.0, "end": 1.0, "velocity": 0.8},  # E3
+            {"pitch": 55, "start": 0.0, "end": 1.0, "velocity": 0.8},  # G3
         ]
         result = generator.detect_chord(notes)
         # Should detect C or a C variant
-        assert 'C' in result
+        assert "C" in result
 
     def test_generate_tab_invalid_notes(self):
         """Test tab generation with invalid note format"""
         generator = TabGenerator()
         invalid_notes = [
-            {'invalid': 'data'},
+            {"invalid": "data"},
         ]
         with pytest.raises((ValueError, RuntimeError, KeyError)):
             generator.generate_ascii_tab(invalid_notes)
@@ -118,7 +120,7 @@ class TestCreateTab:
     def test_create_tab_basic(self):
         """Test create_tab function"""
         notes = [
-            {'start': 0.0, 'end': 0.5, 'pitch': 60, 'velocity': 0.8},
+            {"start": 0.0, "end": 0.5, "pitch": 60, "velocity": 0.8},
         ]
         result = create_tab(notes, bpm=100)
         assert isinstance(result, str)
@@ -127,7 +129,7 @@ class TestCreateTab:
     def test_create_tab_custom_bpm(self):
         """Test create_tab with custom BPM"""
         notes = [
-            {'start': 0.0, 'end': 0.5, 'pitch': 60, 'velocity': 0.8},
+            {"start": 0.0, "end": 0.5, "pitch": 60, "velocity": 0.8},
         ]
         result = create_tab(notes, bpm=140)
         assert "140" in result or "140.0" in result

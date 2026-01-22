@@ -1,17 +1,25 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import os
 
-from src.api.routes import projects
-from src.api.routes import auth, users
-from src.api.database import engine, Base
+import redis.asyncio as redis
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
+from fastapi_cache.backends.redis import RedisBackend
+from prometheus_fastapi_instrumentator import Instrumentator
+
+from src.api.database import Base, engine
+from src.api.routes import auth, projects, users
 
 Base.metadata.create_all(bind=engine)
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+
 from src.api.limiter import limiter
 from src.api.logging_config import logger, setup_logging
 
@@ -19,17 +27,69 @@ from src.api.logging_config import logger, setup_logging
 setup_logging()
 
 app = FastAPI(
-    title="JustJam API",
-    description="JustJam - 음악 협업 및 타브 생성 플랫폼 API",
-    version="0.2.0"
+    title="JustJam API", description="JustJam - 음악 협업 및 타브 생성 플랫폼 API", version="0.2.1"
 )
+
+# Gzip 압축 미들웨어 추가 (성능 최적화)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+@app.on_event("startup")
+async def startup():
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        try:
+            r = redis.from_url(redis_url, encoding="utf8", decode_responses=True)
+            FastAPICache.init(RedisBackend(r), prefix="fastapi-cache")
+            logger.info("FastAPICache initialized with Redis")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis, falling back to InMemory: {e}")
+            FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache")
+    else:
+        FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache")
+        logger.info("FastAPICache initialized with InMemoryBackend")
+
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-# 커스텀 예외 핸들러는 JustJamException이 HTTPException을 상속하므로
-# FastAPI 기본 핸들러가 처리하거나, 필요시 여기에 추가할 수 있습니다.
+# Prometheus 모니터링 초기화 (테스트 환경 제외)
+if os.getenv("APP_ENV") != "test":
+    Instrumentator().instrument(app).expose(app)
+    logger.info("Prometheus Instrumentator initialized")
+
+from src.api.exceptions import JustJamException
+
+
+# RFC 7807 기반 에러 핸들러
+@app.exception_handler(JustJamException)
+async def justjam_exception_handler(request: Request, exc: JustJamException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "type": f"https://justjam.ai/errors/{exc.__class__.__name__.lower()}",
+            "title": exc.__class__.__name__,
+            "status": exc.status_code,
+            "detail": exc.detail,
+            "instance": str(request.url),
+        },
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "type": "https://justjam.ai/errors/http-exception",
+            "title": "HTTP Exception",
+            "status": exc.status_code,
+            "detail": exc.detail,
+            "instance": str(request.url),
+        },
+    )
+
 
 # 라우터 포함
 app.include_router(auth.router)  # /auth
@@ -48,6 +108,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# HTTPS 리다이렉트 미들웨어 (프로덕션 환경 전용)
+@app.middleware("http")
+async def enforce_https_redirect(request: Request, call_next):
+    env = os.getenv("APP_ENV", "development")
+    if env == "production":
+        # 클라우드 공급자(Heroku, Fly.io 등)는 보통 X-Forwarded-Proto 헤더를 사용함
+        if request.headers.get("x-forwarded-proto") != "https":
+            url = request.url.replace(scheme="https")
+            return RedirectResponse(url, status_code=status.HTTP_301_MOVED_PERMANENTLY)
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def log_requests(request, call_next):
     logger.info(f"Request: {request.method} {request.url}")
@@ -55,17 +128,29 @@ async def log_requests(request, call_next):
     logger.info(f"Response: {response.status_code}")
     return response
 
+
 # 스템 파일을 위한 정적 파일 서빙
-# 프로젝트 루트의 'temp' 폴더를 서빙합니다
+class CacheStaticFiles(StaticFiles):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-temp_dir = os.path.join(project_root, 'temp')
+temp_dir = os.path.join(project_root, "temp")
 os.makedirs(temp_dir, exist_ok=True)
 
-app.mount("/static", StaticFiles(directory=temp_dir), name="static")
+app.mount("/static", CacheStaticFiles(directory=temp_dir), name="static")
+
 
 @app.get("/")
 def read_root():
     return {"message": "Band-Mate AI API가 실행 중입니다!"}
+
 
 @app.get("/health")
 def health_check():

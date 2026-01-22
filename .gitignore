@@ -71,6 +71,8 @@ env/
 ehthumbs.db
 Thumbs.db
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # MyPy

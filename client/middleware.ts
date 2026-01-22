@@ -1,11 +1,11 @@
-import { withAuth } from "next-auth/middleware";
+import { withAuth } from 'next-auth/middleware';
 
 export default withAuth({
-    callbacks: {
-        authorized: ({ token }) => !!token,
-    },
+  callbacks: {
+    authorized: ({ token }) => !!token,
+  },
 });
 
 export const config = {
-    matcher: ["/projects/:path*", "/settings/:path*"]
+  matcher: ['/projects/:path*', '/settings/:path*'],
 };

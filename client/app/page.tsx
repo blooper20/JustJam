@@ -53,7 +53,9 @@ export default function LandingPage() {
 
           <h1 className="text-5xl md:text-8xl font-black tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-500 bg-clip-text text-transparent pb-4 drop-shadow-sm">
             PRACTICE <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">LIKE A PRO</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+              LIKE A PRO
+            </span>
           </h1>
 
           <p className="text-xl md:text-2xl text-muted-foreground font-light max-w-2xl mx-auto leading-relaxed">
@@ -64,7 +66,10 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
             <Link href="/login">
-              <Button size="lg" className="rounded-full text-lg px-8 h-14 bg-white text-black hover:bg-gray-200 hover:scale-105 transition-all duration-300 shadow-[0_0_30px_-5px_rgba(255,255,255,0.3)]">
+              <Button
+                size="lg"
+                className="rounded-full text-lg px-8 h-14 bg-white text-black hover:bg-gray-200 hover:scale-105 transition-all duration-300 shadow-[0_0_30px_-5px_rgba(255,255,255,0.3)]"
+              >
                 <PlayCircle className="mr-2 w-6 h-6" /> 지금 시작하기
               </Button>
             </Link>
@@ -79,7 +84,9 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
               상상하던 모든 기능을 하나로
             </h2>
-            <p className="text-xl text-muted-foreground">뮤지션을 위해 설계된 강력한 도구들을 만나보세요</p>
+            <p className="text-xl text-muted-foreground">
+              뮤지션을 위해 설계된 강력한 도구들을 만나보세요
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -113,9 +120,21 @@ export default function LandingPage() {
             {/* Connecting Line */}
             <div className="absolute top-12 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-zinc-700 to-transparent hidden md:block"></div>
 
-            <StepCard number="1" title="음원 업로드" description="연습하고 싶은 곡의 MP3나 WAV 파일을 업로드하세요." />
-            <StepCard number="2" title="AI 자동 분석" description="JustJam AI가 몇 분 안에 곡을 분석하고 트랙을 분리합니다." />
-            <StepCard number="3" title="합주 시작" description="나만의 밴드와 함께 연주를 즐겨보세요." />
+            <StepCard
+              number="1"
+              title="음원 업로드"
+              description="연습하고 싶은 곡의 MP3나 WAV 파일을 업로드하세요."
+            />
+            <StepCard
+              number="2"
+              title="AI 자동 분석"
+              description="JustJam AI가 몇 분 안에 곡을 분석하고 트랙을 분리합니다."
+            />
+            <StepCard
+              number="3"
+              title="합주 시작"
+              description="나만의 밴드와 함께 연주를 즐겨보세요."
+            />
           </div>
         </div>
       </section>
@@ -124,15 +143,29 @@ export default function LandingPage() {
       <footer className="py-12 border-t border-white/10 text-center">
         <div className="container mx-auto px-4">
           <h3 className="text-2xl font-bold mb-4">JustJam</h3>
-          <p className="text-zinc-500 mb-8 max-w-md mx-auto">음악을 사랑하는 당신을 위한 최고의 연습 파트너. 지금 바로 시작해보세요.</p>
-          <p className="text-zinc-600 text-sm">© {new Date().getFullYear()} JustJam. All rights reserved.</p>
+          <p className="text-zinc-500 mb-8 max-w-md mx-auto">
+            음악을 사랑하는 당신을 위한 최고의 연습 파트너. 지금 바로 시작해보세요.
+          </p>
+          <p className="text-zinc-600 text-sm">
+            © {new Date().getFullYear()} JustJam. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
   );
 }
 
-function FeatureCard({ title, description, image, delay }: { title: string, description: string, image: string, delay: number }) {
+function FeatureCard({
+  title,
+  description,
+  image,
+  delay,
+}: {
+  title: string;
+  description: string;
+  image: string;
+  delay: number;
+}) {
   return (
     <div
       className="group relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/20"
@@ -155,11 +188,21 @@ function FeatureCard({ title, description, image, delay }: { title: string, desc
   );
 }
 
-function StepCard({ number, title, description }: { number: string, title: string, description: string }) {
+function StepCard({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="relative flex flex-col items-center z-10">
       <div className="w-24 h-24 rounded-full bg-zinc-900 flex items-center justify-center text-3xl font-bold mb-6 border-4 border-zinc-800 shadow-xl group hover:border-purple-500 transition-colors duration-300">
-        <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">{number}</span>
+        <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">
+          {number}
+        </span>
       </div>
       <h3 className="text-xl font-bold mb-3">{title}</h3>
       <p className="text-muted-foreground">{description}</p>

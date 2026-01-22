@@ -1,12 +1,22 @@
 """
 Tests for the configuration module
 """
+
+from pathlib import Path
+
 import pytest
 import yaml
-from pathlib import Path
+
 from src.config import (
-    Config, AudioConfig, TablatureConfig, ChordDetectionConfig,
-    LoggingConfig, I18nConfig, MCPConfig, get_config, reload_config
+    AudioConfig,
+    ChordDetectionConfig,
+    Config,
+    I18nConfig,
+    LoggingConfig,
+    MCPConfig,
+    TablatureConfig,
+    get_config,
+    reload_config,
 )
 
 
@@ -16,7 +26,7 @@ class TestAudioConfig:
     def test_default_values(self):
         """Test default audio configuration"""
         config = AudioConfig()
-        assert '.mp3' in config.supported_formats
+        assert ".mp3" in config.supported_formats
         assert config.default_bpm == 120.0
         assert config.min_bpm == 40
         assert config.max_bpm == 200
@@ -28,7 +38,7 @@ class TestTablatureConfig:
     def test_default_values(self):
         """Test default tablature configuration"""
         config = TablatureConfig()
-        assert config.standard_tuning == ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']
+        assert config.standard_tuning == ["E2", "A2", "D3", "G3", "B3", "E4"]
         assert config.bass_threshold == 50
         assert config.slots_per_measure == 16
 
@@ -55,16 +65,16 @@ class TestConfig:
         """Test loading from valid YAML file"""
         config_file = tmp_path / "config.yaml"
         config_data = {
-            'audio': {'default_bpm': 100.0},
-            'tablature': {'bass_threshold': 60},
-            'logging': {'level': 'DEBUG'},
+            "audio": {"default_bpm": 100.0},
+            "tablature": {"bass_threshold": 60},
+            "logging": {"level": "DEBUG"},
         }
         config_file.write_text(yaml.dump(config_data))
 
         config = Config.from_yaml(str(config_file))
         assert config.audio.default_bpm == 100.0
         assert config.tablature.bass_threshold == 60
-        assert config.logging.level == 'DEBUG'
+        assert config.logging.level == "DEBUG"
 
     def test_from_yaml_empty(self, tmp_path):
         """Test loading from empty YAML file"""
@@ -88,9 +98,9 @@ class TestConfig:
         config = Config()
         result = config.to_dict()
         assert isinstance(result, dict)
-        assert 'audio' in result
-        assert 'tablature' in result
-        assert 'logging' in result
+        assert "audio" in result
+        assert "tablature" in result
+        assert "logging" in result
 
     def test_load_no_file(self, tmp_path, monkeypatch):
         """Test load with no config file"""
@@ -103,7 +113,7 @@ class TestConfig:
     def test_load_with_path(self, tmp_path):
         """Test load with specific path"""
         config_file = tmp_path / "custom.yaml"
-        config_data = {'audio': {'default_bpm': 150.0}}
+        config_data = {"audio": {"default_bpm": 150.0}}
         config_file.write_text(yaml.dump(config_data))
 
         config = Config.load(str(config_file))
@@ -121,7 +131,7 @@ class TestGlobalConfig:
     def test_reload_config(self, tmp_path):
         """Test reload_config"""
         config_file = tmp_path / "config.yaml"
-        config_data = {'audio': {'default_bpm': 90.0}}
+        config_data = {"audio": {"default_bpm": 90.0}}
         config_file.write_text(yaml.dump(config_data))
 
         config = reload_config(str(config_file))

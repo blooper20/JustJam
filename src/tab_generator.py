@@ -1,22 +1,24 @@
 import gettext
-import os
 import logging
-from typing import List, Dict, Tuple, Optional, Any
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
 from music21 import pitch
 
 from src.config import config
 
 # Setup logging
 logging.basicConfig(
-    level=getattr(logging, config.get('logging', 'level', 'INFO').upper()),
-    format=config.get('logging', 'format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    level=getattr(logging, config.get("logging", "level", "INFO").upper()),
+    format=config.get("logging", "format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
 )
 logger = logging.getLogger(__name__)
 
 # Internationalization Setup
-localedir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../locales')
-translate = gettext.translation('messages', localedir, fallback=True)
+localedir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../locales")
+translate = gettext.translation("messages", localedir, fallback=True)
 _ = translate.gettext
+
 
 class TabGenerator:
     def __init__(self, tuning: List[str] = None, bpm: float = 75):
@@ -28,27 +30,29 @@ class TabGenerator:
             bpm: Beats per minute (default: 75, constrained by config limits)
         """
         if tuning is None:
-            tuning = config.get('tablature', 'standard_tuning', ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'])
+            tuning = config.get(
+                "tablature", "standard_tuning", ["E2", "A2", "D3", "G3", "B3", "E4"]
+            )
 
         try:
-            self.tuning_names = [pitch.Pitch(t).name.replace('-', 'b') for t in tuning]
+            self.tuning_names = [pitch.Pitch(t).name.replace("-", "b") for t in tuning]
             self.tuning = [pitch.Pitch(t).midi for t in tuning]
         except Exception as e:
             logger.error(_("Invalid tuning specification: {}").format(str(e)))
             raise ValueError(_("Invalid tuning: {}").format(tuning)) from e
 
         self.num_strings = len(self.tuning)
-        min_bpm = config.get('audio', 'min_bpm', 40)
-        max_bpm = config.get('audio', 'max_bpm', 200)
+        min_bpm = config.get("audio", "min_bpm", 40)
+        max_bpm = config.get("audio", "max_bpm", 200)
         self.bpm = max(min_bpm, min(bpm, max_bpm))
-        
-        self.bass_threshold = config.get('tablature', 'bass_threshold', 50)
-        self.config_max_fret = config.get('tablature', 'max_fret', 15)
+
+        self.bass_threshold = config.get("tablature", "bass_threshold", 50)
+        self.config_max_fret = config.get("tablature", "max_fret", 15)
         self.capo = 0
 
-        logger.info(_("TabGenerator initialized - Tuning: {}, BPM: {:.1f}").format(
-            tuning, self.bpm
-        )) 
+        logger.info(
+            _("TabGenerator initialized - Tuning: {}, BPM: {:.1f}").format(tuning, self.bpm)
+        )
 
         # Precision Chord Templates
         all_templates = {
@@ -99,14 +103,18 @@ class TabGenerator:
 
         # Filter based on enabled chord types in config (simple implementation)
         # This assumes chord names follow conventions (m, 7, sus, etc.)
-        enabled_types = config.get('chord_detection', 'enabled_chord_types', {})
+        enabled_types = config.get("chord_detection", "enabled_chord_types", {})
         self.chord_templates = {}
-        
+
         for name, template in all_templates.items():
-            if 'm' in name and '7' not in name and not enabled_types.get('minor', True): continue
-            if '7' in name and not enabled_types.get('seventh', True): continue
-            if 'sus' in name and not enabled_types.get('suspended', True): continue
-            if 'add9' in name and not enabled_types.get('add9', True): continue
+            if "m" in name and "7" not in name and not enabled_types.get("minor", True):
+                continue
+            if "7" in name and not enabled_types.get("seventh", True):
+                continue
+            if "sus" in name and not enabled_types.get("suspended", True):
+                continue
+            if "add9" in name and not enabled_types.get("add9", True):
+                continue
             # Default to include if passing checks or simple major
             self.chord_templates[name] = template
 
@@ -115,87 +123,103 @@ class TabGenerator:
         Detect key and transpose notes to the nearest guitar-friendly key (C, G, D, A, E).
         Effectively acts as a 'Smart Capo'.
         """
-        if not notes: return notes
-        
+        if not notes:
+            return notes
+
         # 1. Simple Weighted Chroma Analysis to find root
         chroma = [0] * 12
         for n in notes:
-            chroma[n['pitch'] % 12] += 1
-            
+            chroma[n["pitch"] % 12] += 1
+
         detected_root = chroma.index(max(chroma))
-        
+
         # 2. Guitar Friendly Roots (C=0, D=2, E=4, G=7, A=9)
         friendly_roots = [0, 2, 4, 7, 9]
-        
+
         # Find nearest friendly root
         best_shift = 0
         min_dist = 999
-        
+
         for fr in friendly_roots:
             # Calculate distance (considering wrap-around)
             diff = (fr - detected_root + 6) % 12 - 6
             if abs(diff) < abs(min_dist):
                 min_dist = diff
                 best_shift = diff
-                
+
         if best_shift != 0:
-            logger.info(_("Auto-Transpose: Shifting pitch by {} semitones to fit guitar key.").format(best_shift))
+            logger.info(
+                _("Auto-Transpose: Shifting pitch by {} semitones to fit guitar key.").format(
+                    best_shift
+                )
+            )
             for n in notes:
-                n['pitch'] += best_shift
-                
+                n["pitch"] += best_shift
+
         return notes
 
-    def find_best_pos(self, midi_pitch: int, is_bass: bool = False,
-                      chord_shape: Optional[Dict[int, int]] = None, role: str = 'harmony') -> Optional[Tuple[int, int]]:
+    def find_best_pos(
+        self,
+        midi_pitch: int,
+        is_bass: bool = False,
+        chord_shape: Optional[Dict[int, int]] = None,
+        role: str = "harmony",
+    ) -> Optional[Tuple[int, int]]:
         """
         Find optimal string and fret position with role-based heuristics.
         """
         best_cand = None
-        max_score = -float('inf')
+        max_score = -float("inf")
 
         # Try various octave shifts to fit the range, prioritizing the original pitch
         shifts = [0, -12, 12]
-        if role == 'bass': shifts = [0, -12, -24]
-        if role == 'melody': shifts = [0, 12, -12]
+        if role == "bass":
+            shifts = [0, -12, -24]
+        if role == "melody":
+            shifts = [0, 12, -12]
 
         for octave_shift in shifts:
             shifted_pitch = midi_pitch + octave_shift
             for s_idx in range(self.num_strings):
                 fret = shifted_pitch - self.tuning[s_idx]
-                
+
                 # Use self.config_max_fret if available, else 15
-                max_fret = getattr(self, 'config_max_fret', 15)
-                
+                max_fret = getattr(self, "config_max_fret", 15)
+
                 if 0 <= fret <= max_fret:
                     score = 0
-                    
+
                     # 1. Extreme Open Position Preference (The "Easy Tab" Factor)
-                    if fret == 0: 
-                        score += 3000 # Open strings are King
-                    elif fret <= 3: 
-                        score += 1500 # First position is Queen
-                    elif fret <= 5: 
+                    if fret == 0:
+                        score += 3000  # Open strings are King
+                    elif fret <= 3:
+                        score += 1500  # First position is Queen
+                    elif fret <= 5:
                         score += 500  # Acceptable
-                    else: 
-                        score -= (fret * 100) # Check high frets heavily
-                    
+                    else:
+                        score -= fret * 100  # Check high frets heavily
+
                     # 2. Role-based string preference
-                    if role == 'melody':
-                        if s_idx >= 3: score += 500
-                        if s_idx <= 1: score -= 1000
-                    elif role == 'bass' or is_bass:
-                        if s_idx <= 2: score += 500
-                        if s_idx >= 4: score -= 1000
-                    
+                    if role == "melody":
+                        if s_idx >= 3:
+                            score += 500
+                        if s_idx <= 1:
+                            score -= 1000
+                    elif role == "bass" or is_bass:
+                        if s_idx <= 2:
+                            score += 500
+                        if s_idx >= 4:
+                            score -= 1000
+
                     # 3. Chord Context
                     if chord_shape and s_idx in chord_shape and chord_shape[s_idx] == fret:
-                        score += 2000 # Always obey the chord
-                    
+                        score += 2000  # Always obey the chord
+
                     # Select best score
                     if score > max_score:
                         max_score = score
                         best_cand = (s_idx, fret)
-            
+
             # If we found an ideal candidate in original octave, stop
             if best_cand and max_score > 2000:
                 break
@@ -221,68 +245,68 @@ class TabGenerator:
 
         try:
             # Auto-Transpose (Smart Capo)
-            if config.get('tablature', 'auto_transpose', True):
+            if config.get("tablature", "auto_transpose", True):
                 notes = self._auto_transpose(notes)
 
-            slots_per_measure = config.get('tablature', 'slots_per_measure', 16)
+            slots_per_measure = config.get("tablature", "slots_per_measure", 16)
             sec_per_measure = (60 / self.bpm) * 4
-            max_time = max(n['end'] for n in notes)
+            max_time = max(n["end"] for n in notes)
             num_measures = int(max_time / sec_per_measure) + 1
 
-            logger.info(_("Generating tab: {} measures, {:.2f} sec/measure").format(
-                num_measures, sec_per_measure
-            ))
+            logger.info(
+                _("Generating tab: {} measures, {:.2f} sec/measure").format(
+                    num_measures, sec_per_measure
+                )
+            )
 
             # Initialize tab grid
-            full_tab = [[["-" for ___ in range(slots_per_measure)]
-                         for ___ in range(num_measures)]
-                        for ___ in range(self.num_strings)]
+            full_tab = [
+                [["-" for ___ in range(slots_per_measure)] for ___ in range(num_measures)]
+                for ___ in range(self.num_strings)
+            ]
             measure_chords = ["N.C." for ___ in range(num_measures)]
 
             # Detect chords for each measure
             for m_idx in range(num_measures):
-                m_notes = [n for n in notes if int(n['start'] / sec_per_measure) == m_idx]
+                m_notes = [n for n in notes if int(n["start"] / sec_per_measure) == m_idx]
                 measure_chords[m_idx] = self.detect_chord(m_notes)
 
             # Place notes on the tab
             for n in notes:
-                m_idx = int(n['start'] / sec_per_measure)
+                m_idx = int(n["start"] / sec_per_measure)
                 if m_idx >= num_measures:
                     continue
 
                 chord_name = measure_chords[m_idx]
                 current_shape = self.chord_templates.get(chord_name, {})
 
-                role = n.get('role', 'harmony')
-                
+                role = n.get("role", "harmony")
+
                 # Harmonic Filtering
                 # If enabled, remove 'harmony' notes that don't fit the detected chord
                 # This drastically cleans up the arrangement to sound like the chord.
-                snap_to_chord = config.get('post_processing', 'snap_harmony_to_key', True)
-                if snap_to_chord and role == 'harmony' and chord_name != "N.C." and current_shape:
+                snap_to_chord = config.get("post_processing", "snap_harmony_to_key", True)
+                if snap_to_chord and role == "harmony" and chord_name != "N.C." and current_shape:
                     # Calculate allowable pitches (semitone classes 0-11)
                     allowable_pcs = set()
                     for s, f in current_shape.items():
                         if s < self.num_strings:
                             p = (self.tuning[s] + f) % 12
                             allowable_pcs.add(p)
-                    
-                    if (n['pitch'] % 12) not in allowable_pcs:
-                        continue # Skip this note (dissonant / busy)
+
+                    if (n["pitch"] % 12) not in allowable_pcs:
+                        continue  # Skip this note (dissonant / busy)
 
                 # Role overrides distinct is_bass logic usually, but keep fallback
-                is_bass = (role == 'bass') or (n['pitch'] <= self.bass_threshold)
-                
+                is_bass = (role == "bass") or (n["pitch"] <= self.bass_threshold)
+
                 pos = self.find_best_pos(
-                    n['pitch'], 
-                    is_bass=is_bass, 
-                    chord_shape=current_shape,
-                    role=role
+                    n["pitch"], is_bass=is_bass, chord_shape=current_shape, role=role
                 )
 
                 if pos:
                     s_idx, fret = pos
-                    rel_time = n['start'] % sec_per_measure
+                    rel_time = n["start"] % sec_per_measure
                     slot_idx = int((rel_time / sec_per_measure) * slots_per_measure)
                     line_idx = self.num_strings - 1 - s_idx
 
@@ -291,15 +315,15 @@ class TabGenerator:
                         write_idx = slot_idx + i
                         if write_idx < slots_per_measure:
                             # 1. Collision Check (Don't overwrite existing notes)
-                            if full_tab[line_idx][m_idx][write_idx] != '-':
+                            if full_tab[line_idx][m_idx][write_idx] != "-":
                                 continue
-                                
+
                             # 2. Physical Spacer Check (Don't play same string too fast)
                             # If previous 16th note on this string was played, skip this one
                             # This clears up the 'machine gun' effect (1-1-1-1)
-                            if write_idx > 0 and full_tab[line_idx][m_idx][write_idx - 1] != '-':
+                            if write_idx > 0 and full_tab[line_idx][m_idx][write_idx - 1] != "-":
                                 continue
-                            
+
                             # Write the note
                             full_tab[line_idx][m_idx][write_idx] = c
 
@@ -326,11 +350,13 @@ class TabGenerator:
         if not m_notes:
             return "N.C."
 
-        pitches = [n['pitch'] % 12 for n in m_notes]
+        pitches = [n["pitch"] % 12 for n in m_notes]
         scores = {}
 
         for name, shape in self.chord_templates.items():
-            template_pitches = set([(self.tuning[s] + f) % 12 for s, f in shape.items() if s < self.num_strings])
+            template_pitches = set(
+                [(self.tuning[s] + f) % 12 for s, f in shape.items() if s < self.num_strings]
+            )
             scores[name] = sum(3 for p in pitches if p in template_pitches)
 
             # Root note bonus
@@ -342,16 +368,16 @@ class TabGenerator:
                     root_pitch = (self.tuning[first_s] + shape[first_s]) % 12
                     if root_pitch in pitches:
                         scores[name] += 5
-            
+
             # Simplicity Bias: Prefer Triads (Major/Minor) over complex chords (7ths, sus, add9)
             # This makes the chord progression more "standard/popular" unless strong evidence exists.
-            is_simple = (len(name) <= 3 and '7' not in name and '9' not in name and 'sus' not in name)
+            is_simple = len(name) <= 3 and "7" not in name and "9" not in name and "sus" not in name
             # Major (len 1 or 2 e.g. 'F#') or Minor (len 2 or 3 e.g. 'F#m')
             # Adjust bias as needed. 4 points = roughly 1-2 matching notes worth.
             if is_simple:
                 scores[name] += 4
 
-        min_score = config.get('chord_detection', 'min_score', 5)
+        min_score = config.get("chord_detection", "min_score", 5)
         best = max(scores, key=scores.get)
         detected = best if scores[best] > min_score else "N.C."
 
@@ -361,17 +387,17 @@ class TabGenerator:
         return detected
 
     def _render_layout(self, full_tab, measure_chords, num_measures, slots_per_measure):
-        measures_per_line = config.get('tablature', 'measures_per_line', 4)
-        
+        measures_per_line = config.get("tablature", "measures_per_line", 4)
+
         # Generate headers based on tuning names (high to low)
         headers = []
         for i in range(self.num_strings - 1, -1, -1):
             name = self.tuning_names[i]
             # Convert to e, B, G, etc.
-            if i == self.num_strings - 1: # Highest string
+            if i == self.num_strings - 1:  # Highest string
                 name = name.lower()
             headers.append(f"{name}|")
-            
+
         header_text = _("🎸 Fingerstyle Precision Analysis")
         output = [f"{header_text} (BPM: {self.bpm:.1f})\n"]
 
@@ -390,6 +416,7 @@ class TabGenerator:
             output.append("")
 
         return "\n".join(output)
+
 
 def create_tab(notes: List[Dict[str, Any]], bpm: float = 75) -> str:
     """

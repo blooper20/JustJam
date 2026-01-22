@@ -1,9 +1,12 @@
 """
 Tests for the transcriber module
 """
-import pytest
+
 from pathlib import Path
-from src.transcriber import transcribe_audio, validate_audio_file, SUPPORTED_FORMATS
+
+import pytest
+
+from src.transcriber import SUPPORTED_FORMATS, transcribe_audio, validate_audio_file
 
 
 class TestValidateAudioFile:

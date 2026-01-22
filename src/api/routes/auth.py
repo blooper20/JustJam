@@ -15,7 +15,15 @@ from src.api.limiter import limiter
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/login", response_model=TokenResponse, summary="소셜 로그인")
+@router.post(
+    "/login", 
+    response_model=TokenResponse, 
+    summary="소셜 로그인",
+    responses={
+        200: {"description": "로그인 성공 및 토큰 반환"},
+        429: {"description": "요청 한도 초과 (Rate limit exceeded)"}
+    }
+)
 @limiter.limit("5/minute")
 async def login(
     request: Request,
@@ -85,7 +93,15 @@ async def login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse, summary="토큰 갱신")
+@router.post(
+    "/refresh", 
+    response_model=TokenResponse, 
+    summary="토큰 갱신",
+    responses={
+        200: {"description": "토큰 갱신 성공"},
+        401: {"description": "유효하지 않은 Refresh Token"}
+    }
+)
 async def refresh_access_token(
     refresh_data: RefreshTokenRequest,
     db: Session = Depends(get_db)

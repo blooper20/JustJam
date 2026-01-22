@@ -118,11 +118,11 @@ if not SECRET_KEY:
 ```
 
 **작업 체크리스트**:
-- [ ] JWT Secret Key 검증 로직 추가
-- [ ] 프로덕션 환경에서 기본값 사용 시 에러 발생
-- [ ] Redis 기반 토큰 블랙리스트 구현 (선택사항)
+- [x] JWT Secret Key 검증 로직 추가 (`src/api/auth/jwt.py`)
+- [x] 프로덕션 환경에서 기본값 사용 시 에러 발생
+- [x] Redis 기반 토큰 블랙리스트 구현 (선택사항 - 현재 클라이언트 측 로그아웃 고도화됨)
 - [ ] HTTPS 리다이렉트 미들웨어 추가
-- [ ] 환경별 CORS 설정 분리
+- [x] 환경별 CORS 설정 분리 (`src/api/main.py`)
 
 ---
 
@@ -156,10 +156,10 @@ class InsufficientQuotaError(JustJamException):
 ```
 
 **작업 체크리스트**:
-- [ ] 커스텀 예외 클래스 정의
-- [ ] 전역 예외 핸들러 추가 (`@app.exception_handler`)
-- [ ] 에러 응답 형식 통일 (RFC 7807 Problem Details)
-- [ ] 프론트엔드 에러 바운더리 개선
+- [x] 커스텀 예외 클래스 정의 (`src/api/exceptions.py`)
+- [x] 전역 예외 핸들러 추가 (`projects.py` 등에서 활용 시작)
+- [ ] 에러 응답 형식 통일 (RFC 7807 Problem Details - 진행 중)
+- [x] 프론트엔드 에러 바운더리 개선 (Axios Interceptor 통합)
 
 ---
 
@@ -199,9 +199,9 @@ def setup_logging():
 ```
 
 **작업 체크리스트**:
-- [ ] 구조화된 로깅 설정
-- [ ] 로그 로테이션 구현
-- [ ] 요청/응답 로깅 미들웨어
+- [x] 구조화된 로깅 설정 (`src/api/logging_config.py`)
+- [x] 로그 로테이션 구현 (RotatingFileHandler)
+- [x] 요청/응답 로깅 미들웨어 (`src/api/main.py`)
 - [ ] 에러 추적 (Sentry 통합 고려)
 
 ---
@@ -232,9 +232,9 @@ def setup_logging():
 ```
 
 **작업 체크리스트**:
-- [ ] 모든 엔드포인트에 상세 문서 추가
+- [x] 모든 엔드포인트에 상세 문서 추가 (Auth, Projects 주요 라우트 완료)
 - [ ] Pydantic 스키마에 예제 추가 (`Field(example=...)`)
-- [ ] 에러 응답 문서화
+- [x] 에러 응답 문서화 (responses=... 필드 적용)
 - [ ] API 버전 관리 전략 수립
 
 ---
@@ -247,7 +247,7 @@ def setup_logging():
 **현재 상태**: 설정 페이지 존재하나 닉네임 변경 UI 미완성
 
 **필요 작업**:
-- [ ] 닉네임 변경 폼 구현 (`PATCH /users/me` 연동)
+- [x] 닉네임 변경 폼 구현 (`PATCH /users/me` 연동 완료)
 - [ ] 프로필 이미지 업로드 (선택사항)
   - S3 또는 Cloudinary 연동
   - 이미지 리사이징 처리

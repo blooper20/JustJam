@@ -7,8 +7,17 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
 
-# 환경 변수에서 설정 가져오기 (기본값 제공)
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production-min-32-chars")
+# 환경 변수에서 설정 가져오기
+_secret_key = os.getenv("JWT_SECRET_KEY")
+_env = os.getenv("APP_ENV", "development")
+
+if not _secret_key:
+    if _env == "production":
+        raise ValueError("JWT_SECRET_KEY must be set in production environment")
+    SECRET_KEY = "dev-secret-key-change-this-in-production-min-32-chars"
+else:
+    SECRET_KEY = _secret_key
+
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))

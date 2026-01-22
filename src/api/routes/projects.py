@@ -18,7 +18,8 @@ from typing import Dict, List, Optional
 
 from src.api.schemas.project import Project, TaskStatus, StemFiles
 from src.api.database import get_db, SessionLocal
-from src.api.models import ProjectModel, User, ProjectAsset
+from src.api.models import Project as ProjectModel, ProjectAsset, User
+from src.api.exceptions import ProjectNotFoundError, AudioProcessingError, TranscriptionError
 from src.api.dependencies import get_current_user, get_optional_current_user
 from src.audio_processor import separate_audio
 from src.transcriber import transcribe_audio
@@ -110,7 +111,17 @@ def process_audio_task(project_id: str):
     finally:
         db.close()
 
-@router.post("/", response_model=Project)
+@router.post(
+    "/", 
+    response_model=Project,
+    summary="새 프로젝트 생성",
+    description="음원을 업로드하여 새로운 프로젝트를 생성합니다. 음원 분리는 자동으로 시작되지 않으며 /process 엔드포인트를 호출해야 합니다.",
+    responses={
+        201: {"description": "프로젝트 생성 성공"},
+        400: {"description": "지원하지 않는 파일 형식"},
+        413: {"description": "파일 크기 초과"}
+    }
+)
 async def create_project(
     file: UploadFile = File(...),
     current_user: Optional[User] = Depends(get_optional_current_user),
@@ -143,7 +154,16 @@ async def create_project(
     db.refresh(project)
     return project
 
-@router.post("/{project_id}/process", response_model=Project)
+@router.post(
+    "/{project_id}/process", 
+    response_model=Project,
+    summary="음원 분리 시작",
+    description="프로젝트의 음원을 각 트랙(보컬, 드럼, 베이스 등)으로 분리하는 백그라운드 작업을 시작합니다.",
+    responses={
+        202: {"description": "작업 시작됨"},
+        404: {"description": "프로젝트를 찾을 수 없음"}
+    }
+)
 async def process_project(
     project_id: str, 
     background_tasks: BackgroundTasks, 
@@ -152,7 +172,7 @@ async def process_project(
 ):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise ProjectNotFoundError()
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
@@ -175,7 +195,7 @@ async def get_project(
 ):
     project = db.query(ProjectModel).options(joinedload(ProjectModel.assets)).filter(ProjectModel.id == project_id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise ProjectNotFoundError()
         
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
@@ -220,7 +240,7 @@ async def delete_project(
     """프로젝트 삭제 (소유자만 가능)"""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise ProjectNotFoundError()
     
     # 권한 확인: 프로젝트 소유자이거나 user_id가 None인 경우만 삭제 가능
     if project.user_id is not None:
@@ -242,7 +262,7 @@ async def get_project_stems(
 ):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
-         raise HTTPException(status_code=404, detail="Project not found")
+         raise ProjectNotFoundError()
     
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
@@ -262,7 +282,16 @@ async def get_project_stems(
         master=f"{base_url}/master.wav"
     )
 
-@router.post("/{project_id}/score/{instrument}")
+@router.post(
+    "/{project_id}/score/{instrument}",
+    summary="악보 생성",
+    description="특정 악기 트랙을 AI로 분석하여 MusicXML 형식의 악보를 생성합니다.",
+    responses={
+        200: {"description": "악보 생성 성공 (XML 반환)"},
+        404: {"description": "프로젝트 또는 트랙을 찾을 수 없음"},
+        500: {"description": "분석 오류 (Transcription Error)"}
+    }
+)
 def generate_project_score(
     project_id: str, 
     instrument: str, 
@@ -271,7 +300,7 @@ def generate_project_score(
 ):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise ProjectNotFoundError()
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
@@ -317,7 +346,15 @@ def generate_project_score(
         logger.exception(f"Score generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Score generation failed: {str(e)}")
 
-@router.post("/{project_id}/tabs/{instrument}")
+@router.post(
+    "/{project_id}/tabs/{instrument}",
+    summary="타브 악보 생성",
+    description="특정 악기 트랙을 AI로 분석하여 ASCII 형식의 타브 악보를 생성합니다.",
+    responses={
+        200: {"description": "타브 생성 성공"},
+        404: {"description": "프로젝트 또는 트랙을 찾을 수 없음"}
+    }
+)
 def generate_project_tab(
     project_id: str, 
     instrument: str, 
@@ -326,7 +363,7 @@ def generate_project_tab(
 ):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise ProjectNotFoundError()
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
@@ -406,7 +443,7 @@ def mix_audio(
 ):
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise ProjectNotFoundError()
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:

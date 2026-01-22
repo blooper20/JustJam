@@ -34,8 +34,13 @@ export interface TabResponse {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export const fetchProjects = async (): Promise<Project[]> => {
-    const response = await apiClient.get('/projects/');
+export const fetchProjects = async (params?: { q?: string; sort?: string }): Promise<Project[]> => {
+    const response = await apiClient.get('/projects/', { params });
+    return response.data;
+};
+
+export const updateProject = async (id: string, data: { name: string }): Promise<Project> => {
+    const response = await apiClient.patch(`/projects/${id}`, data);
     return response.data;
 };
 

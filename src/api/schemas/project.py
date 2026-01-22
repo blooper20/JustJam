@@ -15,6 +15,9 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     pass
 
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+
 class Project(ProjectBase):
     id: str
     original_filename: str

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Depends, Response
 from fastapi.responses import JSONResponse
+from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 import shutil
 import os
@@ -16,7 +17,7 @@ import json
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 
-from src.api.schemas.project import Project, TaskStatus, StemFiles
+from src.api.schemas.project import Project, ProjectUpdate, TaskStatus, StemFiles
 from src.api.database import get_db, SessionLocal
 from src.api.models import Project as ProjectModel, ProjectAsset, User
 from src.api.exceptions import ProjectNotFoundError, AudioProcessingError, TranscriptionError
@@ -211,16 +212,30 @@ async def get_project(
 
 @router.get("/", response_model=List[Project])
 async def list_projects(
+    q: Optional[str] = None,
+    sort: str = "newest",
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
-    """프로젝트 목록 조회 (로그인한 사용자는 본인 프로젝트만, 비로그인은 모든 프로젝트)"""
+    """프로젝트 목록 조회 (검색 및 정렬 지원)"""
+    query = db.query(ProjectModel).options(joinedload(ProjectModel.assets))
+    
     if current_user:
-        # 로그인한 사용자: 본인의 프로젝트만 반환
-        projects = db.query(ProjectModel).options(joinedload(ProjectModel.assets)).filter(ProjectModel.user_id == current_user.id).all()
+        query = query.filter(ProjectModel.user_id == current_user.id)
     else:
-        # 비로그인 사용자: 모든 프로젝트 반환
-        projects = db.query(ProjectModel).options(joinedload(ProjectModel.assets)).filter(ProjectModel.user_id == None).all()
+        query = query.filter(ProjectModel.user_id == None)
+
+    if q:
+        query = query.filter(ProjectModel.name.ilike(f"%{q}%"))
+
+    if sort == "newest":
+        query = query.order_by(desc(ProjectModel.created_at))
+    elif sort == "oldest":
+        query = query.order_by(ProjectModel.created_at.asc())
+    elif sort == "name":
+        query = query.order_by(ProjectModel.name.asc())
+        
+    projects = query.all()
     
     # 자산 보유 여부 일괄 설정
     for p in projects:
@@ -230,6 +245,29 @@ async def list_projects(
         p.tab_instruments = [a.instrument for a in p.assets if a.asset_type == 'tab']
         
     return projects
+
+@router.patch("/{project_id}", response_model=Project)
+async def update_project(
+    project_id: str,
+    project_update: ProjectUpdate,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """프로젝트 정보 수정 (이름 등)"""
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project:
+        raise ProjectNotFoundError()
+        
+    if project.user_id is not None:
+        if not current_user or project.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="프로젝트 수정 권한이 없습니다.")
+            
+    if project_update.name is not None:
+        project.name = project_update.name
+        
+    db.commit()
+    db.refresh(project)
+    return project
 
 @router.delete("/{project_id}")
 async def delete_project(

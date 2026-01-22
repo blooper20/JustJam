@@ -8,14 +8,20 @@ import { fetchProjects, createProject, deleteProject } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Edit2, Search } from 'lucide-react';
+import { updateProject } from '@/lib/api';
 
 export default function DashboardPage() {
     const queryClient = useQueryClient();
     const [uploading, setUploading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortBy, setSortBy] = useState("newest");
 
     const { data: projects, isLoading } = useQuery({
-        queryKey: ['projects'],
-        queryFn: fetchProjects,
+        queryKey: ['projects', searchQuery, sortBy],
+        queryFn: () => fetchProjects({ q: searchQuery, sort: sortBy }),
     });
 
     const uploadMutation = useMutation({
@@ -41,6 +47,26 @@ export default function DashboardPage() {
             toast.error("프로젝트 삭제에 실패했습니다.");
         }
     });
+
+    const renameMutation = useMutation({
+        mutationFn: ({ id, name }: { id: string, name: string }) => updateProject(id, { name }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            toast.success("프로젝트 이름이 변경되었습니다.");
+        },
+        onError: () => {
+            toast.error("이름 변경에 실패했습니다.");
+        }
+    });
+
+    const handleRenameClick = (e: React.MouseEvent, id: string, currentName: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const newName = prompt("새로운 프로젝트 이름을 입력하세요:", currentName);
+        if (newName && newName.trim() !== currentName) {
+            renameMutation.mutate({ id, name: newName.trim() });
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -82,6 +108,25 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <div className="relative w-64">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="프로젝트 검색..."
+                            className="pl-9 bg-zinc-950 border-zinc-800"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="w-32 bg-zinc-950 border-zinc-800">
+                            <SelectValue placeholder="정렬" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="newest">최신순</SelectItem>
+                            <SelectItem value="oldest">오래된순</SelectItem>
+                            <SelectItem value="name">이름순</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <input
                         type="file"
                         id="header-file-upload"
@@ -239,12 +284,22 @@ export default function DashboardPage() {
                                             ) : (
                                                 <Music className="h-4 w-4 text-muted-foreground" />
                                             )}
-                                            <button
-                                                onClick={(e) => handleDeleteClick(e, project.id)}
-                                                className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-zinc-900"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={(e) => handleRenameClick(e, project.id, project.name)}
+                                                    className="text-muted-foreground hover:text-zinc-200 transition-colors p-1 rounded-md hover:bg-zinc-800"
+                                                    title="이름 변경"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleDeleteClick(e, project.id)}
+                                                    className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-zinc-800"
+                                                    title="삭제"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent>

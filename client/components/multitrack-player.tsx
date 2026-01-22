@@ -302,6 +302,11 @@ export function MultiTrackPlayer({ stems, projectId, initialBpm }: MultiTrackPla
     const [startOffsetSeconds, setStartOffsetSeconds] = useState(0);
     const [currentBeat, setCurrentBeat] = useState(-1);
 
+    // 구간 반복 (A-B Loop) 상태
+    const [loopStart, setLoopStart] = useState<number | null>(null);
+    const [loopEnd, setLoopEnd] = useState<number | null>(null);
+    const [isLoopEnabled, setIsLoopEnabled] = useState(false);
+
     // Refs
     const containerRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const readyCount = useRef(0);
@@ -458,10 +463,22 @@ export function MultiTrackPlayer({ stems, projectId, initialBpm }: MultiTrackPla
             if (index === 0) {
                 ws.on('timeupdate', (time) => {
                     setCurrentTime(time);
+
+                    // 구간 반복 처리
+                    if (isLoopEnabled && loopStart !== null && loopEnd !== null) {
+                        if (time >= loopEnd) {
+                            handleSeek([loopStart]);
+                        }
+                    }
                 });
 
                 ws.on('finish', () => {
-                    setIsPlaying(false);
+                    if (isLoopEnabled && loopStart !== null) {
+                        handleSeek([loopStart]);
+                        ws.play();
+                    } else {
+                        setIsPlaying(false);
+                    }
                 });
             }
 
@@ -621,6 +638,32 @@ export function MultiTrackPlayer({ stems, projectId, initialBpm }: MultiTrackPla
             window.removeEventListener('mouseup', handleMouseUp);
         };
     }, [isDraggingWaveform, calculateSeekPosition]);
+
+    // 키보드 단축키 처리
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // 입력창에 있을 때는 무시
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    handleSeek([Math.max(0, currentTimeRef.current - 5)]);
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    handleSeek([Math.min(duration, currentTimeRef.current + 5)]);
+                    break;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [togglePlay, handleSeek, duration]);
 
     // 재생/일시정지 토글
     const togglePlay = useCallback(async () => {
@@ -816,7 +859,6 @@ export function MultiTrackPlayer({ stems, projectId, initialBpm }: MultiTrackPla
                             style={{ left: `${(startOffsetSeconds / duration) * 100}%` }}
                             onMouseDown={handleMarkerMouseDown}
                         >
-                            {/* 마커 화살표 */}
                             <div className="absolute -top-3 -left-1.5 transition-transform group-hover:scale-125">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="red" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M12 21L21 9H3L12 21Z" />
@@ -825,10 +867,57 @@ export function MultiTrackPlayer({ stems, projectId, initialBpm }: MultiTrackPla
                         </div>
                     )}
 
+                    {/* 구간 반복 (A-B) 표시 */}
+                    {duration > 0 && loopStart !== null && loopEnd !== null && (
+                        <div
+                            className={cn(
+                                "absolute top-0 bottom-0 bg-primary/20 border-x border-primary/50 pointer-events-none z-0",
+                                !isLoopEnabled && "opacity-30 grayscale"
+                            )}
+                            style={{
+                                left: `${(loopStart / duration) * 100}%`,
+                                width: `${((loopEnd - loopStart) / duration) * 100}%`
+                            }}
+                        />
+                    )}
+
                     {/* 현재 시간 / 전체 시간 */}
-                    <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                        <span>{formatTime(currentTime)}</span>
-                        <span>{formatTime(duration)}</span>
+                    <div className="flex justify-between items-center text-xs text-muted-foreground font-mono mt-1">
+                        <div className="flex items-center gap-4">
+                            <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
+                            {/* 구간 반복 컨트롤 */}
+                            <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
+                                <button
+                                    onClick={() => {
+                                        if (loopStart === null) setLoopStart(currentTime);
+                                        else if (loopEnd === null) setLoopEnd(currentTime);
+                                        else {
+                                            setLoopStart(null);
+                                            setLoopEnd(null);
+                                        }
+                                    }}
+                                    className={cn(
+                                        "px-2 py-0.5 rounded text-[10px] transition-colors border",
+                                        loopStart !== null && loopEnd === null ? "bg-orange-500/20 text-orange-500 border-orange-500/50" :
+                                            loopStart !== null && loopEnd !== null ? "bg-primary/20 text-primary border-primary/50" :
+                                                "bg-zinc-800 text-zinc-400 border-zinc-700"
+                                    )}
+                                >
+                                    {loopStart === null ? "A 설정" : loopEnd === null ? "B 설정" : "구간 해제"}
+                                </button>
+                                {loopStart !== null && loopEnd !== null && (
+                                    <button
+                                        onClick={() => setIsLoopEnabled(!isLoopEnabled)}
+                                        className={cn(
+                                            "px-2 py-0.5 rounded text-[10px] transition-colors border",
+                                            isLoopEnabled ? "bg-green-500/20 text-green-500 border-green-500/50" : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                                        )}
+                                    >
+                                        반복 {isLoopEnabled ? "ON" : "OFF"}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException, Request, status
@@ -62,9 +63,12 @@ if os.getenv("APP_ENV") != "test":
 from src.api.exceptions import JustJamException
 
 
-# RFC 7807 기반 에러 핸들러
 @app.exception_handler(JustJamException)
 async def justjam_exception_handler(request: Request, exc: JustJamException):
+    error_code = exc.__class__.__name__.replace("Error", "").upper()
+    if error_code == "JUSTJAMEXCEPTION":
+        error_code = "INTERNAL_ERROR"
+        
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -73,6 +77,10 @@ async def justjam_exception_handler(request: Request, exc: JustJamException):
             "status": exc.status_code,
             "detail": exc.detail,
             "instance": str(request.url),
+            "code": error_code,
+            "extensions": {
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
         },
     )
 
@@ -87,6 +95,10 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "status": exc.status_code,
             "detail": exc.detail,
             "instance": str(request.url),
+            "code": f"HTTP_{exc.status_code}",
+            "extensions": {
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
         },
     )
 

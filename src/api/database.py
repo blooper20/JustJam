@@ -4,8 +4,12 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(PROJECT_ROOT, "projects.db")
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Use DATABASE_URL from env if available, otherwise default to sqlite in temp dir
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+if not SQLALCHEMY_DATABASE_URL:
+    DB_PATH = os.path.join(PROJECT_ROOT, "temp", "justjam.db")
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 

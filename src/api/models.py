@@ -27,9 +27,26 @@ class User(Base):
 
     # Relationships
     projects = relationship("ProjectModel", back_populates="owner", cascade="all, delete-orphan")
+    shared_projects = relationship("ProjectMember", back_populates="user", cascade="all, delete-orphan")
 
     # 복합 인덱스: provider와 provider_id 조합으로 빠른 조회
     __table_args__ = (Index("idx_provider_id", "provider", "provider_id"),)
+
+
+class ProjectMember(Base):
+    """프로젝트 협업 멤버 모델 - 특정 프로젝트를 공유받은 사용자"""
+
+    __tablename__ = "project_members"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role = Column(String, default="viewer")  # 'viewer' or 'editor'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    project = relationship("ProjectModel", back_populates="members")
+    user = relationship("User", back_populates="shared_projects")
 
 
 class ProjectModel(Base):
@@ -43,6 +60,8 @@ class ProjectModel(Base):
     status = Column(String, default="pending")
     progress = Column(Integer, default=0)
     bpm = Column(Integer, nullable=True)
+    detected_key = Column(String, nullable=True)
+    chord_progression = Column(String, nullable=True)  # JSON formatted string
     thumbnail_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -51,6 +70,7 @@ class ProjectModel(Base):
 
     # Relationships
     owner = relationship("User", back_populates="projects")
+    members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
     assets = relationship("ProjectAsset", back_populates="project", cascade="all, delete-orphan")
 
 

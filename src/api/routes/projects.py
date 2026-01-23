@@ -24,9 +24,22 @@ from sqlalchemy.orm import Session, joinedload
 
 from src.api.database import SessionLocal, get_db
 from src.api.dependencies import get_current_user, get_optional_current_user
-from src.api.exceptions import AudioProcessingError, ProjectNotFoundError, TranscriptionError
-from src.api.models import ProjectAsset, ProjectModel, User
-from src.api.schemas.project import Project, ProjectUpdate, StemFiles, TaskStatus
+from src.api.exceptions import (
+    AudioProcessingError,
+    AuthenticationError,
+    FileUploadError,
+    ProjectNotFoundError,
+    TranscriptionError,
+)
+from src.api.models import ProjectAsset, ProjectMember, ProjectModel, User
+from src.api.schemas.project import (
+    Project,
+    ProjectMember as ProjectMemberSchema,
+    ProjectShareRequest,
+    ProjectUpdate,
+    StemFiles,
+    TaskStatus,
+)
 from src.audio_processor import separate_audio
 from src.score_generator import create_score
 from src.tab_generator import TabGenerator
@@ -141,6 +154,17 @@ def process_audio_task(project_id: str):
             except Exception as e:
                 logger.error(f"Master mix generation failed: {e}")
 
+            # Phase 10: Chord & Key Analysis
+            try:
+                from src.api.services.analysis_service import perform_full_analysis
+                logger.info(f"Starting Phase 10 Analysis for {project_id}")
+                analysis_results = perform_full_analysis(input_path, float(project.bpm or 120.0))
+                project.detected_key = analysis_results.get("key")
+                project.chord_progression = json.dumps(analysis_results.get("chords"))
+                logger.info(f"Analysis completed for {project_id}: Key={project.detected_key}")
+            except Exception as e:
+                logger.error(f"Phase 10 Analysis failed for {project_id}: {e}")
+
             if stems and "original" not in stems:
                 project.status = TaskStatus.COMPLETED.value
                 project.progress = 100
@@ -184,7 +208,7 @@ async def create_project(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+        raise FileUploadError(detail=f"파일 업로드 실패: {str(e)}")
 
     project = ProjectModel(
         id=project_id,
@@ -231,12 +255,23 @@ async def process_project(
     if not project:
         raise ProjectNotFoundError()
 
+    # 권한 확인: 소유자이거나 편집 권한이 있는 멤버
+    is_owner = current_user and project.user_id == current_user.id
+    is_editor = False
+    if current_user and not is_owner:
+        member = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id)
+            .first()
+        )
+        is_editor = member and member.role == "editor"
+
     if project.user_id is not None:
-        if not current_user or project.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this project")
+        if not is_owner and not is_editor:
+            raise AuthenticationError(detail="이 프로젝트를 처리할 권한이 없습니다.")
 
     if project.status == TaskStatus.PROCESSING.value:
-        raise HTTPException(status_code=400, detail="Already processing")
+        raise HTTPException(status_code=400, detail="이미 처리가 진행 중입니다.")
 
     background_tasks.add_task(process_audio_task, project_id)
     project.status = TaskStatus.PENDING.value
@@ -254,22 +289,40 @@ async def get_project(
 ):
     project = (
         db.query(ProjectModel)
-        .options(joinedload(ProjectModel.assets))
+        .options(joinedload(ProjectModel.assets), joinedload(ProjectModel.members).joinedload(ProjectMember.user))
         .filter(ProjectModel.id == project_id)
         .first()
     )
     if not project:
         raise ProjectNotFoundError()
 
+    is_owner = current_user and project.user_id == current_user.id
+    is_member = False
+    if current_user and not is_owner:
+        member = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id)
+            .first()
+        )
+        is_member = member is not None
+
     if project.user_id is not None:
-        if not current_user or project.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this project")
+        if not is_owner and not is_member:
+            raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
     # 자산 보유 여부 설정
     project.has_score = any(a.asset_type == "score" for a in project.assets)
     project.has_tab = any(a.asset_type == "tab" for a in project.assets)
     project.score_instruments = [a.instrument for a in project.assets if a.asset_type == "score"]
     project.tab_instruments = [a.instrument for a in project.assets if a.asset_type == "tab"]
+    
+    # 헬퍼 필드 설정
+    project.is_owner = is_owner
+    
+    # 멤버 정보에 이메일/닉네임 포함
+    for m in project.members:
+        m.email = m.user.email
+        m.nickname = m.user.nickname
 
     return project
 
@@ -288,7 +341,12 @@ async def list_projects(
     query = db.query(ProjectModel).options(joinedload(ProjectModel.assets))
 
     if current_user:
-        query = query.filter(ProjectModel.user_id == current_user.id)
+        # 소유한 프로젝트 + 공유받은 프로젝트
+        shared_project_ids = db.query(ProjectMember.project_id).filter(ProjectMember.user_id == current_user.id).all()
+        shared_project_ids = [p[0] for p in shared_project_ids]
+        
+        from sqlalchemy import or_
+        query = query.filter(or_(ProjectModel.user_id == current_user.id, ProjectModel.id.in_(shared_project_ids)))
     else:
         query = query.filter(ProjectModel.user_id == None)
 
@@ -304,12 +362,13 @@ async def list_projects(
 
     projects = query.offset(skip).limit(limit).all()
 
-    # 자산 보유 여부 일괄 설정
+    # 자산 보유 여부 및 소유권 여부 일괄 설정
     for p in projects:
         p.has_score = any(a.asset_type == "score" for a in p.assets)
         p.has_tab = any(a.asset_type == "tab" for a in p.assets)
         p.score_instruments = [a.instrument for a in p.assets if a.asset_type == "score"]
         p.tab_instruments = [a.instrument for a in p.assets if a.asset_type == "tab"]
+        p.is_owner = current_user and p.user_id == current_user.id
 
     return projects
 
@@ -455,10 +514,10 @@ async def get_project_stems(
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this project")
+            raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
     if project.status != TaskStatus.COMPLETED.value:
-        raise HTTPException(status_code=400, detail="Processing not completed")
+        raise HTTPException(status_code=400, detail="아직 처리가 완료되지 않았습니다.")
 
     base_url = f"/static/separated/htdemucs_6s/{project_id}"
     return StemFiles(
@@ -494,10 +553,10 @@ def generate_project_score(
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this project")
+            raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
     if project.status != TaskStatus.COMPLETED.value:
-        raise HTTPException(status_code=400, detail="Audio separation required first")
+        raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
 
     # DB에서 이미 생성된 악보가 있는지 확인
     existing_asset = (
@@ -533,7 +592,89 @@ def generate_project_score(
         return Response(content=xml_content, media_type="application/xml")
     except Exception as e:
         logger.exception(f"Score generation failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Score generation failed: {str(e)}")
+        raise TranscriptionError(detail=f"악보 생성 실패: {str(e)}")
+
+
+@router.post(
+    "/{project_id}/midi/{instrument}",
+    summary="MIDI 파일 생성 및 다운로드",
+    description="특정 악기 트랙을 AI로 분석하여 MIDI 형식의 파일을 생성합니다.",
+    responses={
+        200: {"description": "MIDI 생성 성공 (Binary 반환)"},
+        404: {"description": "프로젝트 또는 트랙을 찾을 수 없음"},
+    },
+)
+def generate_project_midi(
+    project_id: str,
+    instrument: str,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project:
+        raise ProjectNotFoundError()
+
+    # 권한 확인
+    is_owner = current_user and project.user_id == current_user.id
+    is_member = False
+    if current_user and not is_owner:
+        member = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id)
+            .first()
+        )
+        is_member = member is not None
+
+    if project.user_id is not None:
+        if not is_owner and not is_member:
+            raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
+
+    if project.status != TaskStatus.COMPLETED.value:
+        raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
+
+    # DB에서 이미 생성된 MIDI가 있는지 확인 (asset_type="midi")
+    existing_asset = (
+        db.query(ProjectAsset)
+        .filter(
+            ProjectAsset.project_id == project_id,
+            ProjectAsset.asset_type == "midi",
+            ProjectAsset.instrument == instrument,
+        )
+        .first()
+    )
+
+    if existing_asset:
+        import base64
+        # Binary data stored as string? Asset.content is String column.
+        # We should store as base64 or Use LargeBinary.
+        # ProjectAsset.content is String. Let's store as base64.
+        midi_bytes = base64.b64decode(existing_asset.content)
+        return Response(
+            content=midi_bytes, media_type="audio/midi", headers={"X-Cache": "HIT"}
+        )
+
+    input_path = os.path.join(UPLOAD_DIR, project.original_filename)
+    target_stem = instrument.lower()
+
+    try:
+        notes, bpm = transcribe_audio(input_path, target_stem=target_stem)
+        midi_bytes = create_score(notes, bpm, instrument, format="midi")
+
+        # 생성된 MIDI DB에 저장 (base64 인코딩)
+        import base64
+        new_asset = ProjectAsset(
+            project_id=project_id,
+            asset_type="midi",
+            instrument=instrument,
+            content=base64.b64encode(midi_bytes).decode("utf-8"),
+        )
+        db.add(new_asset)
+        db.commit()
+
+        return Response(content=midi_bytes, media_type="audio/midi")
+    except Exception as e:
+        logger.exception(f"MIDI generation failed: {e}")
+        raise TranscriptionError(detail=f"MIDI 생성 실패: {str(e)}")
 
 
 @router.post(
@@ -557,10 +698,10 @@ def generate_project_tab(
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this project")
+            raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
     if project.status != TaskStatus.COMPLETED.value:
-        raise HTTPException(status_code=400, detail="Audio separation required first")
+        raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
 
     # DB에서 이미 생성된 타브가 있는지 확인
     existing_asset = (
@@ -589,7 +730,7 @@ def generate_project_tab(
         tuning = ["E2", "A2", "D3", "G3", "B3", "E4"]
         target_stem = "guitar"
     else:
-        raise HTTPException(status_code=400, detail="Unsupported instrument")
+        raise HTTPException(status_code=400, detail="지원하지 않는 악기입니다.")
 
     try:
         notes, bpm = transcribe_audio(input_path, target_stem=target_stem)
@@ -617,7 +758,7 @@ def generate_project_tab(
         return result
     except Exception as e:
         logger.exception(f"Tab generation failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Tab generation failed: {str(e)}")
+        raise TranscriptionError(detail=f"타브 생성 실패: {str(e)}")
 
 
 class MixRequest(BaseModel):
@@ -649,10 +790,10 @@ def mix_audio(
 
     if project.user_id is not None:
         if not current_user or project.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this project")
+            raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
     if project.status != TaskStatus.COMPLETED.value:
-        raise HTTPException(status_code=400, detail="Audio separation not completed")
+        raise HTTPException(status_code=400, detail="음원 분리가 완료되지 않았습니다.")
 
     stem_dir = os.path.join(SEPARATED_DIR, "htdemucs_6s", project_id)
     mixed = None
@@ -753,7 +894,7 @@ def mix_audio(
                 # Continue without metronome rather than failing entirely
 
         if mixed is None:
-            raise HTTPException(status_code=400, detail="No audio to mix")
+            raise HTTPException(status_code=400, detail="믹싱할 오디오 데이터가 없습니다.")
 
         # 믹스 파라미터 해시 생성하여 캐싱
         mix_params = json.dumps(request.dict(), sort_keys=True)
@@ -770,4 +911,107 @@ def mix_audio(
         return {"url": f"/static/uploads/{output_filename}"}
     except Exception as e:
         logger.exception(f"Mixing failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Mixing failed: {str(e)}")
+        raise AudioProcessingError(detail=f"믹싱 실패: {str(e)}")
+
+
+# --- 협업 관련 엔드포인트 ---
+
+@router.post("/{project_id}/share", response_model=ProjectMemberSchema)
+async def share_project(
+    project_id: str,
+    share_request: ProjectShareRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """프로젝트 공유 초대 (소유자만 가능)"""
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project:
+        raise ProjectNotFoundError()
+
+    if project.user_id != current_user.id:
+        raise AuthenticationError(detail="프로젝트 소유자만 공유할 수 있습니다.")
+
+    target_user = db.query(User).filter(User.email == share_request.email).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="해당 이메일의 사용자를 찾을 수 없습니다.")
+
+    if target_user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="자기 자신을 초대할 수 없습니다.")
+
+    # 이미 멤버인지 확인
+    existing_member = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == target_user.id)
+        .first()
+    )
+    if existing_member:
+        existing_member.role = share_request.role
+        db.commit()
+        db.refresh(existing_member)
+        return existing_member
+
+    new_member = ProjectMember(
+        project_id=project_id,
+        user_id=target_user.id,
+        role=share_request.role
+    )
+    db.add(new_member)
+    db.commit()
+    db.refresh(new_member)
+    
+    # 스키마 매핑을 위한 데이터 보강
+    new_member.email = target_user.email
+    new_member.nickname = target_user.nickname
+    
+    return new_member
+
+
+@router.get("/{project_id}/members", response_model=List[ProjectMemberSchema])
+async def list_project_members(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """프로젝트 멤버 목록 조회"""
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project:
+        raise ProjectNotFoundError()
+
+    # 권한 확인 (멤버이거나 소유자)
+    is_owner = project.user_id == current_user.id
+    is_member = db.query(ProjectMember).filter(ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id).first() is not None
+    
+    if not is_owner and not is_member:
+        raise AuthenticationError(detail="멤버 목록을 볼 권한이 없습니다.")
+
+    members = db.query(ProjectMember).options(joinedload(ProjectMember.user)).filter(ProjectMember.project_id == project_id).all()
+    
+    for m in members:
+        m.email = m.user.email
+        m.nickname = m.user.nickname
+        
+    return members
+
+
+@router.delete("/{project_id}/members/{user_id}")
+async def remove_project_member(
+    project_id: str,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """프로젝트 멤버 삭제 (소유자 또는 본인 탈퇴)"""
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project:
+        raise ProjectNotFoundError()
+
+    if project.user_id != current_user.id and user_id != current_user.id:
+        raise AuthenticationError(detail="권한이 없습니다.")
+
+    member = db.query(ProjectMember).filter(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="멤버를 찾을 수 없습니다.")
+
+    db.delete(member)
+    db.commit()
+    return {"message": "Member removed successfully"}

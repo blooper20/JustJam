@@ -34,6 +34,13 @@ interface MultiTrackPlayerProps {
   projectId: string;
   initialBpm?: number | null;
   onTimeUpdate?: (time: number) => void;
+  chordProgression?: string | null;
+}
+
+interface Chord {
+  start: number;
+  end: number;
+  name: string;
 }
 
 interface TrackControl {
@@ -296,6 +303,7 @@ export function MultiTrackPlayer({
   projectId,
   initialBpm,
   onTimeUpdate,
+  chordProgression,
 }: MultiTrackPlayerProps) {
   // 재생 상태
   const [isPlaying, setIsPlaying] = useState(false);
@@ -315,6 +323,30 @@ export function MultiTrackPlayer({
 
   // 재생 속도 상태
   const [playbackRate, setPlaybackRate] = useState(1.0);
+
+  // Chords state
+  const chords = useRef<Chord[]>([]);
+  const [currentChord, setCurrentChord] = useState<string>('');
+
+  useEffect(() => {
+    if (chordProgression) {
+      try {
+        chords.current = JSON.parse(chordProgression);
+      } catch (e) {
+        console.error('Failed to parse chord progression', e);
+      }
+    }
+  }, [chordProgression]);
+
+  // Update current chord based on currentTime
+  useEffect(() => {
+    const chord = chords.current.find((c) => currentTime >= c.start && currentTime < c.end);
+    if (chord) {
+      setCurrentChord(chord.name);
+    } else {
+      setCurrentChord('');
+    }
+  }, [currentTime]);
 
   // 구간 반복 (A-B Loop) 상태
   const [loopStart, setLoopStart] = useState<number | null>(null);
@@ -1007,7 +1039,7 @@ export function MultiTrackPlayer({
               )}
             </div>
 
-            {/* 마스터 정보 (Speed) */}
+            {/* 마스터 정보 (CHORD + Speed) */}
             <div
               className={cn(
                 'flex flex-col gap-2 border-l border-zinc-800 pl-4 py-1 transition-all',
@@ -1016,7 +1048,7 @@ export function MultiTrackPlayer({
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">
-                  Speed
+                  {currentChord ? 'Current Chord' : 'Speed'}
                 </span>
                 {isScrolled && (
                   <div className="flex items-center gap-2 text-[10px] font-mono text-primary tabular-nums">
@@ -1024,7 +1056,19 @@ export function MultiTrackPlayer({
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between gap-2 bg-zinc-950/50 px-2 py-1 rounded-lg border border-zinc-800/60 shadow-sm">
+
+              {currentChord && (
+                <div className="flex items-center justify-center bg-primary/10 px-2 py-1 rounded-lg border border-primary/20 shadow-[0_0_15px_rgba(250,204,21,0.2)]">
+                  <span className="text-xl font-black text-primary animate-in fade-in zoom-in duration-300">
+                    {currentChord}
+                  </span>
+                </div>
+              )}
+
+              <div className={cn(
+                "flex items-center justify-between gap-2 bg-zinc-950/50 px-2 py-1 rounded-lg border border-zinc-800/60 shadow-sm",
+                currentChord && "mt-1"
+              )}>
                 <Select
                   value={playbackRate.toString()}
                   onValueChange={(v) => setPlaybackRate(parseFloat(v))}

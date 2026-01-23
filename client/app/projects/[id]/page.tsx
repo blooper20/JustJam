@@ -11,13 +11,28 @@ import { Progress } from '@/components/ui/progress';
 import { MultiTrackPlayer } from '@/components/multitrack-player';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
+import { cn } from '@/lib/utils';
 
 const TabViewer = dynamic(() => import('@/components/tab-viewer').then((mod) => mod.TabViewer), {
   ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
+      <Loader2 className="w-8 h-8 animate-spin text-zinc-500 mb-2" />
+      <p className="text-sm text-zinc-500">타브 뷰어 불러오는 중...</p>
+    </div>
+  ),
 });
 const ScoreViewer = dynamic(
   () => import('@/components/score-viewer').then((mod) => mod.ScoreViewer),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center p-12 border border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-500 mb-2" />
+        <p className="text-sm text-zinc-500">악보 뷰어 불러오는 중...</p>
+      </div>
+    ),
+  },
 );
 
 export default function ProjectPage() {
@@ -28,6 +43,9 @@ export default function ProjectPage() {
   const queryClient = useQueryClient();
   const [loadMixer, setLoadMixer] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [activeTab, setActiveTab] = useState<'mixer' | 'score' | 'tab'>(
+    (searchParams.get('tab') as any) || 'mixer'
+  );
   // Removed local progress state
 
   const { data: project, isLoading } = useQuery({
@@ -59,7 +77,7 @@ export default function ProjectPage() {
     return <div className="p-8 text-center text-red-500">프로젝트를 찾을 수 없습니다.</div>;
 
   return (
-    <div className="container mx-auto p-8 max-w-4xl">
+    <div className="container mx-auto p-4 md:p-8 max-w-6xl">
       <div className="mb-6">
         <Link
           href="/"
@@ -78,15 +96,14 @@ export default function ProjectPage() {
             {/* Status Glow for Project Page */}
 
             <span
-              className={`relative px-3 py-1 rounded-full text-sm font-medium bg-black/80 z-10 ${
-                project.status === 'completed'
-                  ? 'text-green-500'
-                  : project.status === 'processing'
-                    ? 'text-blue-500'
-                    : project.status === 'failed'
-                      ? 'text-red-500'
-                      : 'text-yellow-500'
-              }`}
+              className={`relative px-3 py-1 rounded-full text-sm font-medium bg-black/80 z-10 ${project.status === 'completed'
+                ? 'text-green-500'
+                : project.status === 'processing'
+                  ? 'text-blue-500'
+                  : project.status === 'failed'
+                    ? 'text-red-500'
+                    : 'text-yellow-500'
+                }`}
             >
               {project.status.toUpperCase()}
             </span>
@@ -127,82 +144,152 @@ export default function ProjectPage() {
         </Card>
       )}
 
+      {project.status === 'completed' && !stems && (
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardContent className="pt-6 text-center py-12">
+            <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary mb-4" />
+            <h3 className="text-xl font-medium mb-2">분석 데이터를 불러오는 중...</h3>
+            <p className="text-muted-foreground">분리된 음원 트랙과 관련 데이터를 불러오고 있습니다.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {project.status === 'completed' && stems && (
-        <div className="space-y-6">
-          {/* Only show Mixer if no specific view is requested */}
-          {(!view || view === 'mixer') && (
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Multitrack Mixer
-                  <span className="text-xs font-normal text-muted-foreground bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
-                    AI BPM: {project.bpm || 'Unknown'}
-                  </span>
-                </CardTitle>
-                <CardDescription>각 파트의 볼륨을 조절하여 연습하세요.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {!loadMixer ? (
-                  <div className="flex flex-col items-center justify-center py-12 bg-zinc-950 rounded-lg border border-zinc-800 space-y-4">
-                    <div className="p-4 rounded-full bg-zinc-900">
-                      <Play className="w-8 h-8 text-primary fill-current" />
+        <div className="flex gap-0 items-start">
+          {/* Main Content Area */}
+          <div className="flex-1 min-w-0">
+            {/* Mixer View */}
+            {activeTab === 'mixer' && (
+              <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        Multitrack Mixer
+                        <span className="text-xs font-normal text-muted-foreground bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
+                          AI BPM: {project.bpm || 'Unknown'}
+                        </span>
+                      </CardTitle>
+                      <CardDescription>각 파트의 볼륨을 조절하여 연습하세요.</CardDescription>
                     </div>
-                    <div className="text-center">
-                      <h4 className="font-medium">곡 분석 완료됨</h4>
-                      <p className="text-sm text-muted-foreground">
-                        멀티트랙 믹서를 불러와서 연습을 시작하세요.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => setLoadMixer(true)}
-                      size="lg"
-                      className="rounded-full px-8"
-                    >
-                      믹서 불러오기 (Load Mixer)
-                    </Button>
+                    {!loadMixer && (
+                      <Button onClick={() => setLoadMixer(true)} size="sm">
+                        믹서 활성화
+                      </Button>
+                    )}
                   </div>
-                ) : (
-                  <MultiTrackPlayer
-                    stems={stems}
+                </CardHeader>
+                <CardContent>
+                  {!loadMixer ? (
+                    <div className="flex flex-col items-center justify-center py-12 bg-zinc-950 rounded-lg border border-zinc-800 space-y-4">
+                      <div className="p-4 rounded-full bg-zinc-900">
+                        <Play className="w-8 h-8 text-primary fill-current" />
+                      </div>
+                      <div className="text-center">
+                        <h4 className="font-medium">곡 분석 완료됨</h4>
+                        <p className="text-sm text-muted-foreground">
+                          멀티트랙 믹서를 불러와서 연습을 시작하세요.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => setLoadMixer(true)}
+                        size="lg"
+                        className="rounded-full px-8"
+                      >
+                        믹서 불러오기 (Load Mixer)
+                      </Button>
+                    </div>
+                  ) : (
+                    <MultiTrackPlayer
+                      stems={stems}
+                      projectId={project.id}
+                      initialBpm={project.bpm}
+                      onTimeUpdate={setCurrentTime}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Score View */}
+            {activeTab === 'score' && (
+              <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20">
+                <CardHeader>
+                  <CardTitle>Sheet Music (Standard Score)</CardTitle>
+                  <CardDescription>모든 파트(드럼, 보컬, 기타 등)의 정식 악보입니다.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScoreViewer
                     projectId={project.id}
-                    initialBpm={project.bpm}
-                    onTimeUpdate={setCurrentTime}
+                    existingInstruments={project.score_instruments}
+                    currentTime={currentTime}
+                    bpm={project.bpm}
+                    autoLoad={true}
                   />
-                )}
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Only show Score if explicitly requested or in default view */}
-          {(!view || view === 'score') && (
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle>Sheet Music (Standard Score)</CardTitle>
-                <CardDescription>모든 파트(드럼, 보컬, 기타 등)의 정식 악보입니다.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScoreViewer
-                  projectId={project.id}
-                  existingInstruments={project.score_instruments}
-                  currentTime={currentTime}
-                  bpm={project.bpm}
-                />
-              </CardContent>
-            </Card>
-          )}
+            {/* Tab View */}
+            {activeTab === 'tab' && (
+              <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20">
+                <CardHeader>
+                  <CardTitle>Tablature Viewer (Guitar/Bass Only)</CardTitle>
+                  <CardDescription>AI가 분석한 정밀 타브 악보입니다.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TabViewer
+                    projectId={project.id}
+                    existingInstruments={project.tab_instruments}
+                    autoLoad={true}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-          {/* Only show Tab if explicitly requested or in default view */}
-          {(!view || view === 'tab') && (
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle>Tablature Viewer (Guitar/Bass Only)</CardTitle>
-                <CardDescription>AI가 분석한 정밀 타브 악보입니다.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TabViewer projectId={project.id} existingInstruments={project.tab_instruments} />
-              </CardContent>
-            </Card>
-          )}
+          {/* Vertical Index Sticker Tabs (Right Side) */}
+          <div className="flex flex-col gap-1 pt-12 -ml-[1px] z-10 shrink-0">
+            <button
+              onClick={() => setActiveTab('mixer')}
+              className={cn(
+                "w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative",
+                activeTab === 'mixer'
+                  ? "bg-zinc-900 border-zinc-800 text-primary translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]"
+                  : "bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner"
+              )}
+              style={activeTab === 'mixer' ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' } : {}}
+            >
+              <div className={cn("w-2 h-2 rounded-full", activeTab === 'mixer' ? "bg-primary shadow-[0_0_10px_rgba(250,204,21,0.6)] animate-pulse" : "bg-zinc-800")} />
+              MIXING
+            </button>
+            <button
+              onClick={() => setActiveTab('score')}
+              className={cn(
+                "w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative",
+                activeTab === 'score'
+                  ? "bg-zinc-900 border-zinc-800 text-blue-400 translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]"
+                  : "bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner"
+              )}
+              style={activeTab === 'score' ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' } : {}}
+            >
+              <div className={cn("w-2 h-2 rounded-full", activeTab === 'score' ? "bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.6)] animate-pulse" : "bg-zinc-800")} />
+              SCORE
+            </button>
+            <button
+              onClick={() => setActiveTab('tab')}
+              className={cn(
+                "w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative",
+                activeTab === 'tab'
+                  ? "bg-zinc-900 border-zinc-800 text-purple-400 translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]"
+                  : "bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner"
+              )}
+              style={activeTab === 'tab' ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' } : {}}
+            >
+              <div className={cn("w-2 h-2 rounded-full", activeTab === 'tab' ? "bg-purple-400 shadow-[0_0_10px_rgba(167,139,250,0.6)] animate-pulse" : "bg-zinc-800")} />
+              TAB
+            </button>
+          </div>
         </div>
       )}
 

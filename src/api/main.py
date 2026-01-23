@@ -97,7 +97,7 @@ app.include_router(users.router)  # /users
 app.include_router(projects.router, prefix="/projects", tags=["projects"])
 
 # CORS 설정
-allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000")
+allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8000")
 origins = [origin.strip() for origin in allowed_origins_raw.split(",")]
 
 app.add_middleware(

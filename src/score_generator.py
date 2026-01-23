@@ -118,6 +118,63 @@ class ScoreGenerator:
                 raise e2
 
 
-def create_score(notes: List[Dict[str, Any]], bpm: float, instrument: str) -> str:
+    def generate_midi(self, notes: List[Dict[str, Any]], instrument_name: str = "Piano") -> bytes:
+        """
+        Generate MIDI bytes from a list of notes.
+        """
+        if not notes:
+            return b""
+
+        s = stream.Score()
+        p = stream.Part()
+        
+        # Assign Instrument
+        inst_map = {
+            "vocals": instrument.Vocalist(),
+            "bass": instrument.ElectricBass(),
+            "guitar": instrument.ElectricGuitar(),
+            "piano": instrument.Piano(),
+            "drums": instrument.Percussion(),
+        }
+        inst = inst_map.get(instrument_name.lower(), instrument.Piano())
+        p.insert(0, inst)
+        p.insert(0, tempo.MetronomeMark(number=self.bpm))
+
+        sec_per_beat = 60.0 / self.bpm
+
+        for n in notes:
+            pitch_val = n["pitch"]
+            start_beat = n["start"] / sec_per_beat
+            end_beat = n["end"] / sec_per_beat
+            duration_beat = max(0.25, end_beat - start_beat)
+
+            m21_note = note.Note(pitch_val)
+            m21_note.quarterLength = round(duration_beat * 4) / 4.0
+            p.insert(round(start_beat * 4) / 4.0, m21_note)
+
+        s.append(p)
+        
+        import tempfile
+        import os
+        
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as tmp:
+                tmp_path = tmp.name
+            
+            s.write("midi", fp=tmp_path)
+            
+            with open(tmp_path, "rb") as f:
+                midi_bytes = f.read()
+            
+            os.remove(tmp_path)
+            return midi_bytes
+        except Exception as e:
+            logger.error(f"MIDI generation error: {e}")
+            raise e
+
+
+def create_score(notes: List[Dict[str, Any]], bpm: float, instrument: str, format: str = "musicxml") -> Any:
     generator = ScoreGenerator(bpm=bpm)
+    if format == "midi":
+        return generator.generate_midi(notes, instrument)
     return generator.generate_musicxml(notes, instrument)

@@ -1,0 +1,44 @@
+services:
+  backend:
+    build: .
+    image: justjam-backend
+    container_name: justjam-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - justjam-data:/app/temp
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_ORIGINS=http://localhost:3000,https://justjam.ai
+      - APP_ENV=production
+      - DATABASE_URL=sqlite:///./temp/justjam.db
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: justjam-frontend
+    container_name: justjam-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+  redis:
+    image: redis:alpine
+    container_name: justjam-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  justjam-data:

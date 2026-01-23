@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { generateTab, TabResponse } from '@/lib/api';
-import { Loader2, Copy, FileText, Printer } from 'lucide-react';
+import { generateTab, generateMidi, TabResponse } from '@/lib/api';
+import { Loader2, Copy, FileText, Printer, Music } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TabViewerProps {
@@ -109,6 +109,26 @@ export function TabViewer({
                 <Button variant="outline" size="sm" onClick={handlePrint}>
                   <Printer className="h-4 w-4 mr-2" />
                   PDF/Print
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const blob = await generateMidi(projectId, inst);
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${inst}_tab.mid`;
+                      a.click();
+                      toast.success('MIDI 다운로드 성공!');
+                    } catch (error) {
+                      toast.error('MIDI 생성 실패');
+                    }
+                  }}
+                >
+                  <Music className="h-4 w-4 mr-2" />
+                  MIDI
                 </Button>
                 <Button
                   variant="outline"

@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { Button } from '@/components/ui/button';
-import { generateScore, generateTab } from '@/lib/api';
-import { Loader2, Download, RefreshCw, FileMusic } from 'lucide-react';
+import { generateScore, generateTab, generateMidi } from '@/lib/api';
+import { Loader2, Download, RefreshCw, FileMusic, Music } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 
@@ -207,6 +207,25 @@ export function ScoreViewer({
             </div>
             <Button variant="outline" size="sm" onClick={downloadMusicXML}>
               <Download className="mr-2 h-4 w-4" /> MusicXML
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const blob = await generateMidi(projectId, instrument);
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${instrument}_score.mid`;
+                  a.click();
+                  toast.success('MIDI 다운로드 성공!');
+                } catch (error) {
+                  toast.error('MIDI 생성 실패');
+                }
+              }}
+            >
+              <Music className="mr-2 h-4 w-4" /> MIDI
             </Button>
             <Button variant="ghost" size="sm" onClick={() => window.print()}>
               <FileMusic className="mr-2 h-4 w-4" /> PDF 인쇄

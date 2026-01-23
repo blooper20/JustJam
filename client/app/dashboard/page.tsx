@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Clock,
   FileMusic,
+  Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import Image from 'next/image';
@@ -123,7 +124,7 @@ export default function DashboardPage() {
       },
       cancel: {
         label: '취소',
-        onClick: () => {},
+        onClick: () => { },
       },
     });
   };
@@ -329,19 +330,19 @@ export default function DashboardPage() {
                 {(project.status === 'processing' ||
                   project.status === 'pending' ||
                   project.status === 'failed') && (
-                  <div
-                    className={`absolute -inset-[1px] rounded-xl bg-gradient-to-r opacity-75 blur-sm animate-pulse`}
-                    style={{
-                      animationDuration: '2s',
-                      background:
-                        project.status === 'failed'
-                          ? 'conic-gradient(from 0deg, transparent 0deg, #ef4444 180deg, transparent 360deg)'
-                          : project.status === 'pending'
-                            ? 'conic-gradient(from 0deg, transparent 0deg, #eab308 180deg, transparent 360deg)'
-                            : 'conic-gradient(from 0deg, transparent 0deg, #3b82f6 180deg, transparent 360deg)',
-                    }}
-                  />
-                )}
+                    <div
+                      className={`absolute -inset-[1px] rounded-xl bg-gradient-to-r opacity-75 blur-sm animate-pulse`}
+                      style={{
+                        animationDuration: '2s',
+                        background:
+                          project.status === 'failed'
+                            ? 'conic-gradient(from 0deg, transparent 0deg, #ef4444 180deg, transparent 360deg)'
+                            : project.status === 'pending'
+                              ? 'conic-gradient(from 0deg, transparent 0deg, #eab308 180deg, transparent 360deg)'
+                              : 'conic-gradient(from 0deg, transparent 0deg, #3b82f6 180deg, transparent 360deg)',
+                      }}
+                    />
+                  )}
 
                 <Card className="relative h-full hover:shadow-lg transition-transform hover:-translate-y-1 duration-200 border-zinc-800 bg-zinc-950 overflow-hidden">
                   {/* Thumbnail Preview */}
@@ -361,6 +362,14 @@ export default function DashboardPage() {
                         <Music className="w-12 h-12 opacity-20" />
                       </div>
                     )}
+
+                    {/* Shared Indicator Badge */}
+                    {!project.is_owner && (
+                      <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md bg-blue-500/80 backdrop-blur-md text-[10px] font-bold text-white flex items-center gap-1 shadow-lg">
+                        <Users size={10} /> SHARED
+                      </div>
+                    )}
+
                     {/* Click to Action Overlay for Pending only */}
                     {project.status === 'pending' && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold text-yellow-500">
@@ -380,32 +389,40 @@ export default function DashboardPage() {
                         <Music className="h-4 w-4 text-muted-foreground" />
                       )}
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => handleRenameClick(e, project.id, project.name)}
-                          className="text-muted-foreground hover:text-zinc-200 transition-colors p-1 rounded-md hover:bg-zinc-800"
-                          title="이름 변경"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => handleCloneClick(e, project.id)}
-                          className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-md hover:bg-zinc-800"
-                          title="복제"
-                          disabled={cloneMutation.isPending}
-                        >
-                          {cloneMutation.isPending && cloneMutation.variables === project.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteClick(e, project.id)}
-                          className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-zinc-800"
-                          title="삭제"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {project.is_owner ? (
+                          <>
+                            <button
+                              onClick={(e) => handleRenameClick(e, project.id, project.name)}
+                              className="text-muted-foreground hover:text-zinc-200 transition-colors p-1 rounded-md hover:bg-zinc-800"
+                              title="이름 변경"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => handleCloneClick(e, project.id)}
+                              className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-md hover:bg-zinc-800"
+                              title="복제"
+                              disabled={cloneMutation.isPending}
+                            >
+                              {cloneMutation.isPending && cloneMutation.variables === project.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteClick(e, project.id)}
+                              className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-zinc-800"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">
+                            <Users size={10} /> Shared
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardHeader>

@@ -49,7 +49,15 @@ export function TabViewer({
     }
   };
 
-  // Removed automatic handleGenerate on mount. User must explicitly click buttons.
+  useEffect(() => {
+    if (autoLoad && existingInstruments.length > 0) {
+      existingInstruments.forEach((inst) => {
+        if (inst === 'guitar' || inst === 'bass') {
+          handleGenerate(inst, true);
+        }
+      });
+    }
+  }, [autoLoad, projectId]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);

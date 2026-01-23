@@ -49,7 +49,14 @@ export function ScoreViewer({
     }
   };
 
-  // Removed automatic loadScore on mount. User must explicitly click buttons.
+  useEffect(() => {
+    if (autoLoad && existingInstruments.length > 0) {
+      // 보관함에 악보가 있으면 첫 번째 악보를 자동으로 불러옴
+      const firstInst = existingInstruments[0];
+      setInstrument(firstInst);
+      loadScore(firstInst);
+    }
+  }, [autoLoad, projectId]);
 
   useEffect(() => {
     if (!xmlContent || !containerRef.current) return;

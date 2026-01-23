@@ -1,5 +1,14 @@
 import apiClient from './api-client';
 
+export interface ProjectMember {
+  id: number;
+  user_id: number;
+  project_id: string;
+  role: 'viewer' | 'editor';
+  email: string;
+  nickname: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -12,6 +21,9 @@ export interface Project {
   has_tab?: boolean;
   score_instruments?: string[];
   tab_instruments?: string[];
+  members?: ProjectMember[];
+  is_owner?: boolean;
+  thumbnail_url?: string;
 }
 
 export interface StemFiles {
@@ -106,6 +118,13 @@ export const generateTab = async (id: string, instrument: string): Promise<TabRe
   return response.data;
 };
 
+export const generateMidi = async (id: string, instrument: string): Promise<Blob> => {
+  const response = await apiClient.post(`/projects/${id}/midi/${instrument}`, null, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
 export const downloadMix = async (
   id: string,
   volumes: Record<string, number>,
@@ -131,4 +150,22 @@ export const downloadMix = async (
 
 export const deleteProject = async (projectId: string): Promise<void> => {
   await apiClient.delete(`/projects/${projectId}`);
+};
+
+export const shareProject = async (
+  projectId: string,
+  email: string,
+  role: 'viewer' | 'editor' = 'viewer',
+): Promise<ProjectMember> => {
+  const response = await apiClient.post(`/projects/${projectId}/share`, { email, role });
+  return response.data;
+};
+
+export const fetchProjectMembers = async (projectId: string): Promise<ProjectMember[]> => {
+  const response = await apiClient.get(`/projects/${projectId}/members`);
+  return response.data;
+};
+
+export const removeProjectMember = async (projectId: string, userId: number): Promise<void> => {
+  await apiClient.delete(`/projects/${projectId}/members/${userId}`);
 };

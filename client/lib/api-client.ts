@@ -1,10 +1,23 @@
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import { getSession, signOut } from 'next-auth/react';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000, // 30초 타임아웃
+});
+
+// 재시도 로직 설정
+axiosRetry(apiClient, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error) => {
+    // 네트워크 에러 또는 5xx 서버 에러인 경우에만 재시도
+    return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+      (error.response?.status ?? 0) >= 500;
+  },
 });
 
 apiClient.interceptors.request.use(async (config) => {
@@ -29,7 +42,7 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // If 401, sign out and redirect to login
+      // 401 Unauthorized인 경우 세션 만료로 간주하여 로그아웃 처리
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
         await signOut({ callbackUrl: '/login' });
       }

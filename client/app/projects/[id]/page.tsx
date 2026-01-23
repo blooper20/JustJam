@@ -1,7 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchProject, processProject, fetchProjectStems } from '@/lib/api';
+import { useProject } from '@/hooks/use-project';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Play, AlertCircle, ArrowLeft, Download } from 'lucide-react';
@@ -12,6 +11,8 @@ import { MultiTrackPlayer } from '@/components/multitrack-player';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
+import { ShareModal } from '@/components/share-modal';
+import { Users } from 'lucide-react';
 
 const TabViewer = dynamic(() => import('@/components/tab-viewer').then((mod) => mod.TabViewer), {
   ssr: false,
@@ -43,29 +44,19 @@ export default function ProjectPage() {
   const queryClient = useQueryClient();
   const [loadMixer, setLoadMixer] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'mixer' | 'score' | 'tab'>(
     (searchParams.get('tab') as any) || 'mixer'
   );
   // Removed local progress state
 
-  const { data: project, isLoading } = useQuery({
-    queryKey: ['project', id],
-    queryFn: () => fetchProject(id),
-    refetchInterval: (query) => (query.state.data?.status === 'processing' ? 1000 : false), // Poll faster
-  });
-
-  const { data: stems } = useQuery({
-    queryKey: ['project', id, 'stems'],
-    queryFn: () => fetchProjectStems(id),
-    enabled: project?.status === 'completed',
-  });
-
-  const processMutation = useMutation({
-    mutationFn: () => processProject(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project', id] });
-    },
-  });
+  const {
+    project,
+    isLoading,
+    stems,
+    processProject: startProcessing,
+    isProcessing,
+  } = useProject(id);
 
   if (isLoading)
     return (
@@ -107,9 +98,26 @@ export default function ProjectPage() {
             >
               {project.status.toUpperCase()}
             </span>
+            {project.status === 'completed' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsShareModalOpen(true)}
+                className="gap-2 transition-all hover:bg-zinc-800 border-zinc-700 h-8 font-medium bg-zinc-900/50"
+              >
+                <Users size={14} /> 공유/협업
+              </Button>
+            )}
           </div>
         </div>
       </div>
+
+      <ShareModal
+        projectId={id}
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        isOwner={true}
+      />
 
       {project.status === 'pending' && (
         <Card className="bg-zinc-900 border-zinc-800">
@@ -117,11 +125,11 @@ export default function ProjectPage() {
             <h3 className="text-lg font-medium mb-2">분석 준비 완료</h3>
             <p className="text-muted-foreground mb-4">음원 분리를 시작하려면 버튼을 클릭하세요.</p>
             <Button
-              onClick={() => processMutation.mutate()}
-              disabled={processMutation.isPending}
+              onClick={() => startProcessing()}
+              disabled={isProcessing}
               size="lg"
             >
-              {processMutation.isPending && <Loader2 className="animate-spin mr-2" />}
+              {isProcessing && <Loader2 className="animate-spin mr-2" />}
               분리 및 분석 시작 (Start Separation)
             </Button>
           </CardContent>
@@ -169,6 +177,11 @@ export default function ProjectPage() {
                         <span className="text-xs font-normal text-muted-foreground bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">
                           AI BPM: {project.bpm || 'Unknown'}
                         </span>
+                        {project.detected_key && (
+                          <span className="text-xs font-normal text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                            Key: {project.detected_key}
+                          </span>
+                        )}
                       </CardTitle>
                       <CardDescription>각 파트의 볼륨을 조절하여 연습하세요.</CardDescription>
                     </div>
@@ -205,6 +218,7 @@ export default function ProjectPage() {
                       projectId={project.id}
                       initialBpm={project.bpm}
                       onTimeUpdate={setCurrentTime}
+                      chordProgression={project.chord_progression}
                     />
                   )}
                 </CardContent>

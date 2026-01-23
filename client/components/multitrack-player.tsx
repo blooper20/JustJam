@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { Play, Pause, Volume2, Download, Loader2, Bookmark, X } from 'lucide-react';
+import { Play, Pause, Volume2, Download, Loader2, Bookmark, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
@@ -303,6 +303,7 @@ export function MultiTrackPlayer({
   const [tracks, setTracks] = useState<TrackControl[]>([]);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [loadedTracks, setLoadedTracks] = useState(0);
 
   // 메트로놈 상태
   const [bpm, setBpm] = useState(initialBpm || 120);
@@ -322,6 +323,17 @@ export function MultiTrackPlayer({
 
   // 북마크 상태
   const [bookmarks, setBookmarks] = useState<number[]>([]);
+
+  // 스크롤 상태 (헤더 축소용)
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const addBookmark = () => {
     // 현재 시간 기준으로 북마크 추가 (소수점 첫째자리까지)
@@ -482,6 +494,7 @@ export function MultiTrackPlayer({
 
       ws.on('ready', () => {
         readyCount.current++;
+        setLoadedTracks((prev) => prev + 1);
         // 첫 번째 트랙에서 전체 재생 시간 설정
         if (index === 0) {
           setDuration(ws.getDuration());
@@ -548,10 +561,10 @@ export function MultiTrackPlayer({
 
     const ws = WaveSurfer.create({
       container: masterContainerRef.current,
-      waveColor: '#52525b', // zinc-600
+      waveColor: '#a1a1aa', // zinc-400 (brighter for visibility)
       progressColor: '#facc15', // yellow-400
       url: masterUrl,
-      height: 64,
+      height: 96,
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
@@ -892,88 +905,164 @@ export function MultiTrackPlayer({
   };
 
   return (
-    <div className="space-y-6 select-none">
-      {/* 마스터 컨트롤 */}
-      <div className="flex items-center gap-4 bg-zinc-900 p-4 rounded-xl border border-zinc-800 sticky top-4 z-20 shadow-xl backdrop-blur-md bg-opacity-90">
-        {/* 재생/일시정지 버튼 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-12 w-12 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-          onClick={togglePlay}
-        >
-          {isPlaying ? (
-            <Pause className="fill-current w-6 h-6" />
-          ) : (
-            <Play className="fill-current w-6 h-6 ml-1" />
-          )}
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 text-zinc-500 hover:text-primary"
-          onClick={addBookmark}
-          title="북마크 추가"
-        >
-          <Bookmark className="w-5 h-5" />
-        </Button>
-
-        <div className="flex-1 space-y-2 relative">
-          {/* 마스터 파형 - 클릭/드래그로 탐색 */}
-          <div
-            ref={masterContainerRef}
-            className={cn(
-              'w-full h-12 rounded cursor-pointer relative',
-              isDraggingWaveform && 'cursor-grabbing',
-            )}
-            onMouseDown={handleWaveformMouseDown}
-          />
-
-          {/* 시작 오프셋 빨간 마커 */}
-          {duration > 0 && (
-            <div
-              data-marker="start-offset"
-              className="absolute top-0 bottom-0 w-0 border-l-2 border-red-500 z-10 hover:border-l-4 cursor-ew-resize group"
-              style={{ left: `${(startOffsetSeconds / duration) * 100}%` }}
-              onMouseDown={handleMarkerMouseDown}
-            >
-              <div className="absolute -top-3 -left-1.5 transition-transform group-hover:scale-125">
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="red"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M12 21L21 9H3L12 21Z" />
-                </svg>
+    <div className="space-y-6 select-none relative">
+      {/* 로딩 오버레이 */}
+      {tracks.length > 0 && loadedTracks < tracks.length && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm rounded-xl">
+          <div className="text-center p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+            <h3 className="text-xl font-bold mb-2">오디오 트랙 불러오는 중...</h3>
+            <p className="text-muted-foreground text-sm mb-6">
+              정밀 분석된 트랙을 준비하고 있습니다.
+            </p>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-medium">
+                <span>진행 상태</span>
+                <span>
+                  {loadedTracks} / {tracks.length} 트랙 완료
+                </span>
+              </div>
+              <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300 ease-out"
+                  style={{ width: `${(loadedTracks / tracks.length) * 100}%` }}
+                />
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* 마스터 상단 고정 바 (모든 상황에서 최상단 유지) */}
+      <div
+        className={cn(
+          'sticky top-20 z-40 transition-all duration-300 ease-in-out w-full',
+          isScrolled ? 'pt-1' : 'pt-2',
+        )}
+      >
+        <div
+          className={cn(
+            'bg-zinc-900 border border-zinc-800 shadow-2xl backdrop-blur-md bg-opacity-95 rounded-2xl transition-all duration-300 overflow-hidden flex flex-col',
+            isScrolled ? 'p-2 gap-2' : 'p-6 gap-4',
           )}
+        >
+          {/* 상단 1열: 재생 버튼 + 파형 + 마스터 정보 */}
+          <div className="flex items-center gap-4">
+            {/* 재생/일시정지 버튼 */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 shrink-0 shadow-lg active:scale-95 transition-all outline-none focus:ring-0',
+                isScrolled ? 'h-10 w-10' : 'h-16 w-16',
+              )}
+              onClick={togglePlay}
+            >
+              {isPlaying ? (
+                <Pause className={cn('fill-current text-primary', isScrolled ? 'w-4 h-4' : 'w-8 h-8')} />
+              ) : (
+                <Play className={cn('fill-current text-primary', isScrolled ? 'w-4 h-4 ml-0.5' : 'w-8 h-8 ml-1')} />
+              )}
+            </Button>
 
-          {/* 구간 반복 (A-B) 표시 */}
-          {duration > 0 && loopStart !== null && loopEnd !== null && (
+            <div className="flex-1 space-y-2 relative">
+              {/* 마스터 파형 */}
+              <div
+                ref={masterContainerRef}
+                className={cn(
+                  'w-full rounded-xl cursor-pointer relative bg-zinc-950/40 border border-zinc-800/50 shadow-inner overflow-hidden transition-all duration-300',
+                  isScrolled ? 'h-[40px]' : 'h-[96px]',
+                  isDraggingWaveform && 'cursor-grabbing',
+                )}
+                onMouseDown={handleWaveformMouseDown}
+              />
+
+              {/* 빨간 마커 */}
+              {duration > 0 && (
+                <div
+                  data-marker="start-offset"
+                  className="absolute top-0 bottom-0 w-0 border-l-2 border-red-500 z-10 hover:border-l-4 cursor-ew-resize group"
+                  style={{ left: `${(startOffsetSeconds / duration) * 100}%` }}
+                  onMouseDown={handleMarkerMouseDown}
+                >
+                  <div className="absolute -top-3 -left-1.5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="red">
+                      <path d="M12 21L21 9H3L12 21Z" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+
+              {/* 반복 영역 표시 */}
+              {duration > 0 && loopStart !== null && loopEnd !== null && (
+                <div
+                  className={cn(
+                    'absolute top-0 bottom-0 bg-primary/15 border-x border-primary/35 pointer-events-none z-0',
+                    !isLoopEnabled && 'opacity-30 grayscale',
+                  )}
+                  style={{
+                    left: `${(loopStart / duration) * 100}%`,
+                    width: `${((loopEnd - loopStart) / duration) * 100}%`,
+                  }}
+                />
+              )}
+            </div>
+
+            {/* 마스터 정보 (Speed) */}
             <div
               className={cn(
-                'absolute top-0 bottom-0 bg-primary/20 border-x border-primary/50 pointer-events-none z-0',
-                !isLoopEnabled && 'opacity-30 grayscale',
+                'flex flex-col gap-2 border-l border-zinc-800 pl-4 py-1 transition-all',
+                isScrolled ? 'min-w-[140px]' : 'min-w-[240px]',
               )}
-              style={{
-                left: `${(loopStart / duration) * 100}%`,
-                width: `${((loopEnd - loopStart) / duration) * 100}%`,
-              }}
-            />
-          )}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">
+                  Speed
+                </span>
+                {isScrolled && (
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-primary tabular-nums">
+                    {formatTime(currentTime)}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-2 bg-zinc-950/50 px-2 py-1 rounded-lg border border-zinc-800/60 shadow-sm">
+                <Select
+                  value={playbackRate.toString()}
+                  onValueChange={(v) => setPlaybackRate(parseFloat(v))}
+                >
+                  <SelectTrigger className="h-6 w-full bg-zinc-900 border-zinc-700 text-[10px] focus:ring-0 rounded-md">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
+                    <SelectItem value="0.5">0.5x</SelectItem>
+                    <SelectItem value="0.75">0.75x</SelectItem>
+                    <SelectItem value="1">1.0x</SelectItem>
+                    <SelectItem value="1.25">1.25x</SelectItem>
+                    <SelectItem value="1.5">1.5x</SelectItem>
+                    <SelectItem value="2">2.0x</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
 
-          {/* 현재 시간 / 전체 시간 */}
-          <div className="flex justify-between items-center text-xs text-muted-foreground font-mono mt-1">
-            <div className="flex items-center gap-4">
-              <span>
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-              {/* 구간 반복 컨트롤 */}
-              <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
+          {/* 하단 2열: 시간, 루프, 메트로놈, 다운로드 (항상 스티키 영역 내에 유지) */}
+          <div className={cn(
+            "flex items-center justify-between gap-4 border-t border-zinc-800/50 pt-2 transition-all",
+            isScrolled ? "py-1" : "pt-4"
+          )}>
+            <div className="flex items-center gap-6">
+              {/* 진행 시간 */}
+              <div className="flex items-baseline gap-2 font-mono">
+                <span className={cn("font-bold text-primary tabular-nums", isScrolled ? "text-lg" : "text-2xl")}>
+                  {formatTime(currentTime)}
+                </span>
+                <span className="text-zinc-600">/</span>
+                <span className={cn("text-zinc-500", isScrolled ? "text-sm" : "text-lg")}>{formatTime(duration)}</span>
+              </div>
+
+              {/* 구간 반복 (A-B) */}
+              <div className="flex items-center gap-2 bg-zinc-950/50 p-1 px-2 rounded-xl border border-zinc-800/50">
+                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tighter mr-2 hidden md:block">Loop</span>
                 <button
                   onClick={() => {
                     if (loopStart === null) setLoopStart(currentTime);
@@ -984,305 +1073,242 @@ export function MultiTrackPlayer({
                     }
                   }}
                   className={cn(
-                    'px-2 py-0.5 rounded text-[10px] transition-colors border',
+                    'px-3 py-1 rounded-lg text-xs transition-all border font-bold active:scale-95 whitespace-nowrap',
                     loopStart !== null && loopEnd === null
                       ? 'bg-orange-500/20 text-orange-500 border-orange-500/50'
                       : loopStart !== null && loopEnd !== null
                         ? 'bg-primary/20 text-primary border-primary/50'
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700',
+                        : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500',
                   )}
                 >
-                  {loopStart === null ? 'A 설정' : loopEnd === null ? 'B 설정' : '구간 해제'}
+                  {loopStart === null ? 'A' : loopEnd === null ? 'B' : 'Reset'}
                 </button>
                 {loopStart !== null && loopEnd !== null && (
                   <button
                     onClick={() => setIsLoopEnabled(!isLoopEnabled)}
                     className={cn(
-                      'px-2 py-0.5 rounded text-[10px] transition-colors border',
+                      'px-3 py-1 rounded-lg text-xs transition-all border font-bold active:scale-95',
                       isLoopEnabled
                         ? 'bg-green-500/20 text-green-500 border-green-500/50'
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700',
+                        : 'bg-zinc-800 text-zinc-500 border-zinc-700',
                     )}
                   >
-                    반복 {isLoopEnabled ? 'ON' : 'OFF'}
+                    {isLoopEnabled ? 'ON' : 'OFF'}
                   </button>
                 )}
               </div>
+
             </div>
-          </div>
-        </div>
 
-        {/* 메트로놈 컨트롤 */}
-        <div
-          className={cn(
-            'flex flex-col gap-2 w-52 px-3 border-l border-zinc-700/50 transition-opacity',
-            !metronomeEnabled && 'opacity-50',
-          )}
-        >
-          {/* 헤더 - ON/OFF 토글 */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400">메트로놈</span>
-            <button
-              type="button"
-              onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-              className={cn(
-                'px-2 py-0.5 text-[10px] rounded border font-mono transition-colors',
-                metronomeEnabled
-                  ? 'bg-green-500/20 text-green-500 border-green-500/50'
-                  : 'bg-zinc-800 text-zinc-500 border-zinc-700',
-              )}
-            >
-              {metronomeEnabled ? 'ON' : 'OFF'}
-            </button>
-          </div>
-
-          {/* 시작 오프셋 */}
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] uppercase text-zinc-500">시작 (초)</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={startOffsetSeconds}
-              onChange={(e) => setStartOffsetSeconds(Math.max(0, Number(e.target.value)))}
-              className="w-14 h-5 text-[10px] bg-zinc-800 border border-zinc-700 rounded px-1 text-center"
-              disabled={!metronomeEnabled}
-            />
-          </div>
-
-          {/* BPM 컨트롤 */}
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] uppercase text-zinc-500">BPM</span>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={inputBpm}
-                onChange={(e) => setInputBpm(Number(e.target.value))}
-                className="w-12 h-6 text-xs bg-zinc-800 border border-zinc-700 rounded px-1 text-center"
-                disabled={!metronomeEnabled}
-              />
-              <button
-                type="button"
-                disabled={!metronomeEnabled}
-                className={cn(
-                  'h-6 px-2 text-[10px] rounded border font-medium transition-colors',
-                  metronomeEnabled
-                    ? 'bg-zinc-700 text-zinc-200 border-zinc-600 hover:bg-zinc-600'
-                    : 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed',
-                )}
-                onClick={() => {
-                  if (!metronomeEnabled) return;
-                  if (inputBpm < 30 || inputBpm > 300) {
-                    toast.error('BPM은 30~300 사이여야 합니다');
-                    return;
-                  }
-                  setBpm(inputBpm);
-                  toast.success(`BPM이 ${inputBpm}으로 설정되었습니다`);
-                }}
-              >
-                설정
-              </button>
-              <button
-                type="button"
-                disabled={!metronomeEnabled}
-                className={cn(
-                  'h-6 px-2 text-[10px] rounded border font-medium transition-colors',
-                  metronomeEnabled
-                    ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 active:bg-primary active:text-primary-foreground'
-                    : 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed',
-                )}
-                onClick={() => {
-                  if (metronomeEnabled) handleTap();
-                }}
-              >
-                TAP
-              </button>
-            </div>
-          </div>
-
-          {/* 비주얼 비트 인디케이터 (4/4 박자) */}
-          <div className="flex justify-center gap-2 py-1 bg-zinc-950/40 rounded-md border border-zinc-800/50">
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className={cn(
-                  'w-2.5 h-2.5 rounded-full transition-all duration-75',
-                  metronomeEnabled && currentBeat === i
-                    ? i === 0
-                      ? 'bg-primary shadow-[0_0_8px_theme(colors.primary.DEFAULT)] scale-125'
-                      : 'bg-zinc-300 shadow-[0_0_6px_rgba(255,255,255,0.8)] scale-110'
-                    : 'bg-zinc-800',
-                )}
-              />
-            ))}
-          </div>
-
-          {/* 볼륨 슬라이더 */}
-          <div className="flex items-center gap-2">
-            <Volume2 size={12} className={metronomeEnabled ? 'text-zinc-500' : 'text-zinc-700'} />
-            <Slider
-              value={[metronomeVolume]}
-              max={1}
-              step={0.05}
-              onValueChange={(val) => setMetronomeVolume(val[0])}
-              className="h-3 flex-1"
-              disabled={!metronomeEnabled}
-            />
-          </div>
-        </div>
-
-        {/* 재생 속도 컨트롤 */}
-        <div className="flex flex-col gap-1 w-24 px-3 border-l border-zinc-700/50">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">속도</span>
-          <Select
-            value={playbackRate.toString()}
-            onValueChange={(v) => setPlaybackRate(parseFloat(v))}
-          >
-            <SelectTrigger className="h-7 bg-zinc-800 border-zinc-700 text-[10px] focus:ring-0">
-              <SelectValue placeholder="1.0x" />
-            </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
-              <SelectItem value="0.5">0.5x</SelectItem>
-              <SelectItem value="0.75">0.75x</SelectItem>
-              <SelectItem value="1.0">1.0x</SelectItem>
-              <SelectItem value="1.25">1.25x</SelectItem>
-              <SelectItem value="1.5">1.5x</SelectItem>
-              <SelectItem value="2.0">2.0x</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 북마크 목록 */}
-        <div className="flex flex-col gap-1 w-32 px-3 border-l border-zinc-700/50">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-            북마크
-          </span>
-          <div className="flex flex-wrap gap-1 max-h-[40px] overflow-y-auto scrollbar-none">
-            {bookmarks.length === 0 ? (
-              <span className="text-[10px] text-zinc-600 italic">없음</span>
-            ) : (
-              bookmarks.map((time) => (
-                <div
-                  key={time}
-                  className="group flex items-center bg-zinc-800 rounded px-1.5 py-0.5 border border-zinc-700 hover:border-primary/50 transition-colors"
+            {/* 오른쪽: 믹스 다운로드 및 북마크 */}
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1 items-center mr-2">
+                <button
+                  onClick={addBookmark}
+                  className="text-[10px] font-bold text-zinc-500 hover:text-primary transition-colors flex items-center gap-1"
                 >
-                  <button
-                    onClick={() => handleSeek([time])}
-                    className="text-[10px] font-mono text-zinc-300"
-                  >
-                    {formatTime(time)}
-                  </button>
-                  <button
-                    onClick={() => removeBookmark(time)}
-                    className="ml-1 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ))
-            )}
+                  <Plus size={12} />
+                  BOOKMARK
+                </button>
+                {!isScrolled && (
+                  <div className="flex gap-1 overflow-x-auto max-w-[120px] scrollbar-none">
+                    {bookmarks.map((time) => (
+                      <button
+                        key={time}
+                        onClick={() => handleSeek([time])}
+                        className="px-1.5 py-0.5 bg-zinc-950 border border-zinc-800 rounded text-[9px] font-mono text-zinc-400 hover:text-primary"
+                      >
+                        {formatTime(time)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleDownloadMix}
+                disabled={isDownloading}
+                className="h-8 rounded-lg font-bold gap-2 active:scale-95"
+              >
+                {isDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                Download Mix
+              </Button>
+            </div>
           </div>
         </div>
-
-        {/* 믹스 다운로드 버튼 */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleDownloadMix}
-          disabled={isDownloading}
-          className="ml-2 gap-2"
-        >
-          {isDownloading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4" />
-          )}
-          믹스 다운로드
-        </Button>
       </div>
 
-      {/* 개별 트랙 */}
-      <div className="grid gap-3">
-        {tracks.map((track) => (
-          <Card
-            key={track.name}
-            className={cn(
-              'bg-zinc-950/50 border-zinc-800/50 overflow-hidden transition-all',
-              track.isSolo && 'border-primary ring-1 ring-primary bg-zinc-900',
-              track.isMuted && 'opacity-60 grayscale',
-            )}
-          >
-            <div className="flex items-center p-3 gap-4">
-              {/* 트랙 컨트롤 */}
-              <div className="w-48 flex flex-col gap-2 shrink-0">
-                <div className="flex items-center justify-between mb-1">
-                  {/* 트랙 이름 */}
-                  <span
-                    className="font-bold uppercase text-xs tracking-wider"
-                    style={{ color: TRACK_COLORS[track.name] }}
-                  >
-                    {track.name}
-                  </span>
-                  <div className="flex gap-1">
-                    {/* 음소거 버튼 */}
-                    <button
-                      onClick={() => toggleMute(track.name)}
-                      className={cn(
-                        'px-2 py-0.5 text-[10px] rounded border font-mono transition-colors',
-                        track.isMuted
-                          ? 'bg-red-500/20 text-red-500 border-red-500/50'
-                          : 'border-zinc-700 text-zinc-400 hover:text-zinc-200',
-                      )}
-                    >
-                      M
-                    </button>
-                    {/* 솔로 버튼 */}
-                    <button
-                      onClick={() => toggleSolo(track.name)}
-                      className={cn(
-                        'px-2 py-0.5 text-[10px] rounded border font-mono transition-colors',
-                        track.isSolo
-                          ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'
-                          : 'border-zinc-700 text-zinc-400 hover:text-zinc-200',
-                      )}
-                    >
-                      S
-                    </button>
-                    {/* 개별 다운로드 */}
-                    <a
-                      href={track.url}
-                      download={`${track.name}.wav`}
-                      className="px-2 py-0.5 text-[10px] rounded border font-mono transition-colors border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-                      title="스템 다운로드"
-                    >
-                      <Download className="w-3 h-3 inline" />
-                    </a>
-                  </div>
-                </div>
+      <div className="w-full relative py-4 flex gap-6 items-start">
+        {/* 왼쪽 영역: 개별 트랙 목록 */}
+        <div className="flex-1 space-y-3">
+          {/* 개별 트랙 */}
+          <div className="grid gap-3">
+            {tracks.map((track) => (
+              <Card
+                key={track.name}
+                className={cn(
+                  'bg-zinc-950/50 border-zinc-800/50 overflow-hidden transition-all',
+                  track.isSolo && 'border-primary ring-1 ring-primary bg-zinc-900',
+                  track.isMuted && 'opacity-60 grayscale',
+                )}
+              >
+                <div className="flex items-center p-3 gap-4">
+                  {/* 트랙 컨트롤 */}
+                  <div className="w-48 flex flex-col gap-2 shrink-0">
+                    <div className="flex items-center justify-between mb-1">
+                      {/* 트랙 이름 */}
+                      <span
+                        className="font-bold uppercase text-xs tracking-wider"
+                        style={{ color: TRACK_COLORS[track.name] }}
+                      >
+                        {track.name}
+                      </span>
+                      <div className="flex gap-1">
+                        {/* 음소거 버튼 */}
+                        <button
+                          onClick={() => toggleMute(track.name)}
+                          className={cn(
+                            'px-2 py-0.5 text-[10px] rounded border font-mono transition-colors',
+                            track.isMuted
+                              ? 'bg-red-500/20 text-red-500 border-red-500/50'
+                              : 'border-zinc-700 text-zinc-400 hover:text-zinc-200',
+                          )}
+                        >
+                          M
+                        </button>
+                        {/* 솔로 버튼 */}
+                        <button
+                          onClick={() => toggleSolo(track.name)}
+                          className={cn(
+                            'px-2 py-0.5 text-[10px] rounded border font-mono transition-colors',
+                            track.isSolo
+                              ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'
+                              : 'border-zinc-700 text-zinc-400 hover:text-zinc-200',
+                          )}
+                        >
+                          S
+                        </button>
+                        {/* 개별 다운로드 */}
+                        <a
+                          href={track.url}
+                          download={`${track.name}.wav`}
+                          className="px-2 py-0.5 text-[10px] rounded border font-mono transition-colors border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                          title="스템 다운로드"
+                        >
+                          <Download className="w-3 h-3 inline" />
+                        </a>
+                      </div>
+                    </div>
 
-                {/* 볼륨 슬라이더 */}
-                <div className="flex items-center gap-2">
-                  <Volume2 size={12} className="text-zinc-500" />
+                    {/* 볼륨 슬라이더 */}
+                    <div className="flex items-center gap-2">
+                      <Volume2 size={12} className="text-zinc-500" />
+                      <Slider
+                        value={[track.volume]}
+                        max={1}
+                        step={0.01}
+                        onValueChange={(val) => handleVolume(track.name, val)}
+                        className="h-4"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 파형 */}
+                  <div
+                    className="flex-1 h-16 rounded-md overflow-hidden relative cursor-crosshair"
+                    ref={(el) => {
+                      containerRefs.current[track.name] = el;
+                    }}
+                  />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* 오른쪽 영역: 사이드바 (메트로놈 및 설정) */}
+        <aside className={cn(
+          "w-72 sticky hidden lg:block space-y-4 transition-all duration-300",
+          isScrolled ? "top-[250px]" : "top-[420px]"
+        )}>
+          <Card className="bg-zinc-950/50 border-zinc-800/80 p-5 rounded-2xl backdrop-blur-md">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Metronome</h3>
+                <button
+                  onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+                  className={cn(
+                    "px-3 py-1 text-xs rounded-full font-bold transition-all border shadow-lg active:scale-95",
+                    metronomeEnabled
+                      ? "bg-green-500 border-green-400 text-white ring-2 ring-green-500/20"
+                      : "bg-zinc-800 border-zinc-700 text-zinc-500"
+                  )}
+                >
+                  {metronomeEnabled ? "ENABLED" : "DISABLED"}
+                </button>
+              </div>
+
+              {/* 비주얼 비트 */}
+              <div className="flex justify-between items-center bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/30">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "w-4 h-4 rounded-sm transition-all duration-75",
+                      metronomeEnabled && currentBeat === i
+                        ? i === 0
+                          ? "bg-primary shadow-[0_0_10px_rgba(250,204,21,0.5)] scale-110"
+                          : "bg-zinc-200"
+                        : "bg-zinc-800"
+                    )}
+                  />
+                ))}
+              </div>
+
+              {/* BPM 조절 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase">Tempo (BPM)</span>
+                  <span className="text-lg font-mono font-bold text-primary">{bpm}</span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={inputBpm}
+                    onChange={(e) => setInputBpm(Number(e.target.value))}
+                    className="flex-1 h-10 bg-zinc-900 border border-zinc-800 rounded-lg text-center text-sm font-bold font-mono focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                  />
+                  <button
+                    onClick={handleTap}
+                    className="px-4 bg-zinc-800 hover:bg-zinc-700 text-xs font-bold rounded-lg border border-zinc-700 active:scale-95 transition-all text-zinc-300"
+                  >
+                    TAP
+                  </button>
+                </div>
+              </div>
+
+              {/* 메트로놈 볼륨 */}
+              <div className="space-y-3 pt-2 border-t border-zinc-800/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase">Volume</span>
+                  <span className="text-[10px] font-mono text-zinc-400">{Math.round(metronomeVolume * 100)}%</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Volume2 size={14} className="text-zinc-500" />
                   <Slider
-                    value={[track.volume]}
+                    value={[metronomeVolume]}
                     max={1}
                     step={0.01}
-                    onValueChange={(val) => handleVolume(track.name, val)}
-                    className="h-4"
+                    onValueChange={(val) => setMetronomeVolume(val[0])}
+                    className="flex-1"
                   />
                 </div>
               </div>
-
-              {/* 파형 */}
-              <div
-                className="flex-1 h-16 rounded-md overflow-hidden relative cursor-crosshair"
-                ref={(el) => {
-                  containerRefs.current[track.name] = el;
-                }}
-              />
             </div>
           </Card>
-        ))}
+        </aside>
       </div>
     </div>
   );

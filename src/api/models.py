@@ -62,6 +62,7 @@ class ProjectModel(Base):
     bpm = Column(Integer, nullable=True)
     detected_key = Column(String, nullable=True)
     chord_progression = Column(String, nullable=True)  # JSON formatted string
+    structure = Column(String, nullable=True)  # JSON formatted string
     thumbnail_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

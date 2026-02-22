@@ -7,12 +7,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import apiClient from '@/lib/api-client';
+import { uploadProfileImage } from '@/lib/api';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
 
   const [nickname, setNickname] = useState(session?.user?.name || '');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleUpdateProfile = async () => {
     if (!nickname.trim()) return;
@@ -20,20 +22,29 @@ export default function SettingsPage() {
     try {
       await apiClient.patch('/users/me', { nickname });
       toast.success('프로필이 업데이트되었습니다.');
-      // NextAuth 세션 업데이트 (사용 가능한 경우)
-      // @ts-ignore
-      if (session?.update) {
-        // @ts-ignore
-        await session.update({ name: nickname });
-      } else {
-        // 세션 업데이트가 지원되지 않으면 페이지 새로고침 권장
-        // window.location.reload();
-      }
     } catch (error) {
       console.error(error);
       toast.error('프로필 업데이트 실패');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const updatedUser = await uploadProfileImage(file);
+      toast.success('프로필 이미지가 변경되었습니다.');
+      // 세션 강제 갱신은 복잡하므로 페이지 새로고침 권장
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      toast.error('이미지 업로드 실패');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -61,12 +72,29 @@ export default function SettingsPage() {
             <CardDescription>공개 프로필 정보를 관리합니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center gap-6">
-              <Avatar className="w-20 h-20">
-                <AvatarImage src={session?.user?.image || ''} />
-                <AvatarFallback>{session?.user?.name?.[0] || 'U'}</AvatarFallback>
-              </Avatar>
-              <div className="space-y-1 flex-1">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="relative group">
+                <Avatar className="w-24 h-24 border-2 border-zinc-800">
+                  <AvatarImage src={session?.user?.image || ''} />
+                  <AvatarFallback className="text-2xl">{session?.user?.name?.[0] || 'U'}</AvatarFallback>
+                </Avatar>
+                <label
+                  htmlFor="profile-upload"
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer"
+                >
+                  <span className="text-xs font-medium text-white">{isUploading ? '업로드 중...' : '변경'}</span>
+                  <input
+                    id="profile-upload"
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={isUploading}
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-1 flex-1 w-full">
                 <div className="space-y-4">
                   <div className="grid gap-2">
                     <label htmlFor="nickname" className="text-sm font-medium">

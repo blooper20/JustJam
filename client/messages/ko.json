@@ -1,0 +1,33 @@
+{
+    "Index": {
+        "title": "음악 협업의 새로운 기준, JustJam",
+        "description": "AI 음원 분리로 완성하는 당신만의 밴드 작업실",
+        "getStarted": "시작하기",
+        "recentProjects": "최근 프로젝트"
+    },
+    "Auth": {
+        "login": "로그인",
+        "logout": "로그아웃",
+        "googleLogin": "구글로 계속하기",
+        "kakaoLogin": "카카오로 계속하기"
+    },
+    "Common": {
+        "settings": "설정",
+        "profile": "프로필",
+        "delete": "삭제"
+    },
+    "Player": {
+        "loading": "오디오 트랙 불러오는 중...",
+        "preparing": "정밀 분석된 트랙을 준비하고 있습니다.",
+        "progress": "진행 상태",
+        "tracksCompleted": "{completed} / {total} 트랙 완료",
+        "downloadMix": "믹스 다운로드",
+        "metronome": "메트로놈",
+        "tempo": "템포",
+        "volume": "볼륨",
+        "speed": "배속",
+        "loop": "구간 반복",
+        "currentChord": "현재 코드",
+        "bookmark": "북마크"
+    }
+}

@@ -4,16 +4,15 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from src.api.auth.jwt import create_access_token, create_refresh_token, verify_token
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
-from src.api.exceptions import AuthenticationError, InvalidTokenError
 from src.api.limiter import limiter
 from src.api.models import User
 from src.api.schemas.user import LoginRequest, RefreshTokenRequest, TokenResponse, UserResponse
+from src.api.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -28,7 +27,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     },
 )
 @limiter.limit("5/minute")
-async def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
+async def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     """
     소셜 로그인 (Google, Kakao)
 
@@ -43,49 +42,7 @@ async def login(request: Request, login_data: LoginRequest, db: Session = Depend
     Returns:
         TokenResponse: access_token, refresh_token, 사용자 정보
     """
-    # 기존 사용자 확인
-    user = (
-        db.query(User)
-        .filter(User.provider == login_data.provider, User.provider_id == login_data.provider_id)
-        .first()
-    )
-
-    if user:
-        # 기존 사용자: 로그인 시간 업데이트
-        user.last_login = datetime.utcnow()
-
-        # 이메일이나 프로필 정보가 변경되었을 수 있으므로 업데이트
-        user.email = login_data.email
-        if login_data.nickname:
-            user.nickname = login_data.nickname
-        if login_data.profile_image:
-            user.profile_image = login_data.profile_image
-
-        db.commit()
-        db.refresh(user)
-    else:
-        # 신규 사용자: 계정 생성
-        user = User(
-            email=login_data.email,
-            nickname=login_data.nickname,
-            profile_image=login_data.profile_image,
-            provider=login_data.provider,
-            provider_id=login_data.provider_id,
-            last_login=datetime.utcnow(),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    # JWT 토큰 생성
-    token_data = {"user_id": user.id, "email": user.email}
-
-    access_token = create_access_token(token_data)
-    refresh_token = create_refresh_token(token_data)
-
-    return TokenResponse(
-        access_token=access_token, refresh_token=refresh_token, user=UserResponse.from_orm(user)
-    )
+    return AuthService.login(db, login_data)
 
 
 @router.post(
@@ -97,7 +54,7 @@ async def login(request: Request, login_data: LoginRequest, db: Session = Depend
         401: {"description": "유효하지 않은 Refresh Token"},
     },
 )
-async def refresh_access_token(refresh_data: RefreshTokenRequest, db: Session = Depends(get_db)):
+async def refresh_access_token(refresh_data: RefreshTokenRequest, db: Session = Depends(get_db)) -> TokenResponse:
     """
     Refresh Token으로 새로운 Access Token 발급
 
@@ -111,41 +68,12 @@ async def refresh_access_token(refresh_data: RefreshTokenRequest, db: Session = 
     Raises:
         HTTPException: 유효하지 않은 refresh token인 경우 401 에러
     """
-    # Refresh Token 검증
-    payload = verify_token(refresh_data.refresh_token, token_type="refresh")
+    return AuthService.refresh_token(db, refresh_data.refresh_token)
 
-    if payload is None:
-        raise InvalidTokenError(detail="유효하지 않은 refresh token입니다")
-
-    user_id = payload.get("user_id")
-    if user_id is None:
-        raise InvalidTokenError(detail="토큰에서 사용자 정보를 찾을 수 없습니다")
-
-    # 사용자 확인
-    user = (
-        db.query(User)
-        .filter(User.id == user_id, User.is_active == True, User.deleted_at == None)
-        .first()
-    )
-
-    if user is None:
-        raise AuthenticationError(detail="사용자를 찾을 수 없습니다")
-
-    # 새로운 토큰 생성
-    token_data = {"user_id": user.id, "email": user.email}
-
-    new_access_token = create_access_token(token_data)
-    new_refresh_token = create_refresh_token(token_data)
-
-    return TokenResponse(
-        access_token=new_access_token,
-        refresh_token=new_refresh_token,
-        user=UserResponse.from_orm(user),
-    )
 
 
 @router.post("/logout", summary="로그아웃")
-async def logout(current_user: User = Depends(get_current_user)):
+async def logout(current_user: User = Depends(get_current_user)) -> dict:
     """
     로그아웃
 

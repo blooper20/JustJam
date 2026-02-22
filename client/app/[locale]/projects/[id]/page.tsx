@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { ShareModal } from '@/components/share-modal';
 import { Users } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 const TabViewer = dynamic(() => import('@/components/tab-viewer').then((mod) => mod.TabViewer), {
   ssr: false,
@@ -219,6 +220,7 @@ export default function ProjectPage() {
                       initialBpm={project.bpm}
                       onTimeUpdate={setCurrentTime}
                       chordProgression={project.chord_progression}
+                      songStructure={project.structure}
                     />
                   )}
                 </CardContent>

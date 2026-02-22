@@ -120,22 +120,53 @@ def analyze_chords(y: np.ndarray, sr: int, bpm: float) -> List[Dict]:
         logger.error(f"Chord analysis failed: {e}")
         return []
 
+def detect_structure(chords: List[Dict], duration: float) -> List[Dict]:
+    """
+    Detect song structure (segments) based on chords and duration.
+    """
+    if not chords:
+        return []
+    
+    # Heuristic labels
+    labels = ["Intro", "Verse 1", "Chorus 1", "Verse 2", "Chorus 2", "Bridge", "Chorus 3", "Outro"]
+    
+    # Fixed segment length for now, ideally this would look for repetitive chord patterns
+    segment_duration = 30.0
+    num_segments = int(np.ceil(duration / segment_duration))
+    
+    segments = []
+    for i in range(num_segments):
+        start = i * segment_duration
+        end = min((i + 1) * segment_duration, duration)
+        
+        segments.append({
+            "name": labels[i % len(labels)],
+            "start": float(start),
+            "end": float(end),
+            "label": labels[i % len(labels)] # and name are same here
+        })
+        
+    return segments
+
 
 def perform_full_analysis(audio_path: str, bpm: float) -> Dict:
     """
-    Perform full analysis: Key + Chords
+    Perform full analysis: Key + Chords + Structure
     """
     try:
         # Load audio (mono, 22.05kHz)
-        y, sr = librosa.load(audio_path, sr=22050, duration=120)  # Analyze first 2 mins
+        y, sr = librosa.load(audio_path, sr=22050, duration=180)  # Analyze first 3 mins
+        duration = librosa.get_duration(y=y, sr=sr)
         
         key = analyze_key(y, sr)
         chords = analyze_chords(y, sr, bpm)
+        structure = detect_structure(chords, duration)
         
         return {
             "key": key,
-            "chords": chords
+            "chords": chords,
+            "structure": structure
         }
     except Exception as e:
         logger.error(f"Full analysis failed: {e}")
-        return {"key": "Unknown", "chords": []}
+        return {"key": "Unknown", "chords": [], "structure": []}

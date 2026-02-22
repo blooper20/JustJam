@@ -12,8 +12,25 @@ from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastapi_cache.backends.redis import RedisBackend
 from prometheus_fastapi_instrumentator import Instrumentator
 
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
 from src.api.database import Base, engine
 from src.api.routes import auth, projects, users
+
+# Sentry 초기화
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            FastApiIntegration(),
+            SqlalchemyIntegration(),
+        ],
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
 
 Base.metadata.create_all(bind=engine)
 
@@ -65,6 +82,10 @@ from src.api.exceptions import JustJamException
 
 @app.exception_handler(JustJamException)
 async def justjam_exception_handler(request: Request, exc: JustJamException):
+    # 500 내외의 심각한 오류만 Sentry로 전송
+    if exc.status_code >= 500:
+        sentry_sdk.capture_exception(exc)
+        
     error_code = exc.__class__.__name__.replace("Error", "").upper()
     if error_code == "JUSTJAMEXCEPTION":
         error_code = "INTERNAL_ERROR"
@@ -87,6 +108,9 @@ async def justjam_exception_handler(request: Request, exc: JustJamException):
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code >= 500:
+        sentry_sdk.capture_exception(exc)
+        
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -104,9 +128,9 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 
 # 라우터 포함
-app.include_router(auth.router)  # /auth
-app.include_router(users.router)  # /users
-app.include_router(projects.router, prefix="/projects", tags=["projects"])
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
+app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
 
 # CORS 설정
 allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8000")

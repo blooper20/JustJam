@@ -40,9 +40,9 @@ export function TabViewer({
     try {
       const data = await generateTab(projectId, instrument);
       setTabs((prev) => ({ ...prev, [instrument]: data }));
-      toast.success(`${instrument} Tab generated!`);
+      toast.success(`${instrument} 타브 악보가 생성되었습니다!`);
     } catch (error) {
-      toast.error(`Failed to generate ${instrument} tab`);
+      toast.error(`${instrument} 타브 생성에 실패했습니다.`);
       console.error(error);
     } finally {
       setLoading((prev) => ({ ...prev, [instrument]: false }));
@@ -61,7 +61,7 @@ export function TabViewer({
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
+    toast.success('클립보드에 복사되었습니다.');
   };
 
   const handlePrint = () => {
@@ -72,8 +72,8 @@ export function TabViewer({
     <Tabs defaultValue="guitar" className="w-full" onValueChange={setActiveTab}>
       <div className="flex items-center justify-between mb-4">
         <TabsList>
-          <TabsTrigger value="guitar">Guitar Tab</TabsTrigger>
-          <TabsTrigger value="bass">Bass Tab</TabsTrigger>
+          <TabsTrigger value="guitar">기타 타브</TabsTrigger>
+          <TabsTrigger value="bass">베이스 타브</TabsTrigger>
         </TabsList>
       </div>
 
@@ -88,7 +88,7 @@ export function TabViewer({
               <p className="text-zinc-500 text-sm mb-6 text-center max-w-sm">
                 {existingInstruments.includes(inst)
                   ? '이 악보는 이미 보관함에 보관되어 있습니다. 아래 버튼을 눌러 즉시 불러오세요.'
-                  : `Generate a precision ${inst} tablature from the separated stems using AI transcription.`}
+                  : `AI 분석을 통해 분리된 ${inst === 'guitar' ? '기타' : '베이스'} 트랙에서 정밀한 타브 악보를 생성합니다.`}
               </p>
               <Button
                 onClick={() => handleGenerate(inst as 'guitar' | 'bass')}
@@ -108,7 +108,7 @@ export function TabViewer({
               <div className="absolute top-2 right-2 flex gap-2 print:hidden">
                 <Button variant="outline" size="sm" onClick={handlePrint}>
                   <Printer className="h-4 w-4 mr-2" />
-                  PDF/Print
+                  PDF/인쇄
                 </Button>
                 <Button
                   variant="outline"
@@ -128,7 +128,7 @@ export function TabViewer({
                   }}
                 >
                   <Music className="h-4 w-4 mr-2" />
-                  MIDI
+                  MIDI 다운로드
                 </Button>
                 <Button
                   variant="outline"
@@ -136,7 +136,7 @@ export function TabViewer({
                   onClick={() => copyToClipboard(tabs[inst]?.tab || '')}
                 >
                   <Copy className="h-4 w-4 mr-2" />
-                  Copy
+                  텍스트 복사
                 </Button>
               </div>
               <pre className="p-4 bg-zinc-950 rounded-lg border border-zinc-800 overflow-x-auto text-xs font-mono leading-tight text-zinc-300 whitespace-pre scrollbar-thin scrollbar-thumb-zinc-700">

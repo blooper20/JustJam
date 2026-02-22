@@ -7,8 +7,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Music, Mic2, Guitar, ArrowRight, Layers, Sliders, PlayCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export default function LandingPage() {
+  const t = useTranslations('Index');
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -52,16 +54,14 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-5xl md:text-8xl font-black tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-500 bg-clip-text text-transparent pb-4 drop-shadow-sm">
-            PRACTICE <br className="hidden md:block" />
+            {t('title').split(',')[0]} <br className="hidden md:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
-              LIKE A PRO
+              {t('title').split(',')[1] || 'LIKE A PRO'}
             </span>
           </h1>
 
           <p className="text-xl md:text-2xl text-muted-foreground font-light max-w-2xl mx-auto leading-relaxed">
-            당신의 음악을 위한 최고의 합주 파트너.
-            <br />
-            AI가 분리한 트랙으로 언제 어디서나 완벽한 합주를 경험하세요.
+            {t('description')}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
@@ -70,7 +70,7 @@ export default function LandingPage() {
                 size="lg"
                 className="rounded-full text-lg px-8 h-14 bg-white text-black hover:bg-gray-200 hover:scale-105 transition-all duration-300 shadow-[0_0_30px_-5px_rgba(255,255,255,0.3)]"
               >
-                <PlayCircle className="mr-2 w-6 h-6" /> 지금 시작하기
+                <PlayCircle className="mr-2 w-6 h-6" /> {t('getStarted')}
               </Button>
             </Link>
           </div>

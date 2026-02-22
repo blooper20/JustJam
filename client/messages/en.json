@@ -1,0 +1,33 @@
+{
+    "Index": {
+        "title": "JustJam - New Standard for Music Collaboration",
+        "description": "Your own band studio completed with AI audio separation",
+        "getStarted": "Get Started",
+        "recentProjects": "Recent Projects"
+    },
+    "Auth": {
+        "login": "Login",
+        "logout": "Logout",
+        "googleLogin": "Continue with Google",
+        "kakaoLogin": "Continue with Kakao"
+    },
+    "Common": {
+        "settings": "Settings",
+        "profile": "Profile",
+        "delete": "Delete"
+    },
+    "Player": {
+        "loading": "Loading audio tracks...",
+        "preparing": "Preparing precisely analyzed tracks.",
+        "progress": "Progress",
+        "tracksCompleted": "{completed} / {total} tracks completed",
+        "downloadMix": "Download Mix",
+        "metronome": "Metronome",
+        "tempo": "Tempo",
+        "volume": "Volume",
+        "speed": "Speed",
+        "loop": "Loop",
+        "currentChord": "Current Chord",
+        "bookmark": "Bookmark"
+    }
+}

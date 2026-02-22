@@ -4,7 +4,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from src.api.database import get_db
@@ -12,11 +12,13 @@ from src.api.dependencies import get_current_user
 from src.api.models import User
 from src.api.schemas.user import UserResponse, UserUpdate
 
+from src.api.services.user_service import UserService
+
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/me", response_model=UserResponse, summary="현재 사용자 정보 조회")
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
+async def get_current_user_info(current_user: User = Depends(get_current_user)) -> UserResponse:
     """
     현재 로그인한 사용자의 정보를 조회합니다.
 
@@ -26,7 +28,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     Returns:
         UserResponse: 사용자 정보
     """
-    return UserResponse.from_orm(current_user)
+    return UserService.get_user_info(current_user)
 
 
 @router.patch("/me", response_model=UserResponse, summary="사용자 프로필 업데이트")
@@ -34,7 +36,7 @@ async def update_current_user(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> UserResponse:
     """
     현재 로그인한 사용자의 프로필을 업데이트합니다.
 
@@ -46,23 +48,28 @@ async def update_current_user(
     Returns:
         UserResponse: 업데이트된 사용자 정보
     """
-    # 업데이트할 필드만 적용
-    if user_update.nickname is not None:
-        current_user.nickname = user_update.nickname
+    return UserService.update_user(db, current_user, user_update)
 
-    if user_update.profile_image is not None:
-        current_user.profile_image = user_update.profile_image
 
-    db.commit()
-    db.refresh(current_user)
-
-    return UserResponse.from_orm(current_user)
+@router.post("/me/profile-image", response_model=UserResponse, summary="프로필 이미지 업로드")
+async def upload_profile_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    """
+    프로필 이미지를 업로드합니다.
+    """
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드할 수 있습니다.")
+        
+    return UserService.upload_profile_image(db, current_user, file.filename, file.file)
 
 
 @router.delete("/me", summary="계정 삭제 (Soft Delete)")
 async def delete_current_user(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
+) -> dict:
     """
     현재 로그인한 사용자의 계정을 삭제합니다 (Soft Delete).
 
@@ -76,14 +83,5 @@ async def delete_current_user(
     Returns:
         성공 메시지
     """
-    # Soft Delete: deleted_at 필드에 현재 시간 기록
-    current_user.deleted_at = datetime.utcnow()
-    current_user.is_active = False
+    return UserService.delete_user(db, current_user)
 
-    db.commit()
-
-    return {
-        "message": "계정이 삭제되었습니다",
-        "user_id": current_user.id,
-        "deleted_at": current_user.deleted_at,
-    }

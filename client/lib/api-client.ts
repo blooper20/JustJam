@@ -2,7 +2,8 @@ import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import { getSession, signOut } from 'next-auth/react';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const SERVER_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = `${SERVER_URL}/api/v1`;
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

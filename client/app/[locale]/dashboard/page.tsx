@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
-  const { data: projects, isLoading } = useQuery({
+  const { data: projects, isLoading, isError, error } = useQuery({
     queryKey: ['projects', searchQuery, sortBy],
     queryFn: () => fetchProjects({ q: searchQuery, sort: sortBy }),
   });
@@ -290,6 +290,14 @@ export default function DashboardPage() {
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
             <p className="mt-2 text-muted-foreground">프로젝트 불러오는 중...</p>
+          </div>
+        ) : isError ? (
+          <div className="text-center py-12 text-red-500">
+            <p>프로젝트를 불러오는데 실패했습니다.</p>
+            <p className="text-sm opacity-70">{(error as any)?.message || '알 수 없는 오류'}</p>
+            <Button variant="outline" className="mt-4" onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}>
+              다시 시도
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -157,12 +157,12 @@ export function ScoreViewer({
               <SelectValue placeholder="악기 선택" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="vocals">Vocals (Melody)</SelectItem>
-              <SelectItem value="guitar">Guitar</SelectItem>
-              <SelectItem value="bass">Bass</SelectItem>
-              <SelectItem value="piano">Piano / Keys</SelectItem>
-              <SelectItem value="drums">Drums (Rhythm)</SelectItem>
-              <SelectItem value="other">Others</SelectItem>
+              <SelectItem value="vocals">보컬 (Vocals)</SelectItem>
+              <SelectItem value="guitar">기타 (Guitar)</SelectItem>
+              <SelectItem value="bass">베이스 (Bass)</SelectItem>
+              <SelectItem value="piano">피아노/건반 (Piano)</SelectItem>
+              <SelectItem value="drums">드럼 (Drums)</SelectItem>
+              <SelectItem value="other">기타 악기 (Others)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -181,7 +181,7 @@ export function ScoreViewer({
             {loading
               ? loadingMessage
               : existingInstruments.includes(instrument)
-                ? '보관함에서 불러오기 (Load From Archive)'
+                ? '보관함에서 불러오기'
                 : '악보 생성 (Generate Score)'}
           </Button>
         </div>
@@ -225,7 +225,7 @@ export function ScoreViewer({
                 }
               }}
             >
-              <Music className="mr-2 h-4 w-4" /> MIDI
+              <Music className="mr-2 h-4 w-4" /> MIDI 다운로드
             </Button>
             <Button variant="ghost" size="sm" onClick={() => window.print()}>
               <FileMusic className="mr-2 h-4 w-4" /> PDF 인쇄

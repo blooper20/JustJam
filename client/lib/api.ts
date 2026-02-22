@@ -1,5 +1,17 @@
 import apiClient from './api-client';
 
+export interface User {
+  id: number;
+  email: string;
+  nickname: string | null;
+  profile_image: string | null;
+  provider: string;
+  role: string;
+  is_active: boolean;
+  last_login?: string;
+  created_at: string;
+}
+
 export interface ProjectMember {
   id: number;
   user_id: number;
@@ -24,6 +36,9 @@ export interface Project {
   members?: ProjectMember[];
   is_owner?: boolean;
   thumbnail_url?: string;
+  detected_key?: string;
+  chord_progression?: string;
+  structure?: string;
 }
 
 export interface StemFiles {
@@ -44,7 +59,7 @@ export interface TabResponse {
   notes_count: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const SERVER_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export const fetchProjects = async (params?: { q?: string; sort?: string }): Promise<Project[]> => {
   const response = await apiClient.get('/projects/', { params });
@@ -90,7 +105,7 @@ export const fetchProjectStems = async (id: string): Promise<StemFiles> => {
   const fixUrl = (url: string | null) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
-    return `${API_BASE_URL}${url}`;
+    return `${SERVER_URL}${url}`;
   };
 
   return {
@@ -142,7 +157,7 @@ export const downloadMix = async (
 
   // Fix URL if relative
   if (data.url && !data.url.startsWith('http')) {
-    data.url = `${API_BASE_URL}${data.url}`;
+    data.url = `${SERVER_URL}${data.url}`;
   }
 
   return data;
@@ -168,4 +183,13 @@ export const fetchProjectMembers = async (projectId: string): Promise<ProjectMem
 
 export const removeProjectMember = async (projectId: string, userId: number): Promise<void> => {
   await apiClient.delete(`/projects/${projectId}/members/${userId}`);
+};
+
+export const uploadProfileImage = async (file: File): Promise<User> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiClient.post('/users/me/profile-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
 };

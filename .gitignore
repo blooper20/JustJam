@@ -127,3 +127,6 @@ output/
 # Documentation builds
 docs/_build/
 site/
+
+# Temporary files
+temp/

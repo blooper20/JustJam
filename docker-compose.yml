@@ -11,7 +11,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ALLOWED_ORIGINS=http://localhost:3000,https://justjam.ai
       - APP_ENV=production
-      - DATABASE_URL=sqlite:///./temp/justjam.db
+      - DATABASE_URL=postgresql://justjam:justjam@postgres:5432/justjam
     depends_on:
       redis:
         condition: service_healthy
@@ -40,5 +40,18 @@ services:
       timeout: 3s
       retries: 5
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: justjam-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=justjam
+      - POSTGRES_PASSWORD=justjam
+      - POSTGRES_DB=justjam
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
 volumes:
   justjam-data:
+  postgres_data:

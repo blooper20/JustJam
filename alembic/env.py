@@ -20,10 +20,13 @@ import sys
 import os
 sys.path.insert(0, os.getcwd())
 
-from src.api.database import Base
+from src.api.database import Base, SQLALCHEMY_DATABASE_URL
 from src.api.models import User, ProjectModel  # Ensure models are loaded
 
 target_metadata = Base.metadata
+
+# Override sqlalchemy.url with the one from our application
+config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

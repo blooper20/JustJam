@@ -15,7 +15,7 @@ export default function SongsPage() {
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
-    queryFn: fetchProjects,
+    queryFn: () => fetchProjects(),
   });
 
   const deleteMutation = useMutation({

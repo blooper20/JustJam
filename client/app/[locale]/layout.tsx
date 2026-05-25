@@ -25,7 +25,7 @@ import { Toaster } from '@/components/ui/sonner';
 
 export default async function RootLayout({
   children,
-  params
+  params,
 }: {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;

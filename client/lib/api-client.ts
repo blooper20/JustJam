@@ -16,8 +16,9 @@ axiosRetry(apiClient, {
   retryDelay: axiosRetry.exponentialDelay,
   retryCondition: (error) => {
     // 네트워크 에러 또는 5xx 서버 에러인 경우에만 재시도
-    return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
-      (error.response?.status ?? 0) >= 500;
+    return (
+      axiosRetry.isNetworkOrIdempotentRequestError(error) || (error.response?.status ?? 0) >= 500
+    );
   },
 });
 

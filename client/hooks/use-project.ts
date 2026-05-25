@@ -1,35 +1,54 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchProject, processProject, fetchProjectStems } from '@/lib/api';
+import { useProjectStore } from '@/store/project-store';
 
 export function useProject(id: string) {
-    const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
+  const { setProject, setStems } = useProjectStore();
 
-    const projectQuery = useQuery({
-        queryKey: ['project', id],
-        queryFn: () => fetchProject(id),
-        refetchInterval: (query) => (query.state.data?.status === 'processing' ? 1000 : false),
-    });
+  const projectQuery = useQuery({
+    queryKey: ['project', id],
+    queryFn: () => fetchProject(id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'pending' || status === 'processing' ? 1000 : false;
+    },
+  });
 
-    const stemsQuery = useQuery({
-        queryKey: ['project', id, 'stems'],
-        queryFn: () => fetchProjectStems(id),
-        enabled: projectQuery.data?.status === 'completed',
-    });
+  const stemsQuery = useQuery({
+    queryKey: ['project', id, 'stems'],
+    queryFn: () => fetchProjectStems(id),
+    enabled: projectQuery.data?.status === 'completed',
+  });
 
-    const processMutation = useMutation({
-        mutationFn: () => processProject(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['project', id] });
-        },
-    });
+  const processMutation = useMutation({
+    mutationFn: () => processProject(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+    },
+  });
 
-    return {
-        project: projectQuery.data,
-        isLoading: projectQuery.isLoading,
-        error: projectQuery.error,
-        stems: stemsQuery.data,
-        isLoadingStems: stemsQuery.isLoading,
-        processProject: processMutation.mutate,
-        isProcessing: processMutation.isPending,
-    };
+  // Sync to Zustand Store
+  useEffect(() => {
+    if (projectQuery.data) {
+      setProject(projectQuery.data);
+    }
+  }, [projectQuery.data, setProject]);
+
+  useEffect(() => {
+    if (stemsQuery.data) {
+      setStems(stemsQuery.data);
+    }
+  }, [stemsQuery.data, setStems]);
+
+  return {
+    project: projectQuery.data,
+    isLoading: projectQuery.isLoading,
+    error: projectQuery.error,
+    stems: stemsQuery.data,
+    isLoadingStems: stemsQuery.isLoading,
+    processProject: processMutation.mutate,
+    isProcessing: processMutation.isPending,
+  };
 }

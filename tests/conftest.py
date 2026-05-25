@@ -12,9 +12,9 @@ os.environ["APP_ENV"] = "test"
 # 프로젝트 루트를 path에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.api.database import Base, get_db
-from src.api.main import app
-from src.api.models import User
+from src.api.database import Base, get_db  # noqa: E402
+from src.api.main import app  # noqa: E402
+from src.api.models import User  # noqa: E402
 
 # 테스트용 SQLite DB 설정
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -47,6 +47,43 @@ def db():
     connection.close()
 
 
+class ApiV1TestClient:
+    def __init__(self, client):
+        self._client = client
+
+    def _prefix(self, url: str) -> str:
+        if url.startswith("/auth") or url.startswith("/projects") or url.startswith("/users"):
+            return f"/api/v1{url}"
+        return url
+
+    def get(self, url, *args, **kwargs):
+        return self._client.get(self._prefix(url), *args, **kwargs)
+
+    def post(self, url, *args, **kwargs):
+        return self._client.post(self._prefix(url), *args, **kwargs)
+
+    def put(self, url, *args, **kwargs):
+        return self._client.put(self._prefix(url), *args, **kwargs)
+
+    def delete(self, url, *args, **kwargs):
+        return self._client.delete(self._prefix(url), *args, **kwargs)
+
+    def patch(self, url, *args, **kwargs):
+        return self._client.patch(self._prefix(url), *args, **kwargs)
+
+    def options(self, url, *args, **kwargs):
+        return self._client.options(self._prefix(url), *args, **kwargs)
+
+    def head(self, url, *args, **kwargs):
+        return self._client.head(self._prefix(url), *args, **kwargs)
+
+    def request(self, method, url, *args, **kwargs):
+        return self._client.request(method, self._prefix(url), *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+
 @pytest.fixture
 def client(db):
     def override_get_db():
@@ -57,7 +94,7 @@ def client(db):
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
-        yield c
+        yield ApiV1TestClient(c)
     del app.dependency_overrides[get_db]
 
 

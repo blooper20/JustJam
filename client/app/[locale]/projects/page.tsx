@@ -14,7 +14,7 @@ export default function ProjectsPage() {
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
-    queryFn: fetchProjects,
+    queryFn: () => fetchProjects(),
   });
 
   const uploadMutation = useMutation({

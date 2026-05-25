@@ -40,7 +40,12 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
-  const { data: projects, isLoading, isError, error } = useQuery({
+  const {
+    data: projects,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['projects', searchQuery, sortBy],
     queryFn: () => fetchProjects({ q: searchQuery, sort: sortBy }),
   });
@@ -124,7 +129,7 @@ export default function DashboardPage() {
       },
       cancel: {
         label: '취소',
-        onClick: () => { },
+        onClick: () => {},
       },
     });
   };
@@ -295,7 +300,11 @@ export default function DashboardPage() {
           <div className="text-center py-12 text-red-500">
             <p>프로젝트를 불러오는데 실패했습니다.</p>
             <p className="text-sm opacity-70">{(error as any)?.message || '알 수 없는 오류'}</p>
-            <Button variant="outline" className="mt-4" onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}
+            >
               다시 시도
             </Button>
           </div>
@@ -338,19 +347,19 @@ export default function DashboardPage() {
                 {(project.status === 'processing' ||
                   project.status === 'pending' ||
                   project.status === 'failed') && (
-                    <div
-                      className={`absolute -inset-[1px] rounded-xl bg-gradient-to-r opacity-75 blur-sm animate-pulse`}
-                      style={{
-                        animationDuration: '2s',
-                        background:
-                          project.status === 'failed'
-                            ? 'conic-gradient(from 0deg, transparent 0deg, #ef4444 180deg, transparent 360deg)'
-                            : project.status === 'pending'
-                              ? 'conic-gradient(from 0deg, transparent 0deg, #eab308 180deg, transparent 360deg)'
-                              : 'conic-gradient(from 0deg, transparent 0deg, #3b82f6 180deg, transparent 360deg)',
-                      }}
-                    />
-                  )}
+                  <div
+                    className={`absolute -inset-[1px] rounded-xl bg-gradient-to-r opacity-75 blur-sm animate-pulse`}
+                    style={{
+                      animationDuration: '2s',
+                      background:
+                        project.status === 'failed'
+                          ? 'conic-gradient(from 0deg, transparent 0deg, #ef4444 180deg, transparent 360deg)'
+                          : project.status === 'pending'
+                            ? 'conic-gradient(from 0deg, transparent 0deg, #eab308 180deg, transparent 360deg)'
+                            : 'conic-gradient(from 0deg, transparent 0deg, #3b82f6 180deg, transparent 360deg)',
+                    }}
+                  />
+                )}
 
                 <Card className="relative h-full hover:shadow-lg transition-transform hover:-translate-y-1 duration-200 border-zinc-800 bg-zinc-950 overflow-hidden">
                   {/* Thumbnail Preview */}

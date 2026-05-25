@@ -19,14 +19,11 @@ const authMiddleware = withAuth(
     pages: {
       signIn: '/login',
     },
-  }
+  },
 );
 
 export default function middleware(req: NextRequest) {
-  const publicPathnameRegex = RegExp(
-    `^(/(${['ko', 'en'].join('|')}))?(/($|login|register))`,
-    'i'
-  );
+  const publicPathnameRegex = RegExp(`^(/(${['ko', 'en'].join('|')}))?(/($|login|register))`, 'i');
   const isPublicPage = publicPathnameRegex.test(req.nextUrl.pathname);
 
   if (isPublicPage) {

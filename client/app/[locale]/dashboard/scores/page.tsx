@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 export default function ScoresPage() {
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
-    queryFn: fetchProjects,
+    queryFn: () => fetchProjects(),
   });
 
   return (

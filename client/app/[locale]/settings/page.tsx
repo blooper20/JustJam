@@ -76,13 +76,17 @@ export default function SettingsPage() {
               <div className="relative group">
                 <Avatar className="w-24 h-24 border-2 border-zinc-800">
                   <AvatarImage src={session?.user?.image || ''} />
-                  <AvatarFallback className="text-2xl">{session?.user?.name?.[0] || 'U'}</AvatarFallback>
+                  <AvatarFallback className="text-2xl">
+                    {session?.user?.name?.[0] || 'U'}
+                  </AvatarFallback>
                 </Avatar>
                 <label
                   htmlFor="profile-upload"
                   className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full cursor-pointer"
                 >
-                  <span className="text-xs font-medium text-white">{isUploading ? '업로드 중...' : '변경'}</span>
+                  <span className="text-xs font-medium text-white">
+                    {isUploading ? '업로드 중...' : '변경'}
+                  </span>
                   <input
                     id="profile-upload"
                     type="file"

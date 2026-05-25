@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import LandingPage from '../app/page';
+import LandingPage from '../app/[locale]/page';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 

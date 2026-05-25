@@ -1,17 +1,21 @@
 """
 Fingerstyle Tab MCP Server - Setup Configuration
 """
-from setuptools import setup, find_packages
+
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 # Read the contents of README file
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text(encoding='utf-8')
+long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="fingerstyle-tab-mcp",
     version="0.1.0",
-    description="AI-powered MCP server that converts guitar audio recordings into fingerstyle tablature",
+    description=(
+        "AI-powered MCP server that converts guitar audio recordings into fingerstyle tablature"
+    ),
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Your Name",
@@ -19,7 +23,7 @@ setup(
     url="https://github.com/yourusername/fingerstyle-tab-mcp",
     license="MIT",
     packages=find_packages(),
-    python_requires=">=3.10",
+    python_requires=">=3.9",
     install_requires=[
         "mcp>=1.0.0",
         "basic-pitch>=0.2.5",

@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { Button } from '@/components/ui/button';
-import { generateScore, generateTab, generateMidi } from '@/lib/api';
-import { Loader2, Download, RefreshCw, FileMusic, Music } from 'lucide-react';
+import { generateScore, generateMidi } from '@/lib/api';
+import { Loader2, Download, FileMusic, Music } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 
@@ -27,7 +27,7 @@ export function ScoreViewer({
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('생성 중...');
   const [zoom, setZoom] = useState(0.8);
-  const [followCursor, setFollowCursor] = useState(true);
+  const [followCursor] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
   const lastMeasureRef = useRef(-1);
@@ -36,7 +36,11 @@ export function ScoreViewer({
     const instToLoad = targetInstrument || instrument;
     setLoading(true);
     // We don't know for sure if it's in DB yet, but we can assume if it's autoLoad it might be
-    setLoadingMessage('악보를 불러오는 중...');
+    if (!existingInstruments.includes(instToLoad)) {
+      setLoadingMessage('악보 생성 중...');
+    } else {
+      setLoadingMessage('악보를 불러오는 중...');
+    }
     try {
       const xml = await generateScore(projectId, instToLoad);
       setXmlContent(xml);
@@ -56,6 +60,7 @@ export function ScoreViewer({
       setInstrument(firstInst);
       loadScore(firstInst);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoLoad, projectId]);
 
   useEffect(() => {
@@ -86,6 +91,7 @@ export function ScoreViewer({
     } catch (e) {
       console.error('OSMD Render Error:', e);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [xmlContent]);
 
   // 시간 업데이트에 따른 커서 이동 (BPM 기반 동기화)
@@ -109,12 +115,14 @@ export function ScoreViewer({
       osmd.cursor.reset();
 
       // 목표 마디까지 이동 (안전 장치 추가)
-      let currentIdx = (osmd.cursor.iterator as any).currentMeasureIndex;
+      let currentIdx = (osmd.cursor.iterator as unknown as { currentMeasureIndex: number })
+        .currentMeasureIndex;
       let safetyCounter = 0;
 
       while (currentIdx < targetMeasureIndex && safetyCounter < 500) {
         osmd.cursor.next();
-        const nextIdx = (osmd.cursor.iterator as any).currentMeasureIndex;
+        const nextIdx = (osmd.cursor.iterator as unknown as { currentMeasureIndex: number })
+          .currentMeasureIndex;
         if (nextIdx === currentIdx) break; // 더 이상 이동 불가
         currentIdx = nextIdx;
         safetyCounter++;
@@ -220,7 +228,7 @@ export function ScoreViewer({
                   a.download = `${instrument}_score.mid`;
                   a.click();
                   toast.success('MIDI 다운로드 성공!');
-                } catch (error) {
+                } catch {
                   toast.error('MIDI 생성 실패');
                 }
               }}
@@ -260,7 +268,8 @@ export function ScoreViewer({
       </div>
 
       <p className="text-xs text-muted-foreground text-center">
-        * PDF 저장을 원하시면 'PDF 인쇄' 버튼을 누른 후 대상 프린터를 'PDF로 저장'으로 설정하세요.
+        * PDF 저장을 원하시면 &apos;PDF 인쇄&apos; 버튼을 누른 후 대상 프린터를 &apos;PDF로
+        저장&apos;으로 설정하세요.
       </p>
     </div>
   );

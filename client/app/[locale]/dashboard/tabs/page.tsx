@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 export default function TabsPage() {
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
-    queryFn: fetchProjects,
+    queryFn: () => fetchProjects(),
   });
 
   return (

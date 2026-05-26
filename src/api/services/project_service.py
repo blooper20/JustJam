@@ -648,12 +648,19 @@ class ProjectService:
 
         if existing_member:
             existing_member.role = role
+            member = existing_member
         else:
             new_member = ProjectMember(project_id=project_id, user_id=target_user.id, role=role)
             db.add(new_member)
+            member = new_member
 
         db.commit()
-        return {"message": f"Project shared with {email}"}
+        db.refresh(member)
+        
+        # Helper fields for schema
+        member.email = target_user.email
+        member.nickname = target_user.nickname
+        return member
 
     @staticmethod
     def list_members(db: Session, project_id: str, current_user: User):

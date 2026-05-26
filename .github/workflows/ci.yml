@@ -22,7 +22,19 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+
+    - name: Get pip cache dir
+      id: pip-cache
+      run: |
+        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pip-cache.outputs.dir }}
+        key: ${{ runner.os }}-pip-v2-${{ hashFiles('setup.py', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-v2-
 
     - name: Install system dependencies (Ubuntu)
       if: runner.os == 'Linux'
@@ -81,7 +93,19 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        cache: 'pip'
+
+    - name: Get pip cache dir
+      id: pip-cache
+      run: |
+        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pip-cache.outputs.dir }}
+        key: ${{ runner.os }}-pip-v2-${{ hashFiles('setup.py', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-v2-
 
     - name: Install dependencies
       run: |

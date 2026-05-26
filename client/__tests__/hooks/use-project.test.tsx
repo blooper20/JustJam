@@ -60,7 +60,7 @@ describe('useProject', () => {
     it('processProject 호출 시 API를 호출한다', async () => {
         const mockProject = { id: projectId, status: 'pending' };
         (api.fetchProject as jest.Mock).mockResolvedValue(mockProject);
-        (api.processProject as jest.Mock).mockResolvedValue({ ...mockProject, status: 'processing' });
+        (api.processProject as jest.Mock).mockResolvedValue({ message: 'Processing started', status: 'processing' });
 
         const { result } = renderHook(() => useProject(projectId), {
             wrapper: createWrapper(),

@@ -93,7 +93,12 @@ export const createProject = async (file: File): Promise<Project> => {
   return response.data;
 };
 
-export const processProject = async (id: string): Promise<Project> => {
+export interface ProcessResponse {
+  message: string;
+  status: 'processing';
+}
+
+export const processProject = async (id: string): Promise<ProcessResponse> => {
   const response = await apiClient.post(`/projects/${id}/process`);
   return response.data;
 };

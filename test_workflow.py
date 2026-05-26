@@ -1,7 +1,9 @@
 import os
 import sys
-from src.transcriber import transcribe_audio
+
 from src.tab_generator import TabGenerator
+from src.transcriber import transcribe_audio
+
 
 def test_conversion(audio_path):
     """
@@ -22,18 +24,23 @@ def test_conversion(audio_path):
         print("2. 기타 타브로 변환 중 (코드 기반 운지 및 주법 분석)...")
         generator = TabGenerator(bpm=detected_bpm)
         tab = generator.generate_ascii_tab(notes)
-        
+
         print("\n--- 생성된 타브 악보 ---")
         print(tab)
         print("------------------------")
-        
+
     except Exception as e:
         print(f"오류 발생: {str(e)}")
 
-if __name__ == "__main__":
+
+def main():
     # 테스트할 오디오 파일 경로를 인자로 받거나 직접 지정 가능
     if len(sys.argv) > 1:
         test_conversion(sys.argv[1])
     else:
         print("사용법: python test_workflow.py [오디오_파일_경로]")
         print("예: python test_workflow.py sample_melody.mp3")
+
+
+if __name__ == "__main__":
+    main()

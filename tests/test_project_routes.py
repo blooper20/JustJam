@@ -1,7 +1,6 @@
 import os
 import uuid
 
-import pytest
 from fastapi import status
 
 
@@ -137,3 +136,39 @@ def test_delete_project(client, auth_headers, test_user, db):
     # DB에서 사라졌는지 확인
     deleted_project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     assert deleted_project is None
+
+
+def test_share_project(client, auth_headers, test_user, db):
+    """프로젝트 공유 테스트"""
+    from src.api.models import ProjectModel, User
+
+    # 1. 대상 프로젝트 생성
+    project_id = str(uuid.uuid4())
+    project = ProjectModel(
+        id=project_id, name="Share Project", original_filename="share.mp3", user_id=test_user.id
+    )
+    db.add(project)
+
+    # 2. 초대할 상대방 유저 생성
+    invited_user = User(
+        email="invited@example.com",
+        nickname="InvitedUser",
+        provider="google",
+        provider_id="invited_provider_id",
+        is_active=True,
+    )
+    db.add(invited_user)
+    db.commit()
+
+    # 3. 공유 API 호출
+    response = client.post(
+        f"/projects/{project_id}/share",
+        json={"email": "invited@example.com", "role": "viewer"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["email"] == "invited@example.com"
+    assert data["role"] == "viewer"
+    assert data["project_id"] == project_id

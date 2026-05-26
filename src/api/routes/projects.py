@@ -15,14 +15,14 @@ from src.api.schemas.project import (
     StemFiles,
     MixRequest,
 )
-from src.api.services.project_service import ProjectService, generate_thumbnail, process_audio_task
+from src.api.services.project_service import ProjectService, generate_thumbnail
 
 router = APIRouter()
 
 
 @router.post(
     "/",
-    # response_model=Project, # Remove to avoid circular dependency or use strings if needed, but Project is imported
+    # response_model=Project, # Remove to avoid circular dependency
     summary="새 프로젝트 생성",
     description="음원을 업로드하여 새로운 프로젝트를 생성합니다.",
 )
@@ -33,17 +33,17 @@ async def create_project(
     db: Session = Depends(get_db),
 ) -> Project:
     project, file_path = ProjectService.create_project(db, file.filename, file.file, current_user)
-    
+
     # 썸네일 생성 백그라운드 작업
     from src.api.services.project_service import UPLOAD_DIR
     import os
     thumbnail_filename = f"thumb_{project.id}.png"
     thumbnail_path = os.path.join(UPLOAD_DIR, thumbnail_filename)
     background_tasks.add_task(generate_thumbnail, file_path, thumbnail_path)
-    
+
     project.thumbnail_url = f"/static/uploads/{thumbnail_filename}"
     db.commit()
-    
+
     return project
 
 
@@ -56,13 +56,13 @@ async def process_project(
     from src.api.services.project_service import process_audio_task, process_audio_logic
     from src.api.models import ProjectModel
     from src.api.schemas.project import TaskStatus
-    
+
     # 1. DB 상태를 즉시 PROCESSING으로 변경하여 프론트엔드 폴링 유도
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     project.status = TaskStatus.PROCESSING.value
     project.progress = 0
     db.commit()
@@ -78,7 +78,6 @@ async def process_project(
         logger.warning(f"Celery start failed (Redis down?), using BackgroundTasks instead: {e}")
         background_tasks.add_task(process_audio_logic, project_id)
         return {"message": "Processing started via BackgroundTasks", "status": "processing"}
-
 
 
 @router.get("/{project_id}", response_model=Project)
@@ -197,7 +196,9 @@ async def share_project(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ProjectService.share_project(db, project_id, share_request.email, share_request.role, current_user)
+    return ProjectService.share_project(
+        db, project_id, share_request.email, share_request.role, current_user
+    )
 
 
 @router.get("/{project_id}/members", response_model=List[ProjectMemberSchema])
@@ -217,4 +218,3 @@ async def remove_project_member(
     db: Session = Depends(get_db),
 ) -> dict:
     return ProjectService.remove_member(db, project_id, user_id, current_user)
-

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > **Ratchet Rule #403**: 백엔드 환경 통합 테스트 시 `Cache entry deserialization failed` 경고가 발생하면 즉시 GitHub 파이프라인의 캐시 키(Cache-key)를 갱신한다. 프론트엔드의 폴링 로직 구현 시 백엔드 라우터 스키마와 불일치하면 파이썬 테스트가 붕괴될 수 있으므로 교차 검증을 의무화한다.
 >
 > **Ratchet Rule #404**: GitHub Actions YAML 파일 수정 시, 기존 액션 플러그인이 요구하는 필수 인자(예: path)를 절대 삭제하지 않도록 주의해야 하며, Node.js 20 deprecation 로그가 보일 경우 `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`를 적용하여 노이즈를 제거한다.
+>
+> **Ratchet Rule #405**: 백엔드 API 스키마(`projects.py`)를 변경하여 프론트엔드와 동기화할 경우, 반드시 관련된 백엔드 통합 테스트(`test_workflow.py` 등)의 검증 로직도 함께 업데이트해야 한다. 또한 모든 변경 사항은 커밋 전 샌드박스 내에서 `flake8` 등 로컬 린트를 완벽히 통과해야 Exit Code 1로 인한 CI/CD 붕괴를 막을 수 있다.
 
 ### Added
 - TanStack Query v5 status polling system with 1-second interval checks for pending/processing status.

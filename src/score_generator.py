@@ -60,27 +60,44 @@ class ScoreGenerator:
 
         sec_per_beat = 60.0 / self.bpm
 
-        # Quantize roughly to 16th notes (0.25 beat)
-        def quantize(val):
+        # Quantize onset/duration based on triplet flag
+        def quantize_val(val, is_triplet=False):
+            if is_triplet:
+                return round(val * 6) / 6.0
             return round(val * 4) / 4.0
 
+        # Group notes by quantized onset beat to generate Chords when polyphony is present
+        from music21 import chord
+
+        groups = {}
         for n in notes:
-            pitch_val = n["pitch"]
+            is_triplet = n.get("is_triplet", False)
             start_beat = n["start"] / sec_per_beat
             end_beat = n["end"] / sec_per_beat
-            duration_beat = max(0.25, end_beat - start_beat)  # Min duration 16th note
 
-            # Create Note or Chord
-            # Currently we process individual notes.
-            # If polyphony exists at same start time, we should handle it, but
-            # music21 stream can handle simultaneous notes.
-            # For simplicity let's just insert Notes using insert(). MusicXML allows voices.
+            q_start = quantize_val(start_beat, is_triplet)
+            q_end = quantize_val(end_beat, is_triplet)
+            q_dur = max(0.25, q_end - q_start)
 
-            m21_note = note.Note(pitch_val)
-            m21_note.quarterLength = quantize(duration_beat)
+            if q_start not in groups:
+                groups[q_start] = {"notes": [], "dur": q_dur, "is_triplet": is_triplet}
 
-            # Insert at quantized offset
-            p.insert(quantize(start_beat), m21_note)
+            groups[q_start]["notes"].append(n["pitch"])
+            if q_dur > groups[q_start]["dur"]:
+                groups[q_start]["dur"] = q_dur
+
+        # Insert notes/chords into part
+        for q_start, info in sorted(groups.items()):
+            pitches = sorted(list(set(info["notes"])))
+            dur = info["dur"]
+
+            if len(pitches) == 1:
+                m21_element = note.Note(pitches[0])
+            else:
+                m21_element = chord.Chord(pitches)
+
+            m21_element.quarterLength = dur
+            p.insert(q_start, m21_element)
 
         # Make measures
         p.makeMeasures(inPlace=True)
@@ -141,15 +158,43 @@ class ScoreGenerator:
 
         sec_per_beat = 60.0 / self.bpm
 
+        # Group notes by quantized onset beat to generate Chords when polyphony is present
+        from music21 import chord
+
+        def quantize_val(val, is_triplet=False):
+            if is_triplet:
+                return round(val * 6) / 6.0
+            return round(val * 4) / 4.0
+
+        groups = {}
         for n in notes:
-            pitch_val = n["pitch"]
+            is_triplet = n.get("is_triplet", False)
             start_beat = n["start"] / sec_per_beat
             end_beat = n["end"] / sec_per_beat
-            duration_beat = max(0.25, end_beat - start_beat)
 
-            m21_note = note.Note(pitch_val)
-            m21_note.quarterLength = round(duration_beat * 4) / 4.0
-            p.insert(round(start_beat * 4) / 4.0, m21_note)
+            q_start = quantize_val(start_beat, is_triplet)
+            q_end = quantize_val(end_beat, is_triplet)
+            q_dur = max(0.25, q_end - q_start)
+
+            if q_start not in groups:
+                groups[q_start] = {"notes": [], "dur": q_dur, "is_triplet": is_triplet}
+
+            groups[q_start]["notes"].append(n["pitch"])
+            if q_dur > groups[q_start]["dur"]:
+                groups[q_start]["dur"] = q_dur
+
+        # Insert notes/chords into part
+        for q_start, info in sorted(groups.items()):
+            pitches = sorted(list(set(info["notes"])))
+            dur = info["dur"]
+
+            if len(pitches) == 1:
+                m21_element = note.Note(pitches[0])
+            else:
+                m21_element = chord.Chord(pitches)
+
+            m21_element.quarterLength = dur
+            p.insert(q_start, m21_element)
 
         s.append(p)
 

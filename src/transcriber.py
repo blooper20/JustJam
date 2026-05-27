@@ -294,17 +294,26 @@ def transcribe_audio(
         min_dur = config.get("post_processing", "min_note_duration", 0.1)
         do_quantize = config.get("post_processing", "quantize", True)
 
-        # 16th note duration in seconds
+        # Durations in seconds
         beat_dur = 60.0 / bpm
         sixteenth_dur = beat_dur / 4.0
+        triplet_dur = beat_dur / 6.0  # 8th note triplets
 
         cleaned = []
         # Enforce strict fingering limits
         max_poly = config.get("post_processing", "max_polyphony", 3)  # Reduced from 4 to 3
 
         for n in notes:
+            # Role-based Adaptive Velocity Filter (Noise Gate)
+            role = n.get("role", "harmony")
+            role_min_vel = min_vel
+            if role == "bass":
+                role_min_vel = min_vel + 0.05  # Filter out low bass rumble noise
+            elif role == "melody":
+                role_min_vel = max(0.15, min_vel - 0.05)  # Easing to capture soft melody details
+
             # Velocity Filter
-            if n["velocity"] < min_vel:
+            if n["velocity"] < role_min_vel:
                 continue
 
             # Duration Filter
@@ -313,10 +322,29 @@ def transcribe_audio(
 
             new_n = n.copy()
             if do_quantize:
-                # Snap start to nearest 16th
-                grid_idx = round(n["start"] / sixteenth_dur)
-                new_n["start"] = grid_idx * sixteenth_dur
-                new_n["end"] = max(new_n["start"] + sixteenth_dur, n["end"])
+                # Calculate straight 16th snap error
+                sixteenth_grid_idx = round(n["start"] / sixteenth_dur)
+                sixteenth_snap_time = sixteenth_grid_idx * sixteenth_dur
+                sixteenth_error = abs(n["start"] - sixteenth_snap_time)
+
+                # Calculate 8th triplet snap error
+                triplet_grid_idx = round(n["start"] / triplet_dur)
+                triplet_snap_time = triplet_grid_idx * triplet_dur
+                triplet_error = abs(n["start"] - triplet_snap_time)
+
+                # Gracefully switch between 16th and triplet grid
+                if (
+                    triplet_error < sixteenth_error * 0.6
+                ):  # Favor straight grid unless triplet is clearly better
+                    new_n["start"] = triplet_snap_time
+                    new_n["end"] = max(new_n["start"] + triplet_dur, n["end"])
+                    new_n["is_triplet"] = True
+                else:
+                    new_n["start"] = sixteenth_snap_time
+                    new_n["end"] = max(new_n["start"] + sixteenth_dur, n["end"])
+                    new_n["is_triplet"] = False
+            else:
+                new_n["is_triplet"] = False
 
             cleaned.append(new_n)
 

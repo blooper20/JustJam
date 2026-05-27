@@ -164,12 +164,17 @@ class TabGenerator:
         is_bass: bool = False,
         chord_shape: Optional[Dict[int, int]] = None,
         role: str = "harmony",
+        prev_fret: Optional[int] = None,
+        occupied_strings: Optional[List[int]] = None,
     ) -> Optional[Tuple[int, int]]:
         """
-        Find optimal string and fret position with role-based heuristics.
+        Find optimal string and fret position with role-based heuristics and transition penalties.
         """
         best_cand = None
         max_score = -float("inf")
+
+        if occupied_strings is None:
+            occupied_strings = []
 
         # Try various octave shifts to fit the range, prioritizing the original pitch
         shifts = [0, -12, 12]
@@ -181,6 +186,9 @@ class TabGenerator:
         for octave_shift in shifts:
             shifted_pitch = midi_pitch + octave_shift
             for s_idx in range(self.num_strings):
+                if s_idx in occupied_strings:
+                    continue  # Skip string if it's already occupied in this time slot
+
                 fret = shifted_pitch - self.tuning[s_idx]
 
                 # Use self.config_max_fret if available, else 15
@@ -214,6 +222,11 @@ class TabGenerator:
                     # 3. Chord Context
                     if chord_shape and s_idx in chord_shape and chord_shape[s_idx] == fret:
                         score += 2000  # Always obey the chord
+
+                    # 4. Fret Transition Penalty (Minimize jumps)
+                    if prev_fret is not None and fret != 0:
+                        fret_diff = abs(fret - prev_fret)
+                        score -= fret_diff * 150  # Deduct points for larger jumps
 
                     # Select best score
                     if score > max_score:
@@ -272,6 +285,10 @@ class TabGenerator:
                 measure_chords[m_idx] = self.detect_chord(m_notes)
 
             # Place notes on the tab
+            # Track occupied strings per time slot to avoid overlaps
+            occupied_slots = {}
+            last_fret = None
+
             for n in notes:
                 m_idx = int(n["start"] / sec_per_measure)
                 if m_idx >= num_measures:
@@ -300,14 +317,28 @@ class TabGenerator:
                 # Role overrides distinct is_bass logic usually, but keep fallback
                 is_bass = (role == "bass") or (n["pitch"] <= self.bass_threshold)
 
+                # Determine slot key
+                rel_time = n["start"] % sec_per_measure
+                slot_idx = int((rel_time / sec_per_measure) * slots_per_measure)
+                slot_key = (m_idx, slot_idx)
+
+                if slot_key not in occupied_slots:
+                    occupied_slots[slot_key] = []
+
                 pos = self.find_best_pos(
-                    n["pitch"], is_bass=is_bass, chord_shape=current_shape, role=role
+                    n["pitch"],
+                    is_bass=is_bass,
+                    chord_shape=current_shape,
+                    role=role,
+                    prev_fret=last_fret,
+                    occupied_strings=occupied_slots[slot_key],
                 )
 
                 if pos:
                     s_idx, fret = pos
-                    rel_time = n["start"] % sec_per_measure
-                    slot_idx = int((rel_time / sec_per_measure) * slots_per_measure)
+                    last_fret = fret
+                    occupied_slots[slot_key].append(s_idx)
+
                     line_idx = self.num_strings - 1 - s_idx
 
                     fret_str = str(fret)

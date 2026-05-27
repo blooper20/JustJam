@@ -73,7 +73,7 @@ KAKAO_CLIENT_SECRET=your-kakao-secret
 백엔드와 동일한 환경에서 별도의 프로세스로 워커를 실행해야 합니다.
 
 ```bash
-celery -A src.api.celery_app worker --loglevel=info
+celery -A src.api.celery_app worker --loglevel=info --concurrency=1
 ```
 
 환경에 따라 Docker 컨테이너를 하나 더 띄워 워커를 실행하는 것이 좋습니다.

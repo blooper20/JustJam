@@ -99,7 +99,7 @@ uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 음원 분리 태스크 처리를 위해 Redis와 Celery 워커가 필요합니다. 로컬에 Redis가 구동 중인 상태여야 합니다.
 ```bash
 # Celery 비동기 워커 실행
-celery -A src.api.services.project_service.celery_app worker --loglevel=info
+celery -A src.api.services.project_service.celery_app worker --loglevel=info --concurrency=1
 ```
 
 #### 3. Frontend 프론트엔드 클라이언트 실행

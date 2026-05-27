@@ -46,9 +46,7 @@ async def get_current_user(
 
     # 데이터베이스에서 사용자 조회
     user = (
-        db.query(User)
-        .filter(User.id == user_id, User.is_active, User.deleted_at.is_(None))
-        .first()
+        db.query(User).filter(User.id == user_id, User.is_active, User.deleted_at.is_(None)).first()
     )
 
     if user is None:
@@ -103,9 +101,7 @@ async def get_optional_current_user(
         return None
 
     user = (
-        db.query(User)
-        .filter(User.id == user_id, User.is_active, User.deleted_at.is_(None))
-        .first()
+        db.query(User).filter(User.id == user_id, User.is_active, User.deleted_at.is_(None)).first()
     )
 
     return user

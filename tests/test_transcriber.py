@@ -2,7 +2,6 @@
 Tests for the transcriber module
 """
 
-
 import pytest
 
 from src.transcriber import SUPPORTED_FORMATS, transcribe_audio, validate_audio_file

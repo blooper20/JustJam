@@ -11,6 +11,10 @@ export function useProject(id: string) {
     queryKey: ['project', id],
     queryFn: () => fetchProject(id),
     refetchInterval: (query) => {
+      // 3회 연속 호출 실패 시 또는 쿼리가 에러 상태인 경우 즉시 폴링 중단 (Short-circuiting)
+      if (query.state.errorUpdateCount >= 3 || query.state.status === 'error') {
+        return false;
+      }
       const data = query.state.data;
       if (!data) return 1000; // 데이터가 아직 없을 때는 폴링 시작을 위해 대기
       const status = data.status;

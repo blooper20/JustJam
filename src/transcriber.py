@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import librosa
-import numpy as np
 from basic_pitch import ICASSP_2022_MODEL_PATH
 from basic_pitch.inference import predict
 
+from src.audio_processor import separate_audio
 from src.config import config
 
 # Setup logging
@@ -136,11 +136,8 @@ def _transcribe_chunk(
         if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
-            except:
+            except Exception:
                 pass
-
-
-from src.audio_processor import separate_audio
 
 
 def transcribe_audio(
@@ -205,7 +202,7 @@ def transcribe_audio(
                 for f in futures:
                     try:
                         stem_notes.extend(f.result())
-                    except:
+                    except Exception:
                         pass
 
         # Assign role
@@ -228,7 +225,8 @@ def transcribe_audio(
                 "other": "harmony",
             }
 
-            # Handle special cases where target_stem might not exist in dictionary keys directly but we want to map it
+            # Handle special cases where target_stem might not exist in
+            # dictionary keys directly but we want to map it
             # e.g. user asks for 'guitar' but we only have 4-stem model ('other')
             # For now assume exact match or fallback
 

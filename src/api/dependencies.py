@@ -4,7 +4,7 @@ FastAPI 의존성 함수들
 
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -47,7 +47,7 @@ async def get_current_user(
     # 데이터베이스에서 사용자 조회
     user = (
         db.query(User)
-        .filter(User.id == user_id, User.is_active == True, User.deleted_at == None)
+        .filter(User.id == user_id, User.is_active, User.deleted_at.is_(None))
         .first()
     )
 
@@ -104,7 +104,7 @@ async def get_optional_current_user(
 
     user = (
         db.query(User)
-        .filter(User.id == user_id, User.is_active == True, User.deleted_at == None)
+        .filter(User.id == user_id, User.is_active, User.deleted_at.is_(None))
         .first()
     )
 

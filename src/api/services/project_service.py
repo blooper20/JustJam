@@ -11,7 +11,7 @@ import shutil
 import tempfile
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 import librosa
 import numpy as np
@@ -28,10 +28,9 @@ from src.api.exceptions import (
     TranscriptionError,
 )
 from src.api.models import ProjectAsset, ProjectMember, ProjectModel, User
-from src.api.schemas.project import ProjectUpdate, TaskStatus, MixRequest
+from src.api.schemas.project import TaskStatus
 from src.audio_processor import separate_audio
 from src.score_generator import create_score
-from src.tab_generator import TabGenerator
 from src.transcriber import transcribe_audio
 
 logger = logging.getLogger(__name__)
@@ -47,9 +46,10 @@ def generate_thumbnail(audio_path: str, output_path: str):
     """오디오 파일을 기반으로 스펙트로그램 썸네일 생성"""
     try:
         import matplotlib
+
         matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
         import librosa.display
+        import matplotlib.pyplot as plt
 
         y, sr = librosa.load(audio_path, duration=30, sr=22050)
         S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
@@ -101,7 +101,7 @@ def process_audio_logic(project_id: str, celery_self=None):
             stems = separate_audio(
                 input_path, model_name="htdemucs_6s", progress_callback=update_progress
             )
-            
+
             # BPM 감지
             try:
                 stem_dir = os.path.join(SEPARATED_DIR, "htdemucs_6s", project_id)
@@ -141,6 +141,7 @@ def process_audio_logic(project_id: str, celery_self=None):
             # 키/코드/구조 분석
             try:
                 from src.api.services.analysis_service import perform_full_analysis
+
                 analysis_results = perform_full_analysis(input_path, float(project.bpm or 120.0))
                 project.detected_key = analysis_results.get("key")
                 project.chord_progression = json.dumps(analysis_results.get("chords"))
@@ -169,10 +170,11 @@ def process_audio_task(self, project_id: str):
     return process_audio_logic(project_id, celery_self=self)
 
 
-
 class ProjectService:
     @staticmethod
-    def create_project(db: Session, file_name: str, file_content, current_user: Optional[User] = None):
+    def create_project(
+        db: Session, file_name: str, file_content, current_user: Optional[User] = None
+    ):
         """프로젝트 생성"""
         project_id = str(uuid.uuid4())
         file_ext = os.path.splitext(file_name)[1]
@@ -206,7 +208,10 @@ class ProjectService:
         """프로젝트 조회 및 권한 확인"""
         project = (
             db.query(ProjectModel)
-            .options(joinedload(ProjectModel.assets), joinedload(ProjectModel.members).joinedload(ProjectMember.user))
+            .options(
+                joinedload(ProjectModel.assets),
+                joinedload(ProjectModel.members).joinedload(ProjectMember.user),
+            )
             .filter(ProjectModel.id == project_id)
             .first()
         )
@@ -218,20 +223,25 @@ class ProjectService:
         if current_user and not is_owner:
             member = (
                 db.query(ProjectMember)
-                .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id)
+                .filter(
+                    ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id
+                )
                 .first()
             )
             is_member = member is not None
 
         if project.user_id is not None:
             from src.api.exceptions import AuthenticationError
+
             if not is_owner and not is_member:
                 raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
         # 자산 보유 여부 설정
         project.has_score = any(a.asset_type == "score" for a in project.assets)
         project.has_tab = any(a.asset_type == "tab" for a in project.assets)
-        project.score_instruments = [a.instrument for a in project.assets if a.asset_type == "score"]
+        project.score_instruments = [
+            a.instrument for a in project.assets if a.asset_type == "score"
+        ]
         project.tab_instruments = [a.instrument for a in project.assets if a.asset_type == "tab"]
         project.is_owner = bool(current_user and project.user_id == current_user.id)
 
@@ -242,16 +252,31 @@ class ProjectService:
         return project
 
     @staticmethod
-    def list_projects(db: Session, current_user: Optional[User] = None, q: str = None, sort: str = "newest", skip: int = 0, limit: int = 50):
+    def list_projects(
+        db: Session,
+        current_user: Optional[User] = None,
+        q: str = None,
+        sort: str = "newest",
+        skip: int = 0,
+        limit: int = 50,
+    ):
         """프로젝트 목록 조회"""
         query = db.query(ProjectModel).options(joinedload(ProjectModel.assets))
 
         if current_user:
-            shared_project_ids = db.query(ProjectMember.project_id).filter(ProjectMember.user_id == current_user.id).all()
+            shared_project_ids = (
+                db.query(ProjectMember.project_id)
+                .filter(ProjectMember.user_id == current_user.id)
+                .all()
+            )
             shared_project_ids = [p[0] for p in shared_project_ids]
-            query = query.filter(or_(ProjectModel.user_id == current_user.id, ProjectModel.id.in_(shared_project_ids)))
+            query = query.filter(
+                or_(
+                    ProjectModel.user_id == current_user.id, ProjectModel.id.in_(shared_project_ids)
+                )
+            )
         else:
-            query = query.filter(ProjectModel.user_id == None)
+            query = query.filter(ProjectModel.user_id.is_(None))
 
         if q:
             query = query.filter(ProjectModel.name.ilike(f"%{q}%"))
@@ -275,7 +300,9 @@ class ProjectService:
         return projects
 
     @staticmethod
-    def update_project(db: Session, project_id: str, name: str, current_user: Optional[User] = None):
+    def update_project(
+        db: Session, project_id: str, name: str, current_user: Optional[User] = None
+    ):
         """프로젝트 정보 수정"""
         project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
         if not project:
@@ -284,6 +311,7 @@ class ProjectService:
         if project.user_id is not None:
             if not current_user or project.user_id != current_user.id:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=403, detail="프로젝트 수정 권한이 없습니다.")
 
         if name is not None:
@@ -303,6 +331,7 @@ class ProjectService:
         if project.user_id is not None:
             if not current_user or project.user_id != current_user.id:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=403, detail="이 프로젝트를 삭제할 권한이 없습니다")
 
         db.delete(project)
@@ -319,6 +348,7 @@ class ProjectService:
         if source_project.user_id is not None:
             if not current_user or source_project.user_id != current_user.id:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=403, detail="프로젝트 복제 권한이 없습니다.")
 
         new_project_id = str(uuid.uuid4())
@@ -333,6 +363,7 @@ class ProjectService:
                 shutil.copy2(source_path, new_path)
         except Exception as e:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=500, detail=f"파일 복제 중 오류 발생: {str(e)}")
 
         new_project = ProjectModel(
@@ -361,14 +392,17 @@ class ProjectService:
         if project.user_id is not None:
             if not current_user or project.user_id != current_user.id:
                 from src.api.exceptions import AuthenticationError
+
                 raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
         if project.status != TaskStatus.COMPLETED.value:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="아직 처리가 완료되지 않았습니다.")
 
         base_url = f"/static/separated/htdemucs_6s/{project_id}"
         from src.api.schemas.project import StemFiles
+
         return StemFiles(
             vocals=f"{base_url}/vocals.wav",
             bass=f"{base_url}/bass.wav",
@@ -380,7 +414,9 @@ class ProjectService:
         )
 
     @staticmethod
-    def generate_score(db: Session, project_id: str, instrument: str, current_user: Optional[User] = None):
+    def generate_score(
+        db: Session, project_id: str, instrument: str, current_user: Optional[User] = None
+    ):
         """악보 생성"""
         project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
         if not project:
@@ -389,17 +425,23 @@ class ProjectService:
         if project.user_id is not None:
             if not current_user or project.user_id != current_user.id:
                 from src.api.exceptions import AuthenticationError
+
                 raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
         if project.status != TaskStatus.COMPLETED.value:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
 
-        existing_asset = db.query(ProjectAsset).filter(
-            ProjectAsset.project_id == project_id,
-            ProjectAsset.asset_type == "score",
-            ProjectAsset.instrument == instrument,
-        ).first()
+        existing_asset = (
+            db.query(ProjectAsset)
+            .filter(
+                ProjectAsset.project_id == project_id,
+                ProjectAsset.asset_type == "score",
+                ProjectAsset.instrument == instrument,
+            )
+            .first()
+        )
 
         if existing_asset:
             return existing_asset.content, True
@@ -412,7 +454,10 @@ class ProjectService:
             xml_content = create_score(notes, bpm, instrument)
 
             new_asset = ProjectAsset(
-                project_id=project_id, asset_type="score", instrument=instrument, content=xml_content
+                project_id=project_id,
+                asset_type="score",
+                instrument=instrument,
+                content=xml_content,
             )
             db.add(new_asset)
             db.commit()
@@ -423,7 +468,9 @@ class ProjectService:
             raise TranscriptionError(detail=f"악보 생성 실패: {str(e)}")
 
     @staticmethod
-    def generate_midi(db: Session, project_id: str, instrument: str, current_user: Optional[User] = None):
+    def generate_midi(
+        db: Session, project_id: str, instrument: str, current_user: Optional[User] = None
+    ):
         """MIDI 생성"""
         project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
         if not project:
@@ -432,27 +479,38 @@ class ProjectService:
         is_owner = current_user and project.user_id == current_user.id
         is_member = False
         if current_user and not is_owner:
-            member = db.query(ProjectMember).filter(
-                ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id
-            ).first()
+            member = (
+                db.query(ProjectMember)
+                .filter(
+                    ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id
+                )
+                .first()
+            )
             is_member = member is not None
 
         if project.user_id is not None:
             if not is_owner and not is_member:
                 from src.api.exceptions import AuthenticationError
+
                 raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
         if project.status != TaskStatus.COMPLETED.value:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
 
-        existing_asset = db.query(ProjectAsset).filter(
-            ProjectAsset.project_id == project_id,
-            ProjectAsset.asset_type == "midi",
-            ProjectAsset.instrument == instrument,
-        ).first()
+        existing_asset = (
+            db.query(ProjectAsset)
+            .filter(
+                ProjectAsset.project_id == project_id,
+                ProjectAsset.asset_type == "midi",
+                ProjectAsset.instrument == instrument,
+            )
+            .first()
+        )
 
         import base64
+
         if existing_asset:
             return base64.b64decode(existing_asset.content), True
 
@@ -478,7 +536,9 @@ class ProjectService:
             raise TranscriptionError(detail=f"MIDI 생성 실패: {str(e)}")
 
     @staticmethod
-    def generate_tab(db: Session, project_id: str, instrument: str, current_user: Optional[User] = None):
+    def generate_tab(
+        db: Session, project_id: str, instrument: str, current_user: Optional[User] = None
+    ):
         """타브 악보 생성"""
         project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
         if not project:
@@ -487,17 +547,23 @@ class ProjectService:
         if project.user_id is not None:
             if not current_user or project.user_id != current_user.id:
                 from src.api.exceptions import AuthenticationError
+
                 raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
         if project.status != TaskStatus.COMPLETED.value:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
 
-        existing_asset = db.query(ProjectAsset).filter(
-            ProjectAsset.project_id == project_id,
-            ProjectAsset.asset_type == "tab",
-            ProjectAsset.instrument == instrument,
-        ).first()
+        existing_asset = (
+            db.query(ProjectAsset)
+            .filter(
+                ProjectAsset.project_id == project_id,
+                ProjectAsset.asset_type == "tab",
+                ProjectAsset.instrument == instrument,
+            )
+            .first()
+        )
 
         if existing_asset:
             return json.loads(existing_asset.content), True
@@ -512,10 +578,12 @@ class ProjectService:
             target_stem = "guitar"
         else:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="지원하지 않는 악기입니다.")
 
         try:
             from src.tab_generator import TabGenerator
+
             notes, bpm = transcribe_audio(input_path, target_stem=target_stem)
             generator = TabGenerator(tuning=tuning, bpm=bpm)
             ascii_tab = generator.generate_ascii_tab(notes)
@@ -552,10 +620,12 @@ class ProjectService:
         if project.user_id is not None:
             if not current_user or project.user_id != current_user.id:
                 from src.api.exceptions import AuthenticationError
+
                 raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
         if project.status != TaskStatus.COMPLETED.value:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="음원 분리가 완료되지 않았습니다.")
 
         stem_dir = os.path.join(SEPARATED_DIR, "htdemucs_6s", project_id)
@@ -586,7 +656,8 @@ class ProjectService:
                 duration_sec = mixed.duration_seconds
                 sr = 44100
                 tempo = request.bpm
-                if tempo > 300: tempo = 120
+                if tempo > 300:
+                    tempo = 120
 
                 beat_times = np.arange(request.start_offset, duration_sec, 60.0 / tempo)
                 downbeats = beat_times[::4]
@@ -594,8 +665,20 @@ class ProjectService:
                 mask[::4] = False
                 offbeats = beat_times[mask]
 
-                clicks_strong = librosa.clicks(times=downbeats, sr=sr, length=int(duration_sec * sr), click_freq=1500, click_duration=0.1)
-                clicks_weak = librosa.clicks(times=offbeats, sr=sr, length=int(duration_sec * sr), click_freq=800, click_duration=0.1)
+                clicks_strong = librosa.clicks(
+                    times=downbeats,
+                    sr=sr,
+                    length=int(duration_sec * sr),
+                    click_freq=1500,
+                    click_duration=0.1,
+                )
+                clicks_weak = librosa.clicks(
+                    times=offbeats,
+                    sr=sr,
+                    length=int(duration_sec * sr),
+                    click_freq=800,
+                    click_duration=0.1,
+                )
                 clicks = clicks_strong + (clicks_weak * 0.5)
 
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_click:
@@ -610,6 +693,7 @@ class ProjectService:
 
             if mixed is None:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=400, detail="믹싱할 오디오 데이터가 없습니다.")
 
             # 캐싱을 위한 해시
@@ -620,7 +704,7 @@ class ProjectService:
 
             if not os.path.exists(output_path):
                 mixed.export(output_path, format="mp3")
-            
+
             return f"/static/uploads/{output_filename}"
         except Exception as e:
             logger.exception(f"Mixing failed: {e}")
@@ -635,16 +719,20 @@ class ProjectService:
 
         if project.user_id != current_user.id:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=403, detail="프로젝트 공유 권한이 없습니다.")
 
         target_user = db.query(User).filter(User.email == email).first()
         if not target_user:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-        existing_member = db.query(ProjectMember).filter(
-            ProjectMember.project_id == project_id, ProjectMember.user_id == target_user.id
-        ).first()
+        existing_member = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == target_user.id)
+            .first()
+        )
 
         if existing_member:
             existing_member.role = role
@@ -656,7 +744,7 @@ class ProjectService:
 
         db.commit()
         db.refresh(member)
-        
+
         # Helper fields for schema
         member.email = target_user.email
         member.nickname = target_user.nickname
@@ -670,17 +758,24 @@ class ProjectService:
             raise ProjectNotFoundError()
 
         # 권한 확인 생략 (프로젝트 접근 가능하면 멤버 목록 볼 수 있음)
-        members = db.query(ProjectMember).options(joinedload(ProjectMember.user)).filter(ProjectMember.project_id == project_id).all()
-        
+        members = (
+            db.query(ProjectMember)
+            .options(joinedload(ProjectMember.user))
+            .filter(ProjectMember.project_id == project_id)
+            .all()
+        )
+
         result = []
         for m in members:
-            result.append({
-                "user_id": m.user_id,
-                "email": m.user.email,
-                "nickname": m.user.nickname,
-                "role": m.role,
-                "joined_at": m.joined_at
-            })
+            result.append(
+                {
+                    "user_id": m.user_id,
+                    "email": m.user.email,
+                    "nickname": m.user.nickname,
+                    "role": m.role,
+                    "joined_at": m.joined_at,
+                }
+            )
         return result
 
     @staticmethod
@@ -693,14 +788,18 @@ class ProjectService:
         # 권한 확인: 소유자이거나 본인 탈퇴
         if project.user_id != current_user.id and user_id != current_user.id:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=403, detail="권한이 없습니다.")
 
-        member = db.query(ProjectMember).filter(
-            ProjectMember.project_id == project_id, ProjectMember.user_id == user_id
-        ).first()
+        member = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+            .first()
+        )
 
         if not member:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="멤버를 찾을 수 없습니다.")
 
         db.delete(member)

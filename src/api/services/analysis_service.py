@@ -1,6 +1,5 @@
 import logging
-import os
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import librosa
 import numpy as np
@@ -22,7 +21,7 @@ def analyze_key(y: np.ndarray, sr: int) -> str:
         # Compute chroma features
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
         chroma_sum = np.sum(chroma, axis=1)
-        
+
         # Normalize
         if np.max(chroma_sum) > 0:
             chroma_sum = chroma_sum / np.max(chroma_sum)
@@ -59,66 +58,63 @@ def analyze_chords(y: np.ndarray, sr: int, bpm: float) -> List[Dict]:
     try:
         # Harmonic-Percussive Source Separation
         y_harmonic, _ = librosa.effects.hpss(y)
-        
+
         # Chroma features
         chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
-        
+
         # Frequency of changes (e.g., every 2 beats)
         beat_dur = 60.0 / bpm
         hop_length = 512
         frames_per_beat = int((beat_dur * sr) / hop_length)
-        
+
         # Aggregate chroma per segment (e.g. 2 beats)
         segment_frames = max(1, frames_per_beat * 2)
         num_frames = chroma.shape[1]
-        
+
         chords = []
         for i in range(0, num_frames, segment_frames):
             end_f = min(i + segment_frames, num_frames)
             chunk = chroma[:, i:end_f]
             if chunk.shape[1] == 0:
                 continue
-                
+
             avg_chroma = np.mean(chunk, axis=1)
-            
+
             # Simple chord matching (Major/Minor triads)
             best_c_score = -1
             best_c_name = "N/A"
-            
+
             for root in range(12):
                 # Major Triad Template: [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0]
                 major_idx = [root, (root + 4) % 12, (root + 7) % 12]
                 score_maj = sum(avg_chroma[idx] for idx in major_idx)
-                
+
                 # Minor Triad Template: [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0]
                 minor_idx = [root, (root + 3) % 12, (root + 7) % 12]
                 score_min = sum(avg_chroma[idx] for idx in minor_idx)
-                
+
                 if score_maj > best_c_score:
                     best_c_score = score_maj
                     best_c_name = f"{PITCH_NAMES[root]}"
-                
+
                 if score_min > best_c_score:
                     best_c_score = score_min
                     best_c_name = f"{PITCH_NAMES[root]}m"
-            
+
             start_t = librosa.frames_to_time(i, sr=sr, hop_length=hop_length)
             end_t = librosa.frames_to_time(end_f, sr=sr, hop_length=hop_length)
-            
+
             # Deduplicate sequential identical chords
             if chords and chords[-1]["name"] == best_c_name:
                 chords[-1]["end"] = end_t
             else:
-                chords.append({
-                    "start": start_t,
-                    "end": end_t,
-                    "name": best_c_name
-                })
-        
+                chords.append({"start": start_t, "end": end_t, "name": best_c_name})
+
         return chords
     except Exception as e:
         logger.error(f"Chord analysis failed: {e}")
         return []
+
 
 def detect_structure(chords: List[Dict], duration: float) -> List[Dict]:
     """
@@ -126,26 +122,28 @@ def detect_structure(chords: List[Dict], duration: float) -> List[Dict]:
     """
     if not chords:
         return []
-    
+
     # Heuristic labels
     labels = ["Intro", "Verse 1", "Chorus 1", "Verse 2", "Chorus 2", "Bridge", "Chorus 3", "Outro"]
-    
+
     # Fixed segment length for now, ideally this would look for repetitive chord patterns
     segment_duration = 30.0
     num_segments = int(np.ceil(duration / segment_duration))
-    
+
     segments = []
     for i in range(num_segments):
         start = i * segment_duration
         end = min((i + 1) * segment_duration, duration)
-        
-        segments.append({
-            "name": labels[i % len(labels)],
-            "start": float(start),
-            "end": float(end),
-            "label": labels[i % len(labels)] # and name are same here
-        })
-        
+
+        segments.append(
+            {
+                "name": labels[i % len(labels)],
+                "start": float(start),
+                "end": float(end),
+                "label": labels[i % len(labels)],  # and name are same here
+            }
+        )
+
     return segments
 
 
@@ -157,16 +155,12 @@ def perform_full_analysis(audio_path: str, bpm: float) -> Dict:
         # Load audio (mono, 22.05kHz)
         y, sr = librosa.load(audio_path, sr=22050, duration=180)  # Analyze first 3 mins
         duration = librosa.get_duration(y=y, sr=sr)
-        
+
         key = analyze_key(y, sr)
         chords = analyze_chords(y, sr, bpm)
         structure = detect_structure(chords, duration)
-        
-        return {
-            "key": key,
-            "chords": chords,
-            "structure": structure
-        }
+
+        return {"key": key, "chords": chords, "structure": structure}
     except Exception as e:
         logger.error(f"Full analysis failed: {e}")
         return {"key": "Unknown", "chords": [], "structure": []}

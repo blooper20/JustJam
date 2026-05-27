@@ -1,5 +1,3 @@
-import pytest
-
 from src.api.models import User
 
 

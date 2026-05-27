@@ -2,7 +2,6 @@ import logging
 import os
 import platform
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -29,7 +28,8 @@ def separate_audio(
         progress_callback: Optional function to call with progress percentage (0-100).
 
     Returns:
-        Dictionary with keys 'vocals', 'bass', 'other', 'drums' (and 'piano', 'guitar') pointing to file paths.
+        Dictionary with keys 'vocals', 'bass', 'other', 'drums' (and 'piano', 'guitar')
+        pointing to file paths.
         If separation checks fail or is disabled, returns {'original': input_path}.
     """
     if not config.get("audio", "source_separation", False) and model_name is None:
@@ -189,6 +189,6 @@ def separate_audio(
             error_log_path_gen = os.path.join(output_dir, "generic_error.log")
             with open(error_log_path_gen, "w") as f:
                 f.write(str(e))
-        except:
+        except Exception:
             pass
         return {"original": input_path}

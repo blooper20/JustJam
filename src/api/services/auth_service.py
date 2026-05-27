@@ -3,7 +3,9 @@
 """
 
 from datetime import datetime
+
 from sqlalchemy.orm import Session
+
 from src.api.auth.jwt import create_access_token, create_refresh_token, verify_token
 from src.api.exceptions import AuthenticationError, InvalidTokenError
 from src.api.models import User
@@ -19,7 +21,9 @@ class AuthService:
         # 기존 사용자 확인
         user = (
             db.query(User)
-            .filter(User.provider == login_data.provider, User.provider_id == login_data.provider_id)
+            .filter(
+                User.provider == login_data.provider, User.provider_id == login_data.provider_id
+            )
             .first()
         )
 
@@ -57,9 +61,7 @@ class AuthService:
         refresh_token = create_refresh_token(token_data)
 
         return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            user=UserResponse.from_orm(user)
+            access_token=access_token, refresh_token=refresh_token, user=UserResponse.from_orm(user)
         )
 
     @staticmethod
@@ -80,7 +82,7 @@ class AuthService:
         # 사용자 확인
         user = (
             db.query(User)
-            .filter(User.id == user_id, User.is_active == True, User.deleted_at == None)
+            .filter(User.id == user_id, User.is_active, User.deleted_at.is_(None))
             .first()
         )
 

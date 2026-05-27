@@ -11,9 +11,16 @@ export function useProject(id: string) {
     queryKey: ['project', id],
     queryFn: () => fetchProject(id),
     refetchInterval: (query) => {
-      const status = query.state.data?.status;
+      const data = query.state.data;
+      if (!data) return 1000; // 데이터가 아직 없을 때는 폴링 시작을 위해 대기
+      const status = data.status;
+      if (status === 'completed' || status === 'failed') {
+        return false; // 작업 완료/실패 시 즉시 폴링 단락
+      }
       return status === 'pending' || status === 'processing' ? 1000 : false;
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const stemsQuery = useQuery({

@@ -7,13 +7,24 @@ import { Loader2, Play, AlertCircle, ArrowLeft, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
-import { MultiTrackPlayer } from '@/components/multitrack-player';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { ShareModal } from '@/components/share-modal';
 import { Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+
+const MultiTrackPlayer = dynamic(
+  () => import('@/components/multitrack-player').then((mod) => mod.MultiTrackPlayer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-64 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950/50 backdrop-blur-xl">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    ),
+  }
+);
 
 const TabViewer = dynamic(() => import('@/components/tab-viewer').then((mod) => mod.TabViewer), {
   ssr: false,

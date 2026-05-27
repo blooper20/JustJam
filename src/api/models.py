@@ -27,7 +27,9 @@ class User(Base):
 
     # Relationships
     projects = relationship("ProjectModel", back_populates="owner", cascade="all, delete-orphan")
-    shared_projects = relationship("ProjectMember", back_populates="user", cascade="all, delete-orphan")
+    shared_projects = relationship(
+        "ProjectMember", back_populates="user", cascade="all, delete-orphan"
+    )
 
     # 복합 인덱스: provider와 provider_id 조합으로 빠른 조회
     __table_args__ = (Index("idx_provider_id", "provider", "provider_id"),)

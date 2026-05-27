@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -83,3 +83,11 @@ class MixRequest(BaseModel):
     bpm: float
     metronome: float
     start_offset: float = 0.0
+
+
+class TabResponse(BaseModel):
+    project_id: str = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
+    instrument: str = Field(..., example="guitar")
+    bpm: float = Field(..., example=120.0)
+    tab: str = Field(..., example="e|---")
+    notes_count: int = Field(..., example=150)

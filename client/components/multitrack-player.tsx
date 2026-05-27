@@ -265,6 +265,11 @@ export function MultiTrackPlayer({
   songStructure,
 }: MultiTrackPlayerProps) {
   const t = useTranslations('Player');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Zustand Store 구독
   const {
@@ -1020,6 +1025,14 @@ export function MultiTrackPlayer({
       setIsDownloading(false);
     }
   };
+
+  if (!isMounted) {
+    return (
+      <div className="flex h-64 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950/50 backdrop-blur-xl">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 select-none relative">

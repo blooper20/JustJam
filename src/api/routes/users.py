@@ -2,16 +2,13 @@
 사용자 관리 API 라우트
 """
 
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.models import User
 from src.api.schemas.user import UserResponse, UserUpdate
-
 from src.api.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -62,7 +59,7 @@ async def upload_profile_image(
     """
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="이미지 파일만 업로드할 수 있습니다.")
-        
+
     return UserService.upload_profile_image(db, current_user, file.filename, file.file)
 
 
@@ -84,4 +81,3 @@ async def delete_current_user(
         성공 메시지
     """
     return UserService.delete_user(db, current_user)
-

@@ -370,7 +370,8 @@ class TabGenerator:
                         scores[name] += 5
 
             # Simplicity Bias: Prefer Triads (Major/Minor) over complex chords (7ths, sus, add9)
-            # This makes the chord progression more "standard/popular" unless strong evidence exists.
+            # This makes the chord progression more "standard/popular"
+            # unless strong evidence exists.
             is_simple = len(name) <= 3 and "7" not in name and "9" not in name and "sus" not in name
             # Major (len 1 or 2 e.g. 'F#') or Minor (len 2 or 3 e.g. 'F#m')
             # Adjust bias as needed. 4 points = roughly 1-2 matching notes worth.

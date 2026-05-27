@@ -22,6 +22,7 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
         cursor.execute("PRAGMA cache_size=-64000")  # 64MB cache
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
 else:
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
 

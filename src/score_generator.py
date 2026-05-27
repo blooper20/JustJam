@@ -1,8 +1,7 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import music21
-from music21 import chord, clef, instrument, layout, metadata, meter, note, stream, tempo
+from music21 import clef, instrument, metadata, meter, note, stream, tempo
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class ScoreGenerator:
             "bass": instrument.ElectricBass(),
             "guitar": instrument.ElectricGuitar(),
             "piano": instrument.Piano(),
-            "drums": instrument.Percussion(),  # Drums handled differently usually, but simple mapping for now
+            "drums": instrument.Percussion(),  # Drums handled differently, simple mapping for now
             "other": instrument.Piano(),
         }
         inst = inst_map.get(instrument_name.lower(), instrument.Piano())
@@ -73,7 +72,8 @@ class ScoreGenerator:
 
             # Create Note or Chord
             # Currently we process individual notes.
-            # If polyphony exists at same start time, we should handle it, but music21 stream can handle simultaneous notes (it creates chords automatically? No, we need to create Chords)
+            # If polyphony exists at same start time, we should handle it, but
+            # music21 stream can handle simultaneous notes.
             # For simplicity let's just insert Notes using insert(). MusicXML allows voices.
 
             m21_note = note.Note(pitch_val)
@@ -117,7 +117,6 @@ class ScoreGenerator:
                 logger.error(f"Fallback MusicXML failed: {e2}")
                 raise e2
 
-
     def generate_midi(self, notes: List[Dict[str, Any]], instrument_name: str = "Piano") -> bytes:
         """
         Generate MIDI bytes from a list of notes.
@@ -127,7 +126,7 @@ class ScoreGenerator:
 
         s = stream.Score()
         p = stream.Part()
-        
+
         # Assign Instrument
         inst_map = {
             "vocals": instrument.Vocalist(),
@@ -153,19 +152,19 @@ class ScoreGenerator:
             p.insert(round(start_beat * 4) / 4.0, m21_note)
 
         s.append(p)
-        
-        import tempfile
+
         import os
-        
+        import tempfile
+
         try:
             with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as tmp:
                 tmp_path = tmp.name
-            
+
             s.write("midi", fp=tmp_path)
-            
+
             with open(tmp_path, "rb") as f:
                 midi_bytes = f.read()
-            
+
             os.remove(tmp_path)
             return midi_bytes
         except Exception as e:
@@ -173,7 +172,9 @@ class ScoreGenerator:
             raise e
 
 
-def create_score(notes: List[Dict[str, Any]], bpm: float, instrument: str, format: str = "musicxml") -> Any:
+def create_score(
+    notes: List[Dict[str, Any]], bpm: float, instrument: str, format: str = "musicxml"
+) -> Any:
     generator = ScoreGenerator(bpm=bpm)
     if format == "midi":
         return generator.generate_midi(notes, instrument)

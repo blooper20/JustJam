@@ -25,6 +25,21 @@ def test_conversion(audio_path):
         generator = TabGenerator(bpm=detected_bpm)
         tab = generator.generate_ascii_tab(notes)
 
+        # TabResponse 스펙 검증
+        result = {
+            "project_id": "test-id",
+            "instrument": "guitar",
+            "bpm": detected_bpm,
+            "tab": tab,
+            "notes_count": len(notes),
+        }
+        assert isinstance(result["project_id"], str), "project_id must be str"
+        assert isinstance(result["instrument"], str), "instrument must be str"
+        assert isinstance(result["bpm"], (int, float)), "bpm must be int or float"
+        assert isinstance(result["tab"], str), "tab must be str"
+        assert isinstance(result["notes_count"], int), "notes_count must be int"
+        print("   스키마 정합성 검증 완료.")
+
         print("\n--- 생성된 타브 악보 ---")
         print(tab)
         print("------------------------")

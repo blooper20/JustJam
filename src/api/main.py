@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 import redis.asyncio as redis
+import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -11,8 +12,6 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastapi_cache.backends.redis import RedisBackend
 from prometheus_fastapi_instrumentator import Instrumentator
-
-import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
@@ -85,11 +84,11 @@ async def justjam_exception_handler(request: Request, exc: JustJamException):
     # 500 내외의 심각한 오류만 Sentry로 전송
     if exc.status_code >= 500:
         sentry_sdk.capture_exception(exc)
-        
+
     error_code = exc.__class__.__name__.replace("Error", "").upper()
     if error_code == "JUSTJAMEXCEPTION":
         error_code = "INTERNAL_ERROR"
-        
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -99,9 +98,7 @@ async def justjam_exception_handler(request: Request, exc: JustJamException):
             "detail": exc.detail,
             "instance": str(request.url),
             "code": error_code,
-            "extensions": {
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }
+            "extensions": {"timestamp": datetime.utcnow().isoformat() + "Z"},
         },
     )
 
@@ -110,7 +107,7 @@ async def justjam_exception_handler(request: Request, exc: JustJamException):
 async def http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code >= 500:
         sentry_sdk.capture_exception(exc)
-        
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -120,9 +117,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "detail": exc.detail,
             "instance": str(request.url),
             "code": f"HTTP_{exc.status_code}",
-            "extensions": {
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }
+            "extensions": {"timestamp": datetime.utcnow().isoformat() + "Z"},
         },
     )
 
@@ -133,7 +128,9 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
 
 # CORS 설정
-allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8000")
+allowed_origins_raw = os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8000"
+)
 origins = [origin.strip() for origin in allowed_origins_raw.split(",")]
 
 app.add_middleware(

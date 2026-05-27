@@ -1,19 +1,23 @@
+from typing import List, Optional
+
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Response, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache
 from sqlalchemy.orm import Session
-from typing import List, Optional
 
 from src.api.database import get_db
 from src.api.dependencies import get_current_user, get_optional_current_user
 from src.api.models import User
 from src.api.schemas.project import (
+    MixRequest,
     Project,
-    ProjectMember as ProjectMemberSchema,
+)
+from src.api.schemas.project import ProjectMember as ProjectMemberSchema
+from src.api.schemas.project import (
     ProjectShareRequest,
     ProjectUpdate,
     StemFiles,
-    MixRequest,
+    TabResponse,
 )
 from src.api.services.project_service import ProjectService, generate_thumbnail
 
@@ -35,8 +39,10 @@ async def create_project(
     project, file_path = ProjectService.create_project(db, file.filename, file.file, current_user)
 
     # 썸네일 생성 백그라운드 작업
-    from src.api.services.project_service import UPLOAD_DIR
     import os
+
+    from src.api.services.project_service import UPLOAD_DIR
+
     thumbnail_filename = f"thumb_{project.id}.png"
     thumbnail_path = os.path.join(UPLOAD_DIR, thumbnail_filename)
     background_tasks.add_task(generate_thumbnail, file_path, thumbnail_path)
@@ -53,14 +59,15 @@ async def process_project(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> dict:
-    from src.api.services.project_service import process_audio_task, process_audio_logic
     from src.api.models import ProjectModel
     from src.api.schemas.project import TaskStatus
+    from src.api.services.project_service import process_audio_logic, process_audio_task
 
     # 1. DB 상태를 즉시 PROCESSING으로 변경하여 프론트엔드 폴링 유도
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Project not found")
 
     project.status = TaskStatus.PROCESSING.value
@@ -75,6 +82,7 @@ async def process_project(
         return {"message": "Processing started via Celery", "status": "processing"}
     except Exception as e:
         from src.api.logging_config import logger
+
         logger.warning(f"Celery start failed (Redis down?), using BackgroundTasks instead: {e}")
         background_tasks.add_task(process_audio_logic, project_id)
         return {"message": "Processing started via BackgroundTasks", "status": "processing"}
@@ -164,7 +172,7 @@ async def generate_project_midi(
     return Response(content=midi_bytes, media_type="audio/midi", headers=headers)
 
 
-@router.post("/{project_id}/tabs/{instrument}")
+@router.post("/{project_id}/tabs/{instrument}", response_model=TabResponse)
 async def generate_project_tab(
     project_id: str,
     instrument: str,
@@ -188,6 +196,7 @@ async def mix_audio(
 
 
 # --- 협업 관련 엔드포인트 ---
+
 
 @router.post("/{project_id}/share", response_model=ProjectMemberSchema)
 async def share_project(

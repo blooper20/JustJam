@@ -2,8 +2,6 @@
 인증 관련 API 라우트
 """
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -11,7 +9,7 @@ from src.api.database import get_db
 from src.api.dependencies import get_current_user
 from src.api.limiter import limiter
 from src.api.models import User
-from src.api.schemas.user import LoginRequest, RefreshTokenRequest, TokenResponse, UserResponse
+from src.api.schemas.user import LoginRequest, RefreshTokenRequest, TokenResponse
 from src.api.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -27,7 +25,9 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     },
 )
 @limiter.limit("5/minute")
-async def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+async def login(
+    request: Request, login_data: LoginRequest, db: Session = Depends(get_db)
+) -> TokenResponse:
     """
     소셜 로그인 (Google, Kakao)
 
@@ -54,7 +54,9 @@ async def login(request: Request, login_data: LoginRequest, db: Session = Depend
         401: {"description": "유효하지 않은 Refresh Token"},
     },
 )
-async def refresh_access_token(refresh_data: RefreshTokenRequest, db: Session = Depends(get_db)) -> TokenResponse:
+async def refresh_access_token(
+    refresh_data: RefreshTokenRequest, db: Session = Depends(get_db)
+) -> TokenResponse:
     """
     Refresh Token으로 새로운 Access Token 발급
 
@@ -69,7 +71,6 @@ async def refresh_access_token(refresh_data: RefreshTokenRequest, db: Session = 
         HTTPException: 유효하지 않은 refresh token인 경우 401 에러
     """
     return AuthService.refresh_token(db, refresh_data.refresh_token)
-
 
 
 @router.post("/logout", summary="로그아웃")

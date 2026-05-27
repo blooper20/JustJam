@@ -8,8 +8,7 @@ const intlMiddleware = createMiddleware({
 });
 
 const authMiddleware = withAuth(
-  // @ts-ignore
-  function onSuccess(req) {
+  function onSuccess(req: NextRequest) {
     return intlMiddleware(req);
   },
   {
@@ -29,8 +28,8 @@ export default function middleware(req: NextRequest) {
   if (isPublicPage) {
     return intlMiddleware(req);
   } else {
-    // @ts-ignore
-    return authMiddleware(req);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (authMiddleware as any)(req);
   }
 }
 

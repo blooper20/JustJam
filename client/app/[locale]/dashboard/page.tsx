@@ -4,13 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   UploadCloud,
   Music,
-  FileAudio,
   Loader2,
   Play,
   Trash2,
   Activity,
   Plus,
-  LayoutDashboard,
   Clock,
   FileMusic,
   Users,
@@ -20,7 +18,7 @@ import Image from 'next/image';
 import { API_BASE_URL } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { fetchProjects, createProject, deleteProject } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,7 +132,6 @@ export default function DashboardPage() {
     });
   };
 
-  const totalProjects = projects?.length || 0;
   const processingProjects =
     projects?.filter((p) => p.status === 'processing' || p.status === 'pending').length || 0;
   const completedProjects = projects?.filter((p) => p.status === 'completed').length || 0;
@@ -299,7 +296,9 @@ export default function DashboardPage() {
         ) : isError ? (
           <div className="text-center py-12 text-red-500">
             <p>프로젝트를 불러오는데 실패했습니다.</p>
-            <p className="text-sm opacity-70">{(error as any)?.message || '알 수 없는 오류'}</p>
+            <p className="text-sm opacity-70">
+              {error instanceof Error ? error.message : '알 수 없는 오류'}
+            </p>
             <Button
               variant="outline"
               className="mt-4"

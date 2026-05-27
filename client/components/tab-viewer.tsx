@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { generateTab, generateMidi, TabResponse } from '@/lib/api';
@@ -16,8 +16,6 @@ export function TabViewer({
   autoLoad = false,
   existingInstruments = [],
 }: TabViewerProps) {
-  const [activeTab, setActiveTab] = useState('guitar');
-  const initializedRef = useRef(false);
   const [tabs, setTabs] = useState<Record<string, TabResponse | null>>({
     guitar: null,
     bass: null,
@@ -31,23 +29,26 @@ export function TabViewer({
     bass: 'Loading...',
   });
 
-  const handleGenerate = async (instrument: 'guitar' | 'bass', isFirstLoad = false) => {
-    setLoading((prev) => ({ ...prev, [instrument]: true }));
-    setLoadingMessage((prev) => ({
-      ...prev,
-      [instrument]: isFirstLoad ? '불러오는 중...' : '생성 중...',
-    }));
-    try {
-      const data = await generateTab(projectId, instrument);
-      setTabs((prev) => ({ ...prev, [instrument]: data }));
-      toast.success(`${instrument} 타브 악보가 생성되었습니다!`);
-    } catch (error) {
-      toast.error(`${instrument} 타브 생성에 실패했습니다.`);
-      console.error(error);
-    } finally {
-      setLoading((prev) => ({ ...prev, [instrument]: false }));
-    }
-  };
+  const handleGenerate = useCallback(
+    async (instrument: 'guitar' | 'bass', isFirstLoad = false) => {
+      setLoading((prev) => ({ ...prev, [instrument]: true }));
+      setLoadingMessage((prev) => ({
+        ...prev,
+        [instrument]: isFirstLoad ? '불러오는 중...' : '생성 중...',
+      }));
+      try {
+        const data = await generateTab(projectId, instrument);
+        setTabs((prev) => ({ ...prev, [instrument]: data }));
+        toast.success(`${instrument} 타브 악보가 생성되었습니다!`);
+      } catch (error) {
+        toast.error(`${instrument} 타브 생성에 실패했습니다.`);
+        console.error(error);
+      } finally {
+        setLoading((prev) => ({ ...prev, [instrument]: false }));
+      }
+    },
+    [projectId],
+  );
 
   useEffect(() => {
     if (autoLoad && existingInstruments.length > 0) {
@@ -57,7 +58,7 @@ export function TabViewer({
         }
       });
     }
-  }, [autoLoad, projectId]);
+  }, [autoLoad, existingInstruments, handleGenerate]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -69,7 +70,7 @@ export function TabViewer({
   };
 
   return (
-    <Tabs defaultValue="guitar" className="w-full" onValueChange={setActiveTab}>
+    <Tabs defaultValue="guitar" className="w-full">
       <div className="flex items-center justify-between mb-4">
         <TabsList>
           <TabsTrigger value="guitar">기타 타브</TabsTrigger>
@@ -123,6 +124,7 @@ export function TabViewer({
                       a.click();
                       toast.success('MIDI 다운로드 성공!');
                     } catch (error) {
+                      console.error(error);
                       toast.error('MIDI 생성 실패');
                     }
                   }}

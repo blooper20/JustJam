@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient, { API_BASE_URL } from '@/lib/api-client';
-import axios from 'axios';
 import { getSession, signOut } from 'next-auth/react';
 
 // Mock next-auth/react
@@ -28,9 +28,9 @@ describe('apiClient', () => {
     // 내부 _interceptors 접근이 어려우므로 실제 요청을 모킹하여 확인
     // Axios static mock 보다는 직접 요청 전 구성을 확인하는 것이 좋음
     const config = { headers: {} as any };
-    // @ts-ignore - access private interceptor for testing
+    // @ts-expect-error - access private interceptor for testing
     const requestInterceptor = apiClient.interceptors.request.handlers.find(
-      (h: any) => h.fulfilled && h.fulfilled.toString().includes('getSession')
+      (h: any) => h.fulfilled && h.fulfilled.toString().includes('getSession'),
     )?.fulfilled;
     const resultConfig = await requestInterceptor(config);
 
@@ -38,9 +38,9 @@ describe('apiClient', () => {
   });
 
   it('401 에러 발생 시 로그아웃을 처리한다', async () => {
-    // @ts-ignore - access private interceptor for testing
+    // @ts-expect-error - access private interceptor for testing
     const responseInterceptor = apiClient.interceptors.response.handlers.find(
-      (h: any) => h.rejected && h.rejected.toString().includes('RFC 7807')
+      (h: any) => h.rejected && h.rejected.toString().includes('RFC 7807'),
     )?.rejected;
 
     const error = {
@@ -57,7 +57,7 @@ describe('apiClient', () => {
 
     try {
       await responseInterceptor(error);
-    } catch (e) {
+    } catch {
       // Expected rejection
     }
 
@@ -65,9 +65,9 @@ describe('apiClient', () => {
   });
 
   it('RFC 7807 detail이 있으면 에러 메시지로 사용한다', async () => {
-    // @ts-ignore
+    // @ts-expect-error - access private interceptor for testing
     const responseInterceptor = apiClient.interceptors.response.handlers.find(
-      (h: any) => h.rejected && h.rejected.toString().includes('RFC 7807')
+      (h: any) => h.rejected && h.rejected.toString().includes('RFC 7807'),
     )?.rejected;
 
     const error = {

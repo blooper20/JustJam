@@ -1,17 +1,15 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Music, Loader2, Play, Trash2, Clock, ChevronLeft, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2, Trash2, Clock, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchProjects, createProject, deleteProject } from '@/lib/api';
+import { fetchProjects, deleteProject } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default function SongsPage() {
   const queryClient = useQueryClient();
-  const [uploading, setUploading] = useState(false);
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],

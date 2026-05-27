@@ -1,8 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { render, screen } from '@testing-library/react';
 import DashboardPage from '../app/[locale]/dashboard/page';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { fetchProjects } from '@/lib/api';
 
 // Mock react-query
 jest.mock('@tanstack/react-query', () => ({
@@ -24,7 +23,8 @@ jest.mock('next/navigation', () => ({
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: (props: any) => <img {...props} />,
+  // eslint-disable-next-line @next/next/no-img-element
+  default: (props: any) => <img {...props} alt="" />,
 }));
 
 describe('DashboardPage', () => {

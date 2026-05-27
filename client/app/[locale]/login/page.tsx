@@ -4,7 +4,6 @@ import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Music } from 'lucide-react';
-import Image from 'next/image';
 
 export default function LoginPage() {
   return (

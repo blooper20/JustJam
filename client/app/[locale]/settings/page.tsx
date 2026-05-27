@@ -36,7 +36,7 @@ export default function SettingsPage() {
 
     setIsUploading(true);
     try {
-      const updatedUser = await uploadProfileImage(file);
+      await uploadProfileImage(file);
       toast.success('프로필 이미지가 변경되었습니다.');
       // 세션 강제 갱신은 복잡하므로 페이지 새로고침 권장
       window.location.reload();

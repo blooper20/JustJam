@@ -57,8 +57,10 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       // Cast to any to avoid typescript errors before we define types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (session as any).accessToken = token.accessToken;
       if (session.user) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (session.user as any).id = token.userId;
       }
       return session;

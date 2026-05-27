@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { UserNav } from '@/components/user-nav';
-import { Music, LayoutDashboard, FolderOpen } from 'lucide-react';
+import { LayoutDashboard, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -15,14 +15,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Menu, Languages, Check } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const tAuth = useTranslations('Auth');
-  const tCommon = useTranslations('Common');
 
   const routes = [
     {

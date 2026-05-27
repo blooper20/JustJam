@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UploadCloud, Music, FileAudio, Loader2, Play, Trash2 } from 'lucide-react';
+import { UploadCloud, Music, Loader2, Play, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { fetchProjects, createProject, deleteProject } from '@/lib/api';

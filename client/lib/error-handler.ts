@@ -13,7 +13,7 @@ interface ProblemDetails {
 }
 
 // 에러 코드별 사용자 메시지
-const ERROR_MESSAGES: Record<string, string> = {
+export const ERROR_MESSAGES: Record<string, string> = {
   PROJECT_NOT_FOUND: '프로젝트를 찾을 수 없습니다.',
   UNAUTHORIZED: '로그인이 필요합니다.',
   FORBIDDEN: '접근 권한이 없습니다.',

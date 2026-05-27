@@ -3,7 +3,7 @@
 import { useProject } from '@/hooks/use-project';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Play, AlertCircle, ArrowLeft, Download } from 'lucide-react';
+import { Loader2, Play, AlertCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
@@ -12,7 +12,6 @@ import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { ShareModal } from '@/components/share-modal';
 import { Users } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 
 const MultiTrackPlayer = dynamic(
   () => import('@/components/multitrack-player').then((mod) => mod.MultiTrackPlayer),
@@ -23,7 +22,7 @@ const MultiTrackPlayer = dynamic(
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     ),
-  }
+  },
 );
 
 const TabViewer = dynamic(() => import('@/components/tab-viewer').then((mod) => mod.TabViewer), {
@@ -52,8 +51,7 @@ export default function ProjectPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
-  const view = searchParams.get('view');
-  const queryClient = useQueryClient();
+
   const [loadMixer, setLoadMixer] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);

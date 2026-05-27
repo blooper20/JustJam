@@ -6,12 +6,12 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Music, Mic2, Guitar, ArrowRight, Layers, Sliders, PlayCircle } from 'lucide-react';
+import { PlayCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 export default function LandingPage() {
   const t = useTranslations('Index');
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   useEffect(() => {

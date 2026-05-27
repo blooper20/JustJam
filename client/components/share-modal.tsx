@@ -5,10 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchProjectMembers, shareProject, removeProjectMember } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X, UserPlus, Shield, Trash2, Mail, Loader2, Check, ShieldAlert, User } from 'lucide-react';
+import { X, UserPlus, Shield, Trash2, Mail, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface ShareModalProps {
   projectId: string;
@@ -35,8 +35,9 @@ export function ShareModal({ projectId, isOpen, onClose, isOwner }: ShareModalPr
       setEmail('');
       queryClient.invalidateQueries({ queryKey: ['project', projectId, 'members'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || '공유 중 오류가 발생했습니다.');
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(message || '공유 중 오류가 발생했습니다.');
     },
   });
 
@@ -46,8 +47,9 @@ export function ShareModal({ projectId, isOpen, onClose, isOwner }: ShareModalPr
       toast.success('멤버가 삭제되었습니다.');
       queryClient.invalidateQueries({ queryKey: ['project', projectId, 'members'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || '삭제 중 오류가 발생했습니다.');
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(message || '삭제 중 오류가 발생했습니다.');
     },
   });
 
@@ -95,7 +97,7 @@ export function ShareModal({ projectId, isOpen, onClose, isOwner }: ShareModalPr
                 </div>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
+                  onChange={(e) => setRole(e.target.value as 'viewer' | 'editor')}
                   className="bg-zinc-900 border border-zinc-800 rounded-md px-3 text-sm font-medium focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="viewer">조회</option>

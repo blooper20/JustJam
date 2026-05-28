@@ -143,6 +143,17 @@ app.add_middleware(
 )
 
 
+from src.api.i18n import set_locale
+
+
+@app.middleware("http")
+async def set_request_locale(request: Request, call_next):
+    accept_language = request.headers.get("Accept-Language", "ko")
+    locale = "en" if "en" in accept_language.lower() else "ko"
+    set_locale(locale)
+    return await call_next(request)
+
+
 # HTTPS 리다이렉트 미들웨어 (프로덕션 환경 전용)
 @app.middleware("http")
 async def enforce_https_redirect(request: Request, call_next):

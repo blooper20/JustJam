@@ -1,4 +1,3 @@
-import gettext
 import logging
 import os
 from pathlib import Path
@@ -19,9 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Internationalization Setup
-localedir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../locales")
-translate = gettext.translation("messages", localedir, fallback=True)
-_ = translate.gettext
+from src.api.i18n import _
 
 # Supported audio formats
 SUPPORTED_FORMATS = set(

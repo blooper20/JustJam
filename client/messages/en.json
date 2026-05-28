@@ -3,7 +3,24 @@
         "title": "JustJam - New Standard for Music Collaboration",
         "description": "Your own band studio completed with AI audio separation",
         "getStarted": "Get Started",
-        "recentProjects": "Recent Projects"
+        "recentProjects": "Recent Projects",
+        "aiPlatform": "AI-Powered Music Analysis Platform v1.0",
+        "allFeatures": "All Features in One Place",
+        "allFeaturesDesc": "Discover powerful tools built specifically for musicians",
+        "trackSeparation": "AI Track Separation",
+        "trackSeparationDesc": "State-of-the-art AI models separate vocals, drums, bass, guitar, and keyboards with high precision.",
+        "mixer": "Smart Mixer",
+        "mixerDesc": "Adjust volumes, mute, or solo individual tracks to focus on your practice.",
+        "scoreGen": "Real-time Sheet Music",
+        "scoreGenDesc": "Analyze separated tracks to generate sheet music and guitar tablatures immediately.",
+        "threeSteps": "3 Easy Steps to Start",
+        "step1Title": "Upload Audio",
+        "step1Desc": "Upload your MP3 or WAV audio files to practice.",
+        "step2Title": "AI Audio Separation",
+        "step2Desc": "JustJam AI analyzes and separates the audio in just a few minutes.",
+        "step3Title": "Start Rehearsing",
+        "step3Desc": "Enjoy playing together with your band.",
+        "footerDesc": "The ultimate practice partner for music lovers. Get started today."
     },
     "Auth": {
         "login": "Login",
@@ -53,7 +70,14 @@
         "enterNewName": "Enter new project name:",
         "confirmDelete": "Are you sure you want to delete this project?",
         "startAnalysis": "Start Analysis",
-        "shared": "Shared"
+        "shared": "Shared",
+        "pending": "Pending",
+        "completed": "Completed",
+        "failed": "Failed",
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "rename": "Rename",
+        "clone": "Clone"
     },
     "Collab": {
         "title": "Collaboration Space",

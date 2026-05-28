@@ -31,8 +31,10 @@ import {
 } from '@/components/ui/select';
 import { Edit2, Search, Copy } from 'lucide-react';
 import { updateProject, cloneProject } from '@/lib/api';
+import { useTranslations } from 'next-intl';
 
 export default function DashboardPage() {
+  const t = useTranslations('Dashboard');
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,11 +56,11 @@ export default function DashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setUploading(false);
-      toast.success('프로젝트가 생성되었습니다.');
+      toast.success(t('projectCreated'));
     },
     onError: () => {
       setUploading(false);
-      toast.error('업로드에 실패했습니다.');
+      toast.error(t('uploadFailed'));
     },
   });
 
@@ -66,10 +68,10 @@ export default function DashboardPage() {
     mutationFn: deleteProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('프로젝트가 삭제되었습니다.');
+      toast.success(t('projectDeleted'));
     },
     onError: () => {
-      toast.error('프로젝트 삭제에 실패했습니다.');
+      toast.error(t('deleteFailed'));
     },
   });
 
@@ -77,10 +79,10 @@ export default function DashboardPage() {
     mutationFn: ({ id, name }: { id: string; name: string }) => updateProject(id, { name }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('프로젝트 이름이 변경되었습니다.');
+      toast.success(t('renameSuccess'));
     },
     onError: () => {
-      toast.error('이름 변경에 실패했습니다.');
+      toast.error(t('renameFailed'));
     },
   });
 
@@ -88,17 +90,17 @@ export default function DashboardPage() {
     mutationFn: cloneProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('프로젝트가 복제되었습니다.');
+      toast.success(t('cloneSuccess'));
     },
     onError: () => {
-      toast.error('프로젝트 복제에 실패했습니다.');
+      toast.error(t('cloneFailed'));
     },
   });
 
   const handleRenameClick = (e: React.MouseEvent, id: string, currentName: string) => {
     e.preventDefault();
     e.stopPropagation();
-    const newName = prompt('새로운 프로젝트 이름을 입력하세요:', currentName);
+    const newName = prompt(t('enterNewName'), currentName);
     if (newName && newName.trim() !== currentName) {
       renameMutation.mutate({ id, name: newName.trim() });
     }
@@ -121,13 +123,13 @@ export default function DashboardPage() {
     e.preventDefault();
     e.stopPropagation();
 
-    toast('정말 삭제하시겠습니까?', {
+    toast(t('confirmDelete'), {
       action: {
-        label: '삭제',
+        label: t('delete'),
         onClick: () => deleteMutation.mutate(projectId),
       },
       cancel: {
-        label: '취소',
+        label: t('cancel'),
         onClick: () => {},
       },
     });
@@ -146,14 +148,14 @@ export default function DashboardPage() {
       {/* Dashboard Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">대시보드</h1>
-          <p className="text-muted-foreground mt-1">음악 프로젝트를 관리하고 연습하세요</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="프로젝트 검색..."
+              placeholder={t('searchPlaceholder')}
               className="pl-9 bg-zinc-950 border-zinc-800"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -161,12 +163,12 @@ export default function DashboardPage() {
           </div>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-32 bg-zinc-950 border-zinc-800">
-              <SelectValue placeholder="정렬" />
+              <SelectValue placeholder={t('sortBy')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="newest">최신순</SelectItem>
-              <SelectItem value="oldest">오래된순</SelectItem>
-              <SelectItem value="name">이름순</SelectItem>
+              <SelectItem value="newest">{t('newest')}</SelectItem>
+              <SelectItem value="oldest">{t('oldest')}</SelectItem>
+              <SelectItem value="name">{t('name')}</SelectItem>
             </SelectContent>
           </Select>
           <input
@@ -185,7 +187,7 @@ export default function DashboardPage() {
                 ) : (
                   <Plus className="mr-2 h-4 w-4" />
                 )}
-                새 프로젝트
+                {t('newProject')}
               </span>
             </Button>
           </label>
@@ -198,7 +200,7 @@ export default function DashboardPage() {
         <Link href="/dashboard/songs" className="block transition-transform hover:-translate-y-1">
           <Card className="bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-400">곡 (음원)</CardTitle>
+              <CardTitle className="text-sm font-medium text-zinc-400">{t('songs')}</CardTitle>
               <Music className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
@@ -208,7 +210,7 @@ export default function DashboardPage() {
                     {isLoading ? '-' : completedProjects}
                   </div>
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    보유 중
+                    {t('owned')}
                   </p>
                 </div>
                 <div className="text-right">
@@ -216,7 +218,7 @@ export default function DashboardPage() {
                     {isLoading ? '-' : processingProjects}
                   </div>
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    진행 중
+                    {t('processing')}
                   </p>
                 </div>
               </div>
@@ -228,7 +230,7 @@ export default function DashboardPage() {
         <Link href="/dashboard/scores" className="block transition-transform hover:-translate-y-1">
           <Card className="bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-400">악보 (Sheet)</CardTitle>
+              <CardTitle className="text-sm font-medium text-zinc-400">{t('scores')}</CardTitle>
               <FileMusic className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
@@ -238,7 +240,7 @@ export default function DashboardPage() {
                     {isLoading ? '-' : projectsWithScores}
                   </div>
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    보유 중
+                    {t('owned')}
                   </p>
                 </div>
                 <div className="text-right">
@@ -246,7 +248,7 @@ export default function DashboardPage() {
                     {isLoading ? '-' : completedProjects - projectsWithScores}
                   </div>
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    생성 가능
+                    {t('creatable')}
                   </p>
                 </div>
               </div>
@@ -258,7 +260,7 @@ export default function DashboardPage() {
         <Link href="/dashboard/tabs" className="block transition-transform hover:-translate-y-1">
           <Card className="bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-400">타브악보 (Tab)</CardTitle>
+              <CardTitle className="text-sm font-medium text-zinc-400">{t('tabs')}</CardTitle>
               <Activity className="h-4 w-4 text-pink-500" />
             </CardHeader>
             <CardContent>
@@ -268,7 +270,7 @@ export default function DashboardPage() {
                     {isLoading ? '-' : projectsWithTabs}
                   </div>
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    보유 중
+                    {t('owned')}
                   </p>
                 </div>
                 <div className="text-right">
@@ -276,7 +278,7 @@ export default function DashboardPage() {
                     {isLoading ? '-' : completedProjects - projectsWithTabs}
                   </div>
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    생성 가능
+                    {t('creatable')}
                   </p>
                 </div>
               </div>
@@ -287,16 +289,16 @@ export default function DashboardPage() {
 
       {/* Project List Section */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">내 프로젝트</h2>
+        <h2 className="text-xl font-semibold tracking-tight">{t('myProjects')}</h2>
 
         {isLoading ? (
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
-            <p className="mt-2 text-muted-foreground">프로젝트 불러오는 중...</p>
+            <p className="mt-2 text-muted-foreground">{t('loading')}</p>
           </div>
         ) : isError ? (
           <div className="text-center py-12 text-red-500">
-            <p>프로젝트를 불러오는데 실패했습니다.</p>
+            <p>{t('errorLoading')}</p>
             <p className="text-sm opacity-70">
               {error instanceof Error ? error.message : '알 수 없는 오류'}
             </p>
@@ -305,7 +307,7 @@ export default function DashboardPage() {
               className="mt-4"
               onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}
             >
-              다시 시도
+              {t('retry')}
             </Button>
           </div>
         ) : (
@@ -332,9 +334,9 @@ export default function DashboardPage() {
                   </div>
                 )}
                 <span className="font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                  {uploading ? '업로드 중...' : '새 프로젝트 업로드'}
+                  {uploading ? t('uploading') : t('newProjectUpload')}
                 </span>
-                <span className="text-xs text-muted-foreground mt-1">MP3, WAV 지원</span>
+                <span className="text-xs text-muted-foreground mt-1">{t('supportedFormats')}</span>
               </label>
             </div>
 
@@ -386,14 +388,14 @@ export default function DashboardPage() {
                     {/* Shared Indicator Badge */}
                     {!project.is_owner && (
                       <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md bg-blue-500/80 backdrop-blur-md text-[10px] font-bold text-white flex items-center gap-1 shadow-lg">
-                        <Users size={10} /> SHARED
+                        <Users size={10} /> {t('shared').toUpperCase()}
                       </div>
                     )}
 
                     {/* Click to Action Overlay for Pending only */}
                     {project.status === 'pending' && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold text-yellow-500">
-                        <Play className="w-6 h-6 mr-2 fill-current" /> 분석 시작하기
+                        <Play className="w-6 h-6 mr-2 fill-current" /> {t('startAnalysis')}
                       </div>
                     )}
                   </div>
@@ -414,14 +416,14 @@ export default function DashboardPage() {
                             <button
                               onClick={(e) => handleRenameClick(e, project.id, project.name)}
                               className="text-muted-foreground hover:text-zinc-200 transition-colors p-1 rounded-md hover:bg-zinc-800"
-                              title="이름 변경"
+                              title={t('rename')}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={(e) => handleCloneClick(e, project.id)}
                               className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-md hover:bg-zinc-800"
-                              title="복제"
+                              title={t('clone')}
                               disabled={cloneMutation.isPending}
                             >
                               {cloneMutation.isPending && cloneMutation.variables === project.id ? (
@@ -433,14 +435,14 @@ export default function DashboardPage() {
                             <button
                               onClick={(e) => handleDeleteClick(e, project.id)}
                               className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded-md hover:bg-zinc-800"
-                              title="삭제"
+                              title={t('delete')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </>
                         ) : (
                           <div className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">
-                            <Users size={10} /> Shared
+                            <Users size={10} /> {t('shared')}
                           </div>
                         )}
                       </div>
@@ -468,6 +470,7 @@ export default function DashboardPage() {
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const t = useTranslations('Dashboard');
   const styles = {
     pending: 'text-yellow-500',
     processing: 'text-blue-500',
@@ -476,10 +479,10 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   const labels = {
-    pending: '대기 중',
-    processing: '분리 중...',
-    completed: '완료됨',
-    failed: '실패',
+    pending: t('pending'),
+    processing: t('processing'),
+    completed: t('completed'),
+    failed: t('failed'),
   };
 
   return (

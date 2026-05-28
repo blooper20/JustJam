@@ -1,6 +1,4 @@
-import gettext
 import logging
-import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from music21 import pitch
@@ -15,9 +13,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Internationalization Setup
-localedir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../locales")
-translate = gettext.translation("messages", localedir, fallback=True)
-_ = translate.gettext
+from src.api.i18n import _
 
 
 class TabGenerator:

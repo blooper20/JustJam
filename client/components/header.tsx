@@ -17,22 +17,23 @@ import {
 import { Menu, Languages, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations('Header');
+  const currentLocale = useLocale();
 
   const routes = [
     {
-      href: '/dashboard',
+      href: `/${currentLocale}/dashboard`,
       label: t('dashboard'),
       icon: <LayoutDashboard className="w-4 h-4 mr-2" />,
       active: pathname.includes('/dashboard'),
     },
     {
-      href: '/projects',
+      href: `/${currentLocale}/projects`,
       label: t('projects'),
       icon: <FolderOpen className="w-4 h-4 mr-2" />,
       active: pathname.includes('/projects'),
@@ -44,14 +45,15 @@ export function Header() {
     { code: 'en', label: 'English' },
   ];
 
-  const currentLocale = pathname.split('/')[1] || 'ko';
-
   const onLocaleChange = (locale: string) => {
-    const newPath = pathname.replace(`/${currentLocale}`, `/${locale}`);
+    const hasLocalePrefix = pathname.startsWith(`/${currentLocale}`);
+    const newPath = hasLocalePrefix
+      ? pathname.replace(`/${currentLocale}`, `/${locale}`)
+      : `/${locale}${pathname}`;
     router.push(newPath);
   };
 
-  const isHomePage = pathname === '/' || pathname === '/ko' || pathname === '/en';
+  const isHomePage = pathname === '/' || pathname === `/${currentLocale}`;
 
   return (
     <header

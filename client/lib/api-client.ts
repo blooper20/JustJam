@@ -27,6 +27,20 @@ apiClient.interceptors.request.use(async (config) => {
   if (session?.accessToken) {
     config.headers.Authorization = `Bearer ${session.accessToken}`;
   }
+
+  let locale = 'ko';
+  if (typeof window !== 'undefined') {
+    const pathLocale = window.location.pathname.split('/')[1];
+    if (pathLocale === 'en' || pathLocale === 'ko') {
+      locale = pathLocale;
+    } else {
+      const match = document.cookie.match(/(^|;)\s*NEXT_LOCALE\s*=\s*([^;]+)/);
+      if (match && (match[2] === 'en' || match[2] === 'ko')) {
+        locale = match[2];
+      }
+    }
+  }
+  config.headers['Accept-Language'] = locale;
   return config;
 });
 

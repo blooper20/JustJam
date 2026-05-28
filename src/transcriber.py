@@ -140,6 +140,98 @@ def _transcribe_chunk(
                 pass
 
 
+def transcribe_drums(
+    audio_path: str, duration: float = None, start_offset: float = 0.0
+) -> List[Dict[str, Any]]:
+    """
+    Transcribe drum track using a DSP transient/band-energy onset detector.
+    Separates into Low (Kick), Mid (Snare), and High (Hi-Hat) bands.
+    """
+    import scipy.signal as signal
+
+    validated_path = validate_audio_file(audio_path)
+    target_path = str(validated_path)
+
+    # Load audio
+    y, sr = librosa.load(target_path, offset=start_offset, duration=duration)
+    if len(y) == 0:
+        return []
+
+    # Helper function to apply bandpass filter
+    def bandpass_filter(data, lowcut, highcut, fs, order=4):
+        nyq = 0.5 * fs
+        low = lowcut / nyq
+        high = highcut / nyq
+        low = max(0.001, low)
+        if high >= 1.0:
+            high = 0.99
+        b, a = signal.butter(order, [low, high], btype="band")
+        return signal.filtfilt(b, a, data)
+
+    # Helper function to apply highpass filter
+    def highpass_filter(data, cutoff, fs, order=4):
+        nyq = 0.5 * fs
+        cut = cutoff / nyq
+        if cut >= 1.0:
+            cut = 0.99
+        b, a = signal.butter(order, cut, btype="high")
+        return signal.filtfilt(b, a, data)
+
+    # Apply filters to extract frequency bands for kick, snare, hi-hat
+    try:
+        y_kick = bandpass_filter(y, 20.0, 100.0, sr)
+        y_snare = bandpass_filter(y, 120.0, 1500.0, sr)
+        y_hat = highpass_filter(y, 6000.0, sr)
+    except Exception as e:
+        logger.error(f"Error filtering drum bands: {e}")
+        y_kick, y_snare, y_hat = y, y, y
+
+    # Find onsets in each band using librosa.onset.onset_detect
+    onsets_kick = librosa.onset.onset_detect(y=y_kick, sr=sr, units="time")
+    onsets_snare = librosa.onset.onset_detect(y=y_snare, sr=sr, units="time")
+    onsets_hat = librosa.onset.onset_detect(y=y_hat, sr=sr, units="time")
+
+    drum_notes = []
+    # Standard MIDI drum pitches:
+    # Kick: 36, Snare: 38, Hi-Hat (Closed): 42
+    # Constant duration of 0.1s for each hit
+    hit_dur = 0.1
+
+    for t in onsets_kick:
+        drum_notes.append(
+            {
+                "start": float(t) + start_offset,
+                "end": float(t) + start_offset + hit_dur,
+                "pitch": 36,
+                "velocity": 0.8,
+            }
+        )
+
+    for t in onsets_snare:
+        drum_notes.append(
+            {
+                "start": float(t) + start_offset,
+                "end": float(t) + start_offset + hit_dur,
+                "pitch": 38,
+                "velocity": 0.8,
+            }
+        )
+
+    for t in onsets_hat:
+        drum_notes.append(
+            {
+                "start": float(t) + start_offset,
+                "end": float(t) + start_offset + hit_dur,
+                "pitch": 42,
+                "velocity": 0.7,
+            }
+        )
+
+    # Sort notes by start time
+    drum_notes.sort(key=lambda x: x["start"])
+    return drum_notes
+
+
 def transcribe_audio(
     audio_path: str, duration: float = None, start_offset: float = 0.0, target_stem: str = None
 ) -> Tuple[List[Dict[str, Any]], float]:
@@ -179,31 +271,34 @@ def transcribe_audio(
         parallel_threshold = config.get("audio", "parallel_threshold", 45.0)
 
         stem_notes = []
-        if s_dur < parallel_threshold:
-            stem_notes = _transcribe_chunk(path, duration=s_dur, start_offset=start_offset)
+        if role == "percussion":
+            stem_notes = transcribe_drums(path, duration=s_dur, start_offset=start_offset)
         else:
-            # Parallel chunking for this stem
-            chunk_size = config.get("audio", "chunk_size", 30.0)
-            overlap = config.get("audio", "chunk_overlap", 2.0)
-            chunks = []
-            curr = start_offset
-            end_t = start_offset + s_dur
-            while curr < end_t:
-                d = min(chunk_size + overlap, end_t - curr)
-                chunks.append((curr, d))
-                if curr + chunk_size >= end_t:
-                    break
-                curr += chunk_size
+            if s_dur < parallel_threshold:
+                stem_notes = _transcribe_chunk(path, duration=s_dur, start_offset=start_offset)
+            else:
+                # Parallel chunking for this stem
+                chunk_size = config.get("audio", "chunk_size", 30.0)
+                overlap = config.get("audio", "chunk_overlap", 2.0)
+                chunks = []
+                curr = start_offset
+                end_t = start_offset + s_dur
+                while curr < end_t:
+                    d = min(chunk_size + overlap, end_t - curr)
+                    chunks.append((curr, d))
+                    if curr + chunk_size >= end_t:
+                        break
+                    curr += chunk_size
 
-            from concurrent.futures import ThreadPoolExecutor
+                from concurrent.futures import ThreadPoolExecutor
 
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = [executor.submit(_transcribe_chunk, path, d, s) for s, d in chunks]
-                for f in futures:
-                    try:
-                        stem_notes.extend(f.result())
-                    except Exception:
-                        pass
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    futures = [executor.submit(_transcribe_chunk, path, d, s) for s, d in chunks]
+                    for f in futures:
+                        try:
+                            stem_notes.extend(f.result())
+                        except Exception:
+                            pass
 
         # Assign role
         for n in stem_notes:

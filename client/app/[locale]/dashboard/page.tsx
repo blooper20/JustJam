@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   const {
     data: projects,
@@ -363,13 +364,16 @@ export default function DashboardPage() {
                 <Card className="relative h-full hover:shadow-lg transition-transform hover:-translate-y-1 duration-200 border-zinc-800 bg-zinc-950 overflow-hidden">
                   {/* Thumbnail Preview */}
                   <div className="relative h-28 bg-zinc-900 overflow-hidden">
-                    {project.thumbnail_url ? (
+                    {project.thumbnail_url && !imageErrors[project.id] ? (
                       <div className="absolute inset-0">
                         <Image
                           src={`${API_BASE_URL.replace('/api/v1', '')}${project.thumbnail_url}`}
                           alt={project.name}
                           fill
                           className="object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                          onError={() => {
+                            setImageErrors((prev) => ({ ...prev, [project.id]: true }));
+                          }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 to-transparent" />
                       </div>

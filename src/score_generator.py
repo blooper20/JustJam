@@ -34,7 +34,7 @@ class ScoreGenerator:
             "bass": instrument.ElectricBass(),
             "guitar": instrument.ElectricGuitar(),
             "piano": instrument.Piano(),
-            "drums": instrument.Percussion(),  # Drums handled differently, simple mapping for now
+            "drums": instrument.DrumKit(),  # Use DrumKit for correct score representation
             "other": instrument.Piano(),
         }
         inst = inst_map.get(instrument_name.lower(), instrument.Piano())
@@ -43,6 +43,8 @@ class ScoreGenerator:
         # Assign Clef
         if instrument_name.lower() == "bass":
             p.insert(0, clef.BassClef())
+        elif instrument_name.lower() == "drums":
+            p.insert(0, clef.PercussionClef())
         else:
             p.insert(0, clef.TrebleClef())
 
@@ -86,6 +88,14 @@ class ScoreGenerator:
             if q_dur > groups[q_start]["dur"]:
                 groups[q_start]["dur"] = q_dur
 
+        # Resolve note overlaps by truncating notes/chords so they don't exceed the next onset
+        sorted_starts = sorted(groups.keys())
+        for i in range(len(sorted_starts) - 1):
+            curr_start = sorted_starts[i]
+            next_start = sorted_starts[i + 1]
+            if curr_start + groups[curr_start]["dur"] > next_start:
+                groups[curr_start]["dur"] = max(0.25, next_start - curr_start)
+
         # Insert notes/chords into part
         for q_start, info in sorted(groups.items()):
             pitches = sorted(list(set(info["notes"])))
@@ -93,15 +103,20 @@ class ScoreGenerator:
 
             if len(pitches) == 1:
                 m21_element = note.Note(pitches[0])
+                if instrument_name.lower() == "drums" and pitches[0] == 42:
+                    m21_element.notehead = "cross"
             else:
                 m21_element = chord.Chord(pitches)
+                if instrument_name.lower() == "drums":
+                    for n_el in m21_element.notes:
+                        if n_el.pitch.midi == 42:
+                            n_el.notehead = "cross"
 
             m21_element.quarterLength = dur
             p.insert(q_start, m21_element)
 
         # Make measures
         p.makeMeasures(inPlace=True)
-        # s.insert(0, p) # Wait, adding part to score
         s.append(p)
 
         # Export to MusicXML
@@ -150,7 +165,7 @@ class ScoreGenerator:
             "bass": instrument.ElectricBass(),
             "guitar": instrument.ElectricGuitar(),
             "piano": instrument.Piano(),
-            "drums": instrument.Percussion(),
+            "drums": instrument.DrumKit(),  # Use DrumKit for correct score representation
         }
         inst = inst_map.get(instrument_name.lower(), instrument.Piano())
         p.insert(0, inst)
@@ -183,6 +198,14 @@ class ScoreGenerator:
             if q_dur > groups[q_start]["dur"]:
                 groups[q_start]["dur"] = q_dur
 
+        # Resolve note overlaps by truncating notes/chords so they don't exceed the next onset
+        sorted_starts = sorted(groups.keys())
+        for i in range(len(sorted_starts) - 1):
+            curr_start = sorted_starts[i]
+            next_start = sorted_starts[i + 1]
+            if curr_start + groups[curr_start]["dur"] > next_start:
+                groups[curr_start]["dur"] = max(0.25, next_start - curr_start)
+
         # Insert notes/chords into part
         for q_start, info in sorted(groups.items()):
             pitches = sorted(list(set(info["notes"])))
@@ -190,8 +213,14 @@ class ScoreGenerator:
 
             if len(pitches) == 1:
                 m21_element = note.Note(pitches[0])
+                if instrument_name.lower() == "drums" and pitches[0] == 42:
+                    m21_element.notehead = "cross"
             else:
                 m21_element = chord.Chord(pitches)
+                if instrument_name.lower() == "drums":
+                    for n_el in m21_element.notes:
+                        if n_el.pitch.midi == 42:
+                            n_el.notehead = "cross"
 
             m21_element.quarterLength = dur
             p.insert(q_start, m21_element)

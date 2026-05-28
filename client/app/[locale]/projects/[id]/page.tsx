@@ -3,7 +3,7 @@
 import { useProject } from '@/hooks/use-project';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Play, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, Play, AlertCircle, ArrowLeft, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
@@ -11,7 +11,9 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { ShareModal } from '@/components/share-modal';
-import { Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { CollaborationBoard } from '@/components/collaboration-board';
+import { PracticeCalendar } from '@/components/practice-calendar';
 
 const MultiTrackPlayer = dynamic(
   () => import('@/components/multitrack-player').then((mod) => mod.MultiTrackPlayer),
@@ -52,11 +54,12 @@ export default function ProjectPage() {
   const searchParams = useSearchParams();
   const id = params.id as string;
 
+  const t = useTranslations('Collab');
   const [loadMixer, setLoadMixer] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'mixer' | 'score' | 'tab'>(
-    (searchParams.get('tab') as 'mixer' | 'score' | 'tab') || 'mixer',
+  const [activeTab, setActiveTab] = useState<'mixer' | 'score' | 'tab' | 'collab'>(
+    (searchParams.get('tab') as 'mixer' | 'score' | 'tab' | 'collab') || 'mixer',
   );
   // Removed local progress state
 
@@ -272,6 +275,24 @@ export default function ProjectPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Collab View */}
+            {activeTab === 'collab' && (
+              <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20">
+                <CardHeader>
+                  <CardTitle>{t('title')}</CardTitle>
+                  <CardDescription>팀원들과 소통하고 연습 기록을 확인하세요.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <CollaborationBoard projectId={project.id} />
+                  </div>
+                  <div>
+                    <PracticeCalendar projectId={project.id} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Vertical Index Sticker Tabs (Right Side) */}
@@ -347,6 +368,30 @@ export default function ProjectPage() {
                 )}
               />
               TAB
+            </button>
+            <button
+              onClick={() => setActiveTab('collab')}
+              className={cn(
+                'w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative',
+                activeTab === 'collab'
+                  ? 'bg-zinc-900 border-zinc-800 text-pink-400 translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]'
+                  : 'bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner',
+              )}
+              style={
+                activeTab === 'collab'
+                  ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' }
+                  : {}
+              }
+            >
+              <div
+                className={cn(
+                  'w-2 h-2 rounded-full',
+                  activeTab === 'collab'
+                    ? 'bg-pink-400 shadow-[0_0_10px_rgba(244,114,182,0.6)] animate-pulse'
+                    : 'bg-zinc-800',
+                )}
+              />
+              COLLAB
             </button>
           </div>
         </div>

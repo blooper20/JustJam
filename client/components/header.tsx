@@ -17,20 +17,23 @@ import {
 import { Menu, Languages, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+import { useTranslations } from 'next-intl';
+
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslations('Header');
 
   const routes = [
     {
       href: '/dashboard',
-      label: '대시보드',
+      label: t('dashboard'),
       icon: <LayoutDashboard className="w-4 h-4 mr-2" />,
       active: pathname.includes('/dashboard'),
     },
     {
       href: '/projects',
-      label: '내 프로젝트',
+      label: t('projects'),
       icon: <FolderOpen className="w-4 h-4 mr-2" />,
       active: pathname.includes('/projects'),
     },

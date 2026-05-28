@@ -30,6 +30,15 @@ class User(Base):
     shared_projects = relationship(
         "ProjectMember", back_populates="user", cascade="all, delete-orphan"
     )
+    posts = relationship("CollaborationPost", back_populates="user", cascade="all, delete-orphan")
+    comments = relationship(
+        "CollaborationComment", back_populates="user", cascade="all, delete-orphan"
+    )
+    votes = relationship("UserVote", back_populates="user", cascade="all, delete-orphan")
+    availabilities = relationship(
+        "UserAvailability", back_populates="user", cascade="all, delete-orphan"
+    )
+    practice_logs = relationship("PracticeLog", back_populates="user", cascade="all, delete-orphan")
 
     # 복합 인덱스: provider와 provider_id 조합으로 빠른 조회
     __table_args__ = (Index("idx_provider_id", "provider", "provider_id"),)
@@ -75,6 +84,12 @@ class ProjectModel(Base):
     owner = relationship("User", back_populates="projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
     assets = relationship("ProjectAsset", back_populates="project", cascade="all, delete-orphan")
+    posts = relationship(
+        "CollaborationPost", back_populates="project", cascade="all, delete-orphan"
+    )
+    practice_logs = relationship(
+        "PracticeLog", back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class ProjectAsset(Base):
@@ -91,3 +106,156 @@ class ProjectAsset(Base):
 
     # Relationships
     project = relationship("ProjectModel", back_populates="assets")
+
+
+class CollaborationPost(Base):
+    """협업 보드 포스트 모델 (공지, 투표, 일정 공유 등)"""
+
+    __tablename__ = "collaboration_posts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(
+        String, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    title = Column(String, nullable=False)
+    content = Column(String, nullable=False)
+    post_type = Column(String, default="general")  # 'general', 'vote', 'schedule'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    project = relationship("ProjectModel", back_populates="posts")
+    user = relationship("User", back_populates="posts")
+    comments = relationship(
+        "CollaborationComment", back_populates="post", cascade="all, delete-orphan"
+    )
+    options = relationship("PostOption", back_populates="post", cascade="all, delete-orphan")
+    schedule_times = relationship(
+        "PostScheduleTime", back_populates="post", cascade="all, delete-orphan"
+    )
+
+
+class CollaborationComment(Base):
+    """협업 포스트의 댓글 모델"""
+
+    __tablename__ = "collaboration_comments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(
+        Integer,
+        ForeignKey("collaboration_posts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    content = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    post = relationship("CollaborationPost", back_populates="comments")
+    user = relationship("User", back_populates="comments")
+
+
+class PostOption(Base):
+    """투표 포스트의 선택 항목 모델"""
+
+    __tablename__ = "post_options"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(
+        Integer,
+        ForeignKey("collaboration_posts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    option_text = Column(String, nullable=False)
+
+    # Relationships
+    post = relationship("CollaborationPost", back_populates="options")
+    votes = relationship("UserVote", back_populates="option", cascade="all, delete-orphan")
+
+
+class UserVote(Base):
+    """투표 포스트의 사용자 투표 모델"""
+
+    __tablename__ = "user_votes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    option_id = Column(
+        Integer, ForeignKey("post_options.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+
+    # Relationships
+    option = relationship("PostOption", back_populates="votes")
+    user = relationship("User", back_populates="votes")
+
+
+class PostScheduleTime(Base):
+    """일정 조율 포스트의 후보 시간대 모델"""
+
+    __tablename__ = "post_schedule_times"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_id = Column(
+        Integer,
+        ForeignKey("collaboration_posts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    time_slot = Column(String, nullable=False)  # e.g., "2026-06-01 14:00"
+
+    # Relationships
+    post = relationship("CollaborationPost", back_populates="schedule_times")
+    availabilities = relationship(
+        "UserAvailability", back_populates="schedule_time", cascade="all, delete-orphan"
+    )
+
+
+class UserAvailability(Base):
+    """사용자의 후보 시간대별 가능 여부 모델"""
+
+    __tablename__ = "user_availabilities"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    schedule_time_id = Column(
+        Integer,
+        ForeignKey("post_schedule_times.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+
+    # Relationships
+    schedule_time = relationship("PostScheduleTime", back_populates="availabilities")
+    user = relationship("User", back_populates="availabilities")
+
+
+class PracticeLog(Base):
+    """사용자의 개인/팀 연습 기록 및 브이로그 인증 모델"""
+
+    __tablename__ = "practice_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(
+        String, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    video_url = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    logged_date = Column(String, nullable=False)  # YYYY-MM-DD
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    project = relationship("ProjectModel", back_populates="practice_logs")
+    user = relationship("User", back_populates="practice_logs")

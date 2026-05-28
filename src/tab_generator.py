@@ -165,6 +165,7 @@ class TabGenerator:
         chord_shape: Optional[Dict[int, int]] = None,
         role: str = "harmony",
         prev_fret: Optional[int] = None,
+        prev_string: Optional[int] = None,
         occupied_strings: Optional[List[int]] = None,
     ) -> Optional[Tuple[int, int]]:
         """
@@ -227,6 +228,14 @@ class TabGenerator:
                     if prev_fret is not None and fret != 0:
                         fret_diff = abs(fret - prev_fret)
                         score -= fret_diff * 150  # Deduct points for larger jumps
+                        if fret_diff > 4:
+                            score -= 1000  # Extra penalty for difficult jumps (>4 frets)
+
+                    # 5. String Skip Penalty (Minimize difficult jumps across non-adjacent strings)
+                    if prev_string is not None:
+                        string_diff = abs(s_idx - prev_string)
+                        if string_diff > 2:
+                            score -= (string_diff - 1) * 200  # Penalty for skipping strings
 
                     # Select best score
                     if score > max_score:
@@ -288,6 +297,7 @@ class TabGenerator:
             # Track occupied strings per time slot to avoid overlaps
             occupied_slots = {}
             last_fret = None
+            last_string = None
 
             for n in notes:
                 m_idx = int(n["start"] / sec_per_measure)
@@ -331,12 +341,14 @@ class TabGenerator:
                     chord_shape=current_shape,
                     role=role,
                     prev_fret=last_fret,
+                    prev_string=last_string,
                     occupied_strings=occupied_slots[slot_key],
                 )
 
                 if pos:
                     s_idx, fret = pos
                     last_fret = fret
+                    last_string = s_idx
                     occupied_slots[slot_key].append(s_idx)
 
                     line_idx = self.num_strings - 1 - s_idx

@@ -337,12 +337,16 @@ def transcribe_audio(
                     triplet_error < sixteenth_error * 0.6
                 ):  # Favor straight grid unless triplet is clearly better
                     new_n["start"] = triplet_snap_time
-                    new_n["end"] = max(new_n["start"] + triplet_dur, n["end"])
                     new_n["is_triplet"] = True
                 else:
                     new_n["start"] = sixteenth_snap_time
-                    new_n["end"] = max(new_n["start"] + sixteenth_dur, n["end"])
                     new_n["is_triplet"] = False
+
+                # Snapping note duration to grid units to clean up score generation
+                grid_dur = triplet_dur if new_n["is_triplet"] else sixteenth_dur
+                orig_duration = max(min_dur, n["end"] - n["start"])
+                num_units = max(1, round(orig_duration / grid_dur))
+                new_n["end"] = new_n["start"] + num_units * grid_dur
             else:
                 new_n["is_triplet"] = False
 

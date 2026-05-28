@@ -4,18 +4,38 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.1.2-black.svg)](https://nextjs.org/)
 
-**JustJam** is an AI-powered band practice and music arrangement platform. It runs local neural network models to separate imported audio into individual stems, transcribes notes, detects chord progressions and structure, and provides an interactive multitrack player with a precision metronome for optimal practice.
+**JustJam** is an AI-powered smart band practice and music arrangement collaboration platform. Utilizing local deep learning models, it separates user-uploaded audio into individual tracks (Stems), transcribes melodies and chords, and automatically generates easy-to-play tablature (Tab) scores. It also integrates a WaveSurfer.js-based multitrack mixer and a Web Audio API-based precision metronome to provide the ultimate practice environment.
+
+[English Document](./README.md) | [한국어 문서](./README_KR.md)
 
 ---
 
-## ✨ Features
+## ✨ 6 Core Features
 
-- **🎧 AI Source Separation**: Splits any audio track into multiple stems (Vocals, Drums, Bass, Guitar, Piano, Other) using Demucs v4.
-- **🎼 MusicXML Score Generation**: Transcribes stem melodies and chords using Spotify's Basic Pitch and renders interactive sheet music.
-- **🎸 Intelligent Tablature Mapper**: Auto-generates guitar and bass ASCII tablatures utilizing an open-position prior, chord-matching constraints, and auto-transposition (Smart Capo) for easy playability.
-- **🎛️ Interactive Multitrack Mixer**: Features solo, mute, volume adjustment, and playback speed control powered by WaveSurfer.js.
-- **⏱️ Audio-Synced Metronome**: Custom Web Audio API metronome synced precisely to the playback clock with manual TAP BPM overrides.
-- **🤝 Collaboration Workspace**: Real-time project sharing and access permission control (Viewer / Editor) for band members.
+### 1. 🎧 AI-Based Audio Source Separation
+- Equips the **Facebook Demucs v4 (htdemucs_6s)** model to precisely separate a single imported audio file into multiple individual tracks (Vocals, Drums, Bass, Guitar, Piano, and Other instruments) in real time.
+- The separated audio tracks are immediately available as stems for practicing individual part.
+
+### 2. 🎼 MusicXML Score Auto-Generation
+- Utilizes the **Spotify Basic Pitch** deep learning model to extract and transcribe stem melodies and chords with high precision.
+- Generates interactive MusicXML scores that can be rendered dynamically via **OpenSheetMusicDisplay (OSMD)** based on the extracted note (MIDI) data.
+
+### 3. 🎸 Intelligent Tablature Mapper
+- Features a custom fingering optimization engine that maps extracted MIDI pitch data onto guitar and bass fretboards.
+- Supports an **open-position priority mapping algorithm** and an **auto-transpose/Smart Capo** function that transposes difficult keys into easy-to-play keys (C, G, D, A, E) utilizing open strings.
+- Provides clean, playable ASCII tablature by implementing a maximum polyphony limit (3-note limit) and strum collision checks to prevent difficult arpeggios at fast tempos.
+
+### 4. 🎛️ Interactive Multitrack Mixer
+- Leverages the **WaveSurfer.js** engine to visualize separated multitrack waveforms in the browser and provides fully synchronized playback.
+- Supports individual track volume controls, Solo and Mute functions, and pitch-preserved playback speed (BPM) adjustments.
+
+### 5. ⏱️ Precision Audio-Synced Metronome
+- Introduces a **Web Audio API**-based look-ahead scheduling technique to run an ultra-precise metronome engine that matches the audio playback clock and corrects for timing drift.
+- Synchronizes with the rhythm grid of the playing track and allows flexible tempo adjustments via manual tap tempo (TAP BPM) controls.
+
+### 6. 🤝 Real-Time Collaboration Workspace
+- Provides a real-time project sharing and permission management system for band members.
+- Differentiates Viewer and Editor permissions based on each member's role to sync collaborative arrangement and practice records.
 
 ---
 
@@ -23,112 +43,112 @@
 
 ### Frontend
 - **Framework**: Next.js 16.1.2 (App Router) & React 19.2.3
-- **Styling**: Tailwind CSS v4 & Radix UI / Shadcn
-- **Audio Rendering**: WaveSurfer.js 7.12.1 (Multi-waveform synchronization)
-- **Score Rendering**: OpenSheetMusicDisplay 1.9.3 (MusicXML renderer)
-- **State Management & Data Fetching**: Zustand 5.0.10 & TanStack React Query v5
-- **Internationalization**: next-intl 4.8.2 (Supports English & Korean)
+- **Styling**: Tailwind CSS v4 & Radix UI / Shadcn UI
+- **Audio Rendering**: WaveSurfer.js 7.12.1
+- **Score Rendering**: OpenSheetMusicDisplay 1.9.3 (MusicXML Renderer)
+- **State Management & Fetching**: Zustand 5.0.10 & TanStack React Query v5
+- **Internationalization (i18n)**: next-intl 4.8.2 (Korean & English support)
 - **Authentication**: NextAuth.js 4.24.13
 
 ### Backend
 - **Framework**: FastAPI 0.128.0 (ASGI Web Framework)
-- **Audio Engine & DSP**: 
+- **Audio Engine & DSP**:
   - Librosa 0.11.0 (Tempo/BPM tracking, beat grid alignment)
   - Spotify Basic Pitch 0.4.0 (Audio-to-MIDI neural network transcription)
-  - Facebook Demucs 4.0.1 (Neural audio source separation)
+  - Facebook Demucs 4.0.1 (Neural audio source separation engine)
   - music21 8.3.0 (Harmonic analysis and key detection)
-  - PyTorch 2.8.0 & torchaudio 2.8.0 (Model execution engines)
-- **Queue & Async Task Workers**: Celery 5.4+ (backed by Redis broker)
-- **Database & Migration**: SQLite (local) / PostgreSQL (production) mapped via SQLAlchemy 2.0.25 and managed by Alembic 1.13.1
+  - PyTorch 2.8.0 & torchaudio 2.8.0 (Deep learning inference engines)
+- **Queue & Workers**: Celery 5.4+ (backed by Redis broker for async queue processing)
+- **Database & ORM**: SQLite (local dev) / PostgreSQL (production) & SQLAlchemy 2.0.25
+- **DB Migration**: Alembic 1.13.1
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Python 3.10+**
-- **Node.js 18+**
-- **FFmpeg**: Required for audio segmenting and Demucs processing.
+Before installation and execution, ensure you have the following programs installed:
+- **Python 3.10+**: [Python Official Website](https://www.python.org/downloads/)
+- **Node.js 18+**: [Node.js Official Website](https://nodejs.org/)
+- **FFmpeg**: Mandatory for audio parsing, parallel slicing, and Demucs separation.
   - **macOS**: `brew install ffmpeg`
   - **Ubuntu**: `sudo apt-get install ffmpeg`
-  - **Windows**: Install via Chocolatey `choco install ffmpeg` or manual PATH setting.
+  - **Windows**: Download from the [FFmpeg Download Page](https://ffmpeg.org/download.html) and add to your PATH environment variable.
 
-### Setup and Running
+---
 
-#### 1. Backend Server Setup
+### Execution Guide
+
+#### 1. Backend Server Setup & Run
 ```bash
-# Clone the repository
-git clone https://github.com/blooper20/JustJam.git
-cd JustJam
-
-# Set up virtual environment
+# Create and activate virtual environment
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Start backend server
-uvicorn src.api.main:app --reload
+# Apply database migrations
+alembic upgrade head
+
+# Launch FastAPI development server (Port: 8000)
+uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### 2. Frontend Client Setup
+#### 2. Celery & Redis Async Worker Run (For audio separation)
+A Redis server and a Celery worker are required to process audio separation tasks. Make sure a local Redis server is running.
 ```bash
-# Move to the client directory
+# Run Celery async worker
+celery -A src.api.services.project_service.celery_app worker --loglevel=info --concurrency=1
+```
+
+#### 3. Frontend Client Run
+```bash
+# Navigate to the client directory
 cd client
 
 # Install dependencies
 npm install
 
-# Run the Next.js development server
+# Start Next.js development server (Port: 3000)
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the platform.
-
 ---
 
-## 🏗 Directory Structure (Milestones)
-
-This layout outlines the key structural layers of the JustJam project (excluding build artifacts and dependencies):
+## 🏗 Directory Structure
 
 ```
 JustJam/
-├── client/                     # Frontend Next.js Application
-│   ├── app/                    # Next.js App Router Pages
-│   │   ├── [locale]/           # Localized app views (dashboard, projects, settings)
+├── client/                     # Next.js frontend application
+│   ├── app/                    # Next.js App Router (App directory structure)
+│   │   ├── [locale]/           # Localized routing (dashboard, projects, settings)
 │   │   └── globals.css         # Tailwind v4 globals & custom styles
 │   ├── components/             # Reusable UI Components
-│   │   ├── multitrack-player.tsx # Sync-player & Web Audio Metronome Engine
-│   │   ├── score-viewer.tsx    # OpenSheetMusicDisplay wrapper
-│   │   ├── tab-viewer.tsx      # Tablature rendering component
-│   │   └── ui/                 # Primitive Shadcn/Radix components
-│   ├── hooks/                  # Custom React Hooks
-│   │   └── use-project.ts      # Project fetching and polling hook
-│   ├── lib/                    # Configuration and API Client helper
-│   │   ├── api-client.ts       # Axios instance config
-│   │   └── api.ts              # API interface methods
-│   └── package.json            # Frontend dependency definitions
-├── src/                        # Backend FastAPI Application
+│   │   ├── multitrack-player.tsx # WaveSurfer multimixer and Web Audio metronome
+│   │   ├── score-viewer.tsx    # MusicXML score renderer
+│   │   └── tab-viewer.tsx      # ASCII tablature score viewer
+│   ├── hooks/                  # React custom hooks
+│   │   └── use-project.ts      # Project polling API hook integrated with Zustand
+│   └── package.json            # Frontend dependency specifications
+├── src/                        # FastAPI backend application
 │   ├── api/                    # Web API Layer
-│   │   ├── database.py         # SQLAlchemy Engine & session pool
-│   │   ├── main.py             # FastAPI App definition & Middleware
-│   │   ├── models.py           # SQLAlchemy DB Models (User, Project, Asset)
-│   │   ├── routes/             # Route controllers (projects, users, auth)
-│   │   └── services/           # Orchestration layer (project_service, analysis_service)
+│   │   ├── database.py         # DB connection pool & engine setup
+│   │   ├── main.py             # FastAPI App definition & CORS/middleware configuration
+│   │   ├── models.py           # SQLAlchemy DB models
+│   │   ├── routes/             # Route controllers (projects, auth, etc.)
+│   │   └── services/           # Async audio processing & core business logic
 │   ├── audio_processor.py      # Demucs source separation wrapper
 │   ├── score_generator.py      # MusicXML compilation engine
 │   ├── tab_generator.py        # ASCII Tab transcription & fingering optimizer
 │   ├── transcriber.py          # Basic Pitch wrapper and quantized cleaning
 │   └── config.py               # YAML configuration loader
-├── alembic/                    # Database migration directory
-├── resource/                   # Sample audio resources
-├── requirements.txt            # Python dependencies
-├── pyproject.toml              # PyTest, Black, and tool definitions
-└── README.md                   # This overview document
+└── README_KR.md                # Korean specification document
 ```
 
 ---
 
-## 🔒 License
-This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+## 🤝 Contributing
+If you wish to contribute or modify code, you must adhere to the project's strict linters and test suite. For details, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md).
+- **Python Formatting**: Must pass `black -l 100 src/ tests/` & `flake8 src/ tests/`.
+- **TypeScript & React**: Must successfully pass `cd client && npm run lint` and `npm run build`.

@@ -69,6 +69,7 @@ class ProjectModel(Base):
     name = Column(String)
     original_filename = Column(String)
     status = Column(String, default="pending")
+    status_text = Column(String, nullable=True)
     progress = Column(Integer, default=0)
     bpm = Column(Integer, nullable=True)
     detected_key = Column(String, nullable=True)

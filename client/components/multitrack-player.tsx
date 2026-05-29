@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { Play, Pause, Volume2, Download, Loader2, Plus, Music } from 'lucide-react';
+import { Play, Pause, Volume2, Download, Loader2, Plus, Music, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
@@ -613,6 +613,7 @@ export function MultiTrackPlayer({
           audioContext: audioContext,
           backend: 'WebAudio',
           renderFunction: undefined,
+          partialRender: true,
         } as Parameters<typeof WaveSurfer.create>[0]);
 
         ws.on('error', (err) => {
@@ -704,6 +705,7 @@ export function MultiTrackPlayer({
       minPxPerSec: 0,
       fillParent: true,
       audioContext: audioContext,
+      partialRender: true,
     } as Parameters<typeof WaveSurfer.create>[0]);
 
     ws.on('ready', () => {
@@ -1201,8 +1203,13 @@ export function MultiTrackPlayer({
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none flex items-center">
                   {currentChord ? t('currentChord') : t('speed')}
+                  {currentChord && (
+                    <span title="Smart Capo: 원곡 키에 맞춰 자동으로 계산된 쉬운 코드입니다.">
+                      <Info className="w-3 h-3 ml-1 cursor-help" />
+                    </span>
+                  )}
                 </span>
                 {isScrolled && (
                   <div className="flex items-center gap-2 text-[10px] font-mono text-primary tabular-nums">
@@ -1512,8 +1519,11 @@ export function MultiTrackPlayer({
               {/* BPM 조절 */}
               <div className="space-y-2 md:space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase">
-                    {t('tempo')} (BPM)
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase flex items-center">
+                    {t('tempo')} (AI BPM)
+                    <span title="AI가 분석한 곡의 템포입니다. 탭해서 수정할 수 있습니다.">
+                      <Info className="w-3 h-3 ml-1 cursor-help" />
+                    </span>
                   </span>
                   <span className="text-base md:text-lg font-mono font-bold text-primary">
                     {bpm}

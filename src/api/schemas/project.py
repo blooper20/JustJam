@@ -49,6 +49,7 @@ class Project(ProjectBase):
     id: str = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
     original_filename: str = Field(..., example="awesome_track.mp3")
     status: TaskStatus = Field(..., example=TaskStatus.COMPLETED)
+    status_text: Optional[str] = Field(None, example="분석 중...")
     created_at: datetime
     progress: int = Field(0, example=100)
     bpm: Optional[int] = Field(None, example=120)

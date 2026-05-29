@@ -26,6 +26,7 @@ export interface Project {
   name: string;
   original_filename: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
+  status_text?: string;
   created_at: string;
   progress: number;
   bpm?: number;

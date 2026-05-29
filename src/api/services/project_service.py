@@ -84,26 +84,33 @@ def process_audio_logic(project_id: str, celery_self=None):
 
         input_path = os.path.join(UPLOAD_DIR, project.original_filename)
 
-        def update_progress(percent: int):
+        def update_progress(percent: int, status_text: Optional[str] = None):
             scaled_req = min(int(percent * 0.95), 99)
             try:
                 # DB 업데이트
                 project.progress = scaled_req
+                if status_text:
+                    project.status_text = status_text
                 db.commit()
                 # Celery State 업데이트 (Celery 환경에서만)
                 if celery_self:
-                    celery_self.update_state(state="PROGRESS", meta={"percent": scaled_req})
+                    meta = {"percent": scaled_req}
+                    if status_text:
+                        meta["status_text"] = status_text
+                    celery_self.update_state(state="PROGRESS", meta=meta)
             except Exception as e:
                 logger.error(f"Error updating progress: {e}")
                 db.rollback()
 
         try:
+            update_progress(0, "오디오 청크 분할 및 분리 중...")
             stems = separate_audio(
                 input_path, model_name="htdemucs_6s", progress_callback=update_progress
             )
 
             # BPM 감지
             try:
+                update_progress(100, "BPM 분석 중...")
                 stem_dir = os.path.join(SEPARATED_DIR, "htdemucs_6s", project_id)
                 drums_path = os.path.join(stem_dir, "drums.wav")
                 target_path = drums_path if os.path.exists(drums_path) else input_path
@@ -121,6 +128,7 @@ def process_audio_logic(project_id: str, celery_self=None):
 
             # 마스터 웨이브폼 생성
             try:
+                update_progress(100, "마스터 믹스 생성 중...")
                 stem_dir = os.path.join(SEPARATED_DIR, "htdemucs_6s", project_id)
                 master = None
                 for stem in ["vocals", "drums", "bass", "guitar", "piano", "other"]:
@@ -140,6 +148,7 @@ def process_audio_logic(project_id: str, celery_self=None):
 
             # 키/코드/구조 분석
             try:
+                update_progress(100, "악보 데이터 추출 중...")
                 from src.api.services.analysis_service import perform_full_analysis
 
                 analysis_results = perform_full_analysis(input_path, float(project.bpm or 120.0))

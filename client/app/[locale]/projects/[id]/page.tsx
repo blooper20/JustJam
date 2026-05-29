@@ -150,7 +150,9 @@ export default function ProjectPage() {
         <Card className="bg-zinc-900 border-zinc-800">
           <CardContent className="pt-6 text-center py-12">
             <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary mb-4" />
-            <h3 className="text-xl font-medium mb-2">AI가 열심히 분석 중입니다...</h3>
+            <h3 className="text-xl font-medium mb-2">
+              {project.status_text || 'AI가 열심히 분석 중입니다...'}
+            </h3>
             <p className="text-muted-foreground mb-6">
               음원 분리 작업은 약 3~5분 정도 소요됩니다. 잠시만 기다려주세요.
             </p>

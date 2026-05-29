@@ -9,12 +9,34 @@ services:
       - justjam-data:/app/temp
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - ALLOWED_ORIGINS=http://localhost:3000,https://justjam.ai
-      - APP_ENV=production
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,https://justjam.ai
+      - APP_ENV=development
       - DATABASE_URL=postgresql://justjam:justjam@postgres:5432/justjam
+      - JWT_SECRET_KEY=justjam_development_secret_key_change_me_in_production_32_chars_long
     depends_on:
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head && uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    image: justjam-backend
+    container_name: justjam-worker
+    volumes:
+      - justjam-data:/app/temp
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - APP_ENV=development
+      - DATABASE_URL=postgresql://justjam:justjam@postgres:5432/justjam
+      - JWT_SECRET_KEY=justjam_development_secret_key_change_me_in_production_32_chars_long
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: celery -A src.api.services.project_service.celery_app worker --loglevel=info --concurrency=1
 
   frontend:
     build:
@@ -23,9 +45,15 @@ services:
     image: justjam-frontend
     container_name: justjam-frontend
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXTAUTH_URL=http://localhost:3001
+      - NEXTAUTH_SECRET=nextauth_development_secret_key_change_me_in_production_32_chars_long
+      - GOOGLE_CLIENT_ID=google-client-id-placeholder
+      - GOOGLE_CLIENT_SECRET=google-client-secret-placeholder
+      - KAKAO_CLIENT_ID=kakao-client-id-placeholder
+      - KAKAO_CLIENT_SECRET=kakao-client-secret-placeholder
     depends_on:
       - backend
 
@@ -51,7 +79,13 @@ services:
       - POSTGRES_DB=justjam
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U justjam"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   justjam-data:
   postgres_data:
+

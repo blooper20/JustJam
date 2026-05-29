@@ -60,6 +60,21 @@ export default function LoginPage() {
             </svg>
             카카오 계정으로 계속하기
           </Button>
+
+          <div className="relative flex py-2 items-center">
+            <div className="flex-grow border-t border-zinc-800"></div>
+            <span className="flex-shrink mx-4 text-zinc-500 text-sm">개발용 로그인</span>
+            <div className="flex-grow border-t border-zinc-800"></div>
+          </div>
+
+          <Button
+            onClick={() => signIn('credentials', { callbackUrl: '/' })}
+            variant="outline"
+            className="w-full h-12 flex items-center justify-center gap-3 bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white border-zinc-700 text-base font-medium transition-transform hover:scale-[1.02]"
+          >
+            <Music className="w-5 h-5 text-purple-400" />
+            테스트 계정으로 로그인 (간편 로그인)
+          </Button>
         </CardContent>
       </Card>
     </div>

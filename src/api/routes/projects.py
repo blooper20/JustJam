@@ -2,7 +2,6 @@ from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Response, UploadFile
 from fastapi.responses import JSONResponse
-from fastapi_cache.decorator import cache
 from sqlalchemy.orm import Session
 
 from src.api.database import get_db
@@ -89,7 +88,6 @@ async def process_project(
 
 
 @router.get("/{project_id}", response_model=Project)
-@cache(expire=300)
 async def get_project(
     project_id: str,
     current_user: Optional[User] = Depends(get_optional_current_user),
@@ -99,7 +97,6 @@ async def get_project(
 
 
 @router.get("/", response_model=List[Project])
-@cache(expire=60)
 async def list_projects(
     q: Optional[str] = None,
     sort: str = "newest",

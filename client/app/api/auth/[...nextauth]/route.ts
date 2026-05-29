@@ -1,6 +1,7 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import KakaoProvider from 'next-auth/providers/kakao';
+import CredentialsProvider from 'next-auth/providers/credentials';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -13,6 +14,19 @@ export const authOptions: NextAuthOptions = {
     KakaoProvider({
       clientId: process.env.KAKAO_CLIENT_ID || '',
       clientSecret: process.env.KAKAO_CLIENT_SECRET || '',
+    }),
+    CredentialsProvider({
+      id: 'credentials',
+      name: 'Developer Login',
+      credentials: {},
+      async authorize() {
+        return {
+          id: 'dev-user-id',
+          name: 'Developer',
+          email: 'developer@justjam.ai',
+          image: 'https://api.dicebear.com/7.x/bottts/svg?seed=developer',
+        };
+      },
     }),
   ],
   callbacks: {

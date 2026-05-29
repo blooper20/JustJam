@@ -35,6 +35,24 @@ export function useProject(id: string) {
 
   const processMutation = useMutation({
     mutationFn: () => processProject(id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['project', id] });
+      const previousProject = queryClient.getQueryData(['project', id]);
+      if (previousProject) {
+        queryClient.setQueryData(['project', id], {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ...(previousProject as any),
+          status: 'processing',
+          progress: 0,
+        });
+      }
+      return { previousProject };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousProject) {
+        queryClient.setQueryData(['project', id], context.previousProject);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', id] });
     },

@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+.git/
+.github/
+.vscode/
+*.log
+*.wav
+*.mp3
+*.mp4

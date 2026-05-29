@@ -84,29 +84,12 @@ class ProjectModel(Base):
     # Relationships
     owner = relationship("User", back_populates="projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
-    assets = relationship("ProjectAsset", back_populates="project", cascade="all, delete-orphan")
     posts = relationship(
         "CollaborationPost", back_populates="project", cascade="all, delete-orphan"
     )
     practice_logs = relationship(
         "PracticeLog", back_populates="project", cascade="all, delete-orphan"
     )
-
-
-class ProjectAsset(Base):
-    """프로젝트 결과물 (악보, 타브 등) 저장 모델"""
-
-    __tablename__ = "project_assets"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), index=True)
-    asset_type = Column(String)  # 'score', 'tab'
-    instrument = Column(String)  # 'vocals', 'guitar', 'bass', etc.
-    content = Column(String)  # XML string for score, ASCII for tab
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    project = relationship("ProjectModel", back_populates="assets")
 
 
 class CollaborationPost(Base):

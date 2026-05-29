@@ -27,28 +27,6 @@ const MultiTrackPlayer = dynamic(
   },
 );
 
-const TabViewer = dynamic(() => import('@/components/tab-viewer').then((mod) => mod.TabViewer), {
-  ssr: false,
-  loading: () => (
-    <div className="flex flex-col items-center justify-center p-12 border border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
-      <Loader2 className="w-8 h-8 animate-spin text-zinc-500 mb-2" />
-      <p className="text-sm text-zinc-500">타브 뷰어 불러오는 중...</p>
-    </div>
-  ),
-});
-const ScoreViewer = dynamic(
-  () => import('@/components/score-viewer').then((mod) => mod.ScoreViewer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex flex-col items-center justify-center p-12 border border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
-        <Loader2 className="w-8 h-8 animate-spin text-zinc-500 mb-2" />
-        <p className="text-sm text-zinc-500">악보 뷰어 불러오는 중...</p>
-      </div>
-    ),
-  },
-);
-
 export default function ProjectPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -56,10 +34,10 @@ export default function ProjectPage() {
 
   const t = useTranslations('Collab');
   const [loadMixer, setLoadMixer] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'mixer' | 'score' | 'tab' | 'collab'>(
-    (searchParams.get('tab') as 'mixer' | 'score' | 'tab' | 'collab') || 'mixer',
+  const [activeTab, setActiveTab] = useState<'mixer' | 'collab'>(
+    (searchParams.get('tab') as 'mixer' | 'collab') || 'mixer',
   );
   // Removed local progress state
 
@@ -231,49 +209,10 @@ export default function ProjectPage() {
                       stems={stems}
                       projectId={project.id}
                       initialBpm={project.bpm}
-                      onTimeUpdate={setCurrentTime}
                       chordProgression={project.chord_progression}
                       songStructure={project.structure}
                     />
                   )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Score View */}
-            {activeTab === 'score' && (
-              <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20">
-                <CardHeader>
-                  <CardTitle>Sheet Music (Standard Score)</CardTitle>
-                  <CardDescription>
-                    모든 파트(드럼, 보컬, 기타 등)의 정식 악보입니다.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScoreViewer
-                    projectId={project.id}
-                    existingInstruments={project.score_instruments}
-                    currentTime={currentTime}
-                    bpm={project.bpm}
-                    autoLoad={true}
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Tab View */}
-            {activeTab === 'tab' && (
-              <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20">
-                <CardHeader>
-                  <CardTitle>Tablature Viewer (Guitar/Bass Only)</CardTitle>
-                  <CardDescription>AI가 분석한 정밀 타브 악보입니다.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TabViewer
-                    projectId={project.id}
-                    existingInstruments={project.tab_instruments}
-                    autoLoad={true}
-                  />
                 </CardContent>
               </Card>
             )}
@@ -323,54 +262,7 @@ export default function ProjectPage() {
               />
               MIXING
             </button>
-            <button
-              onClick={() => setActiveTab('score')}
-              className={cn(
-                'w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative',
-                activeTab === 'score'
-                  ? 'bg-zinc-900 border-zinc-800 text-blue-400 translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]'
-                  : 'bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner',
-              )}
-              style={
-                activeTab === 'score'
-                  ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' }
-                  : {}
-              }
-            >
-              <div
-                className={cn(
-                  'w-2 h-2 rounded-full',
-                  activeTab === 'score'
-                    ? 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.6)] animate-pulse'
-                    : 'bg-zinc-800',
-                )}
-              />
-              SCORE
-            </button>
-            <button
-              onClick={() => setActiveTab('tab')}
-              className={cn(
-                'w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative',
-                activeTab === 'tab'
-                  ? 'bg-zinc-900 border-zinc-800 text-purple-400 translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]'
-                  : 'bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner',
-              )}
-              style={
-                activeTab === 'tab'
-                  ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' }
-                  : {}
-              }
-            >
-              <div
-                className={cn(
-                  'w-2 h-2 rounded-full',
-                  activeTab === 'tab'
-                    ? 'bg-purple-400 shadow-[0_0_10px_rgba(167,139,250,0.6)] animate-pulse'
-                    : 'bg-zinc-800',
-                )}
-              />
-              TAB
-            </button>
+
             <button
               onClick={() => setActiveTab('collab')}
               className={cn(

@@ -16,14 +16,7 @@
 - Equips the **Facebook Demucs v4 (htdemucs_6s)** model to precisely separate a single imported audio file into multiple individual tracks (Vocals, Drums, Bass, Guitar, Piano, and Other instruments) in real time.
 - The separated audio tracks are immediately available as stems for practicing individual part.
 
-### 2. 🎼 MusicXML Score Auto-Generation
-- Utilizes the **Spotify Basic Pitch** deep learning model to extract and transcribe stem melodies and chords with high precision.
-- Generates interactive MusicXML scores that can be rendered dynamically via **OpenSheetMusicDisplay (OSMD)** based on the extracted note (MIDI) data.
 
-### 3. 🎸 Intelligent Tablature Mapper
-- Features a custom fingering optimization engine that maps extracted MIDI pitch data onto guitar and bass fretboards.
-- Supports an **open-position priority mapping algorithm** and an **auto-transpose/Smart Capo** function that transposes difficult keys into easy-to-play keys (C, G, D, A, E) utilizing open strings.
-- Provides clean, playable ASCII tablature by implementing a maximum polyphony limit (3-note limit) and strum collision checks to prevent difficult arpeggios at fast tempos.
 
 ### 4. 🎛️ Interactive Multitrack Mixer
 - Leverages the **WaveSurfer.js** engine to visualize separated multitrack waveforms in the browser and provides fully synchronized playback.

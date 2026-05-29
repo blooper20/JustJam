@@ -58,10 +58,6 @@ class Project(ProjectBase):
     structure: Optional[str] = Field(None, example='[{"name": "Intro", "start": 0, "end": 10}]')
     thumbnail_url: Optional[str] = Field(None, example="/static/uploads/thumb_123.png")
     stems_path: Optional[str] = Field(None, example="/static/separated/htdemucs_6s/123")
-    has_score: bool = Field(False, example=True)
-    has_tab: bool = Field(False, example=True)
-    score_instruments: List[str] = Field([], example=["piano", "vocals"])
-    tab_instruments: List[str] = Field([], example=["guitar", "bass"])
     members: List[ProjectMember] = []
     is_owner: bool = Field(False, example=True)  # Helper for frontend
 
@@ -84,11 +80,3 @@ class MixRequest(BaseModel):
     bpm: float
     metronome: float
     start_offset: float = 0.0
-
-
-class TabResponse(BaseModel):
-    project_id: str = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
-    instrument: str = Field(..., example="guitar")
-    bpm: float = Field(..., example=120.0)
-    tab: str = Field(..., example="e|---")
-    notes_count: int = Field(..., example=150)

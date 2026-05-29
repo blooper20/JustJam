@@ -30,10 +30,6 @@ export interface Project {
   created_at: string;
   progress: number;
   bpm?: number;
-  has_score?: boolean;
-  has_tab?: boolean;
-  score_instruments?: string[];
-  tab_instruments?: string[];
   members?: ProjectMember[];
   is_owner?: boolean;
   thumbnail_url?: string;
@@ -50,14 +46,6 @@ export interface StemFiles {
   piano: string | null;
   other: string | null;
   master: string | null;
-}
-
-export interface TabResponse {
-  project_id: string;
-  instrument: string;
-  bpm: number;
-  tab: string;
-  notes_count: number;
 }
 
 const SERVER_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -123,20 +111,6 @@ export const fetchProjectStems = async (id: string): Promise<StemFiles> => {
     other: fixUrl(data.other),
     master: fixUrl(data.master),
   };
-};
-
-export const generateScore = async (id: string, instrument: string): Promise<string> => {
-  const response = await apiClient.post(`/projects/${id}/score/${instrument}`);
-  // Assuming backend returns string content for score or path, checking original it was text
-  // If it's returning raw text/xml content:
-  if (typeof response.data === 'string') return response.data;
-  // If object?
-  return JSON.stringify(response.data);
-};
-
-export const generateTab = async (id: string, instrument: string): Promise<TabResponse> => {
-  const response = await apiClient.post(`/projects/${id}/tabs/${instrument}`);
-  return response.data;
 };
 
 export const generateMidi = async (id: string, instrument: string): Promise<Blob> => {

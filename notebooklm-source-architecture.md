@@ -18,8 +18,7 @@ This document serves as a unified training source for **NotebookLM**, detailing 
 ## ✨ Features
 
 - **🎧 AI Source Separation**: Splits any audio track into multiple stems (Vocals, Drums, Bass, Guitar, Piano, Other) using Demucs v4.
-- **🎼 MusicXML Score Generation**: Transcribes stem melodies and chords using Spotify's Basic Pitch and renders interactive sheet music.
-- **🎸 Intelligent Tablature Mapper**: Auto-generates guitar and bass ASCII tablatures utilizing an open-position prior, chord-matching constraints, and auto-transposition (Smart Capo) for easy playability.
+
 - **🎛️ Interactive Multitrack Mixer**: Features solo, mute, volume adjustment, and playback speed control powered by WaveSurfer.js.
 - **⏱️ Audio-Synced Metronome**: Custom Web Audio API metronome synced precisely to the playback clock with manual TAP BPM overrides.
 - **🤝 Collaboration Workspace**: Real-time project sharing and access permission control (Viewer / Editor) for band members.

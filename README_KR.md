@@ -16,14 +16,7 @@
 - **Facebook Demucs v4 (htdemucs_6s)** 모델을 탑재하여 임포트된 단일 음원 파일을 여러 개의 개별 트랙(보컬, 드럼, 베이스, 기타, 피아노, 기타 악기 등)으로 정밀하게 실시간 분리합니다.
 - 분리된 음원은 각각의 파트별 연습용 스템(Stem) 파일로 즉시 사용 가능합니다.
 
-### 2. 🎼 MusicXML 악보 자동 생성 (MusicXML Transcription)
-- **Spotify Basic Pitch** 딥러닝 모델을 활용하여 각 오디오 트랙의 멜로디와 코드를 고정밀도로 추출하고 전사합니다.
-- 추출된 음정(MIDI) 데이터를 기반으로 **OpenSheetMusicDisplay(OSMD)**로 렌더링 가능한 대화형 MusicXML 악보를 생성합니다.
 
-### 3. 🎸 지능형 타브(Tab) 악보 매퍼 (Intelligent Tablature Mapper)
-- 수집된 MIDI 음정 데이터를 기타 및 베이스 지판 위로 배치하는 커스텀 운지 최적화 엔진을 탑재하였습니다.
-- **개방현 우선 배치 알고리즘**과 연주가 까다로운 키를 개방현 활용이 쉬운 키(C, G, D, A, E)로 변환해 주는 **자동 조바꿈(Auto-Transpose / Smart Capo)** 기능을 지원합니다.
-- 최대 동시 발음 수 제한(3음 제한) 및 빠른 속도에서의 아르페지오 방지(Strum Collision 체크) 알고리즘을 통해 실제 연주 가능한 "깔끔한 ASCII 타브 악보"를 제공합니다.
 
 ### 4. 🎛️ 인터랙티브 멀티트랙 믹서 (Multitrack Mixer)
 - **WaveSurfer.js** 엔진을 활용하여 분리된 멀티트랙 웨이브폼(Waveform)을 브라우저 상에서 시각화하고 완전 동기화된 재생을 제공합니다.

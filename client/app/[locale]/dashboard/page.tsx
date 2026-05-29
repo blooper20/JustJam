@@ -1,18 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  UploadCloud,
-  Music,
-  Loader2,
-  Play,
-  Trash2,
-  Activity,
-  Plus,
-  Clock,
-  FileMusic,
-  Users,
-} from 'lucide-react';
+import { UploadCloud, Music, Loader2, Play, Trash2, Plus, Clock, Users } from 'lucide-react';
 import { useState } from 'react';
 import Image from 'next/image';
 import { API_BASE_URL } from '@/lib/api-client';
@@ -138,10 +127,6 @@ export default function DashboardPage() {
   const processingProjects =
     projects?.filter((p) => p.status === 'processing' || p.status === 'pending').length || 0;
   const completedProjects = projects?.filter((p) => p.status === 'completed').length || 0;
-  const projectsWithScores =
-    projects?.filter((p) => p.status === 'completed' && p.has_score).length || 0;
-  const projectsWithTabs =
-    projects?.filter((p) => p.status === 'completed' && p.has_tab).length || 0;
 
   return (
     <div className="container mx-auto p-8 space-y-8">
@@ -219,66 +204,6 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
                     {t('processing')}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* 악보 (Sheet) Category */}
-        <Link href="/dashboard/scores" className="block transition-transform hover:-translate-y-1">
-          <Card className="bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all cursor-pointer h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-400">{t('scores')}</CardTitle>
-              <FileMusic className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end justify-between mt-2">
-                <div>
-                  <div className="text-3xl font-bold tracking-tight">
-                    {isLoading ? '-' : projectsWithScores}
-                  </div>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    {t('owned')}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-semibold text-orange-500">
-                    {isLoading ? '-' : completedProjects - projectsWithScores}
-                  </div>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    {t('creatable')}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* 타브악보 (Tab) Category */}
-        <Link href="/dashboard/tabs" className="block transition-transform hover:-translate-y-1">
-          <Card className="bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all cursor-pointer h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-400">{t('tabs')}</CardTitle>
-              <Activity className="h-4 w-4 text-pink-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end justify-between mt-2">
-                <div>
-                  <div className="text-3xl font-bold tracking-tight">
-                    {isLoading ? '-' : projectsWithTabs}
-                  </div>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    {t('owned')}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-semibold text-orange-500">
-                    {isLoading ? '-' : completedProjects - projectsWithTabs}
-                  </div>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1 font-semibold">
-                    {t('creatable')}
                   </p>
                 </div>
               </div>

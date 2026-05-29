@@ -1205,11 +1205,6 @@ export function MultiTrackPlayer({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none flex items-center">
                   {currentChord ? t('currentChord') : t('speed')}
-                  {currentChord && (
-                    <span title="Smart Capo: 원곡 키에 맞춰 자동으로 계산된 쉬운 코드입니다.">
-                      <Info className="w-3 h-3 ml-1 cursor-help" />
-                    </span>
-                  )}
                 </span>
                 {isScrolled && (
                   <div className="flex items-center gap-2 text-[10px] font-mono text-primary tabular-nums">

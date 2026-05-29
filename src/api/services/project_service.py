@@ -25,13 +25,10 @@ from src.api.exceptions import (
     AudioProcessingError,
     FileUploadError,
     ProjectNotFoundError,
-    TranscriptionError,
 )
-from src.api.models import ProjectAsset, ProjectMember, ProjectModel, User
+from src.api.models import ProjectMember, ProjectModel, User
 from src.api.schemas.project import TaskStatus
 from src.audio_processor import separate_audio
-from src.score_generator import create_score
-from src.transcriber import transcribe_audio
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +215,6 @@ class ProjectService:
         project = (
             db.query(ProjectModel)
             .options(
-                joinedload(ProjectModel.assets),
                 joinedload(ProjectModel.members).joinedload(ProjectMember.user),
             )
             .filter(ProjectModel.id == project_id)
@@ -245,13 +241,6 @@ class ProjectService:
             if not is_owner and not is_member:
                 raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
 
-        # 자산 보유 여부 설정
-        project.has_score = any(a.asset_type == "score" for a in project.assets)
-        project.has_tab = any(a.asset_type == "tab" for a in project.assets)
-        project.score_instruments = [
-            a.instrument for a in project.assets if a.asset_type == "score"
-        ]
-        project.tab_instruments = [a.instrument for a in project.assets if a.asset_type == "tab"]
         project.is_owner = bool(current_user and project.user_id == current_user.id)
 
         for m in project.members:
@@ -270,7 +259,7 @@ class ProjectService:
         limit: int = 50,
     ):
         """프로젝트 목록 조회"""
-        query = db.query(ProjectModel).options(joinedload(ProjectModel.assets))
+        query = db.query(ProjectModel)
 
         if current_user:
             shared_project_ids = (
@@ -300,10 +289,6 @@ class ProjectService:
         projects = query.offset(skip).limit(limit).all()
 
         for p in projects:
-            p.has_score = any(a.asset_type == "score" for a in p.assets)
-            p.has_tab = any(a.asset_type == "tab" for a in p.assets)
-            p.score_instruments = [a.instrument for a in p.assets if a.asset_type == "score"]
-            p.tab_instruments = [a.instrument for a in p.assets if a.asset_type == "tab"]
             p.is_owner = bool(current_user and p.user_id == current_user.id)
 
         return projects
@@ -421,203 +406,6 @@ class ProjectService:
             other=f"{base_url}/other.wav",
             master=f"{base_url}/master.wav",
         )
-
-    @staticmethod
-    def generate_score(
-        db: Session, project_id: str, instrument: str, current_user: Optional[User] = None
-    ):
-        """악보 생성"""
-        project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
-        if not project:
-            raise ProjectNotFoundError()
-
-        if project.user_id is not None:
-            if not current_user or project.user_id != current_user.id:
-                from src.api.exceptions import AuthenticationError
-
-                raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
-
-        if project.status != TaskStatus.COMPLETED.value:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
-
-        existing_asset = (
-            db.query(ProjectAsset)
-            .filter(
-                ProjectAsset.project_id == project_id,
-                ProjectAsset.asset_type == "score",
-                ProjectAsset.instrument == instrument,
-            )
-            .first()
-        )
-
-        if existing_asset:
-            return existing_asset.content, True
-
-        input_path = os.path.join(UPLOAD_DIR, project.original_filename)
-        target_stem = instrument.lower()
-
-        try:
-            notes, bpm = transcribe_audio(input_path, target_stem=target_stem)
-            xml_content = create_score(notes, bpm, instrument)
-
-            new_asset = ProjectAsset(
-                project_id=project_id,
-                asset_type="score",
-                instrument=instrument,
-                content=xml_content,
-            )
-            db.add(new_asset)
-            db.commit()
-
-            return xml_content, False
-        except Exception as e:
-            logger.exception(f"Score generation failed: {e}")
-            raise TranscriptionError(detail=f"악보 생성 실패: {str(e)}")
-
-    @staticmethod
-    def generate_midi(
-        db: Session, project_id: str, instrument: str, current_user: Optional[User] = None
-    ):
-        """MIDI 생성"""
-        project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
-        if not project:
-            raise ProjectNotFoundError()
-
-        is_owner = current_user and project.user_id == current_user.id
-        is_member = False
-        if current_user and not is_owner:
-            member = (
-                db.query(ProjectMember)
-                .filter(
-                    ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id
-                )
-                .first()
-            )
-            is_member = member is not None
-
-        if project.user_id is not None:
-            if not is_owner and not is_member:
-                from src.api.exceptions import AuthenticationError
-
-                raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
-
-        if project.status != TaskStatus.COMPLETED.value:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
-
-        existing_asset = (
-            db.query(ProjectAsset)
-            .filter(
-                ProjectAsset.project_id == project_id,
-                ProjectAsset.asset_type == "midi",
-                ProjectAsset.instrument == instrument,
-            )
-            .first()
-        )
-
-        import base64
-
-        if existing_asset:
-            return base64.b64decode(existing_asset.content), True
-
-        input_path = os.path.join(UPLOAD_DIR, project.original_filename)
-        target_stem = instrument.lower()
-
-        try:
-            notes, bpm = transcribe_audio(input_path, target_stem=target_stem)
-            midi_bytes = create_score(notes, bpm, instrument, format="midi")
-
-            new_asset = ProjectAsset(
-                project_id=project_id,
-                asset_type="midi",
-                instrument=instrument,
-                content=base64.b64encode(midi_bytes).decode("utf-8"),
-            )
-            db.add(new_asset)
-            db.commit()
-
-            return midi_bytes, False
-        except Exception as e:
-            logger.exception(f"MIDI generation failed: {e}")
-            raise TranscriptionError(detail=f"MIDI 생성 실패: {str(e)}")
-
-    @staticmethod
-    def generate_tab(
-        db: Session, project_id: str, instrument: str, current_user: Optional[User] = None
-    ):
-        """타브 악보 생성"""
-        project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
-        if not project:
-            raise ProjectNotFoundError()
-
-        if project.user_id is not None:
-            if not current_user or project.user_id != current_user.id:
-                from src.api.exceptions import AuthenticationError
-
-                raise AuthenticationError(detail="이 프로젝트에 접근할 권한이 없습니다.")
-
-        if project.status != TaskStatus.COMPLETED.value:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=400, detail="먼저 음원 분리가 완료되어야 합니다.")
-
-        existing_asset = (
-            db.query(ProjectAsset)
-            .filter(
-                ProjectAsset.project_id == project_id,
-                ProjectAsset.asset_type == "tab",
-                ProjectAsset.instrument == instrument,
-            )
-            .first()
-        )
-
-        if existing_asset:
-            return json.loads(existing_asset.content), True
-
-        input_path = os.path.join(UPLOAD_DIR, project.original_filename)
-
-        if instrument == "bass":
-            tuning = ["E1", "A1", "D2", "G2"]
-            target_stem = "bass"
-        elif instrument == "guitar":
-            tuning = ["E2", "A2", "D3", "G3", "B3", "E4"]
-            target_stem = "guitar"
-        else:
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=400, detail="지원하지 않는 악기입니다.")
-
-        try:
-            from src.tab_generator import TabGenerator
-
-            notes, bpm = transcribe_audio(input_path, target_stem=target_stem)
-            generator = TabGenerator(tuning=tuning, bpm=bpm)
-            ascii_tab = generator.generate_ascii_tab(notes)
-
-            result = {
-                "project_id": project_id,
-                "instrument": instrument,
-                "bpm": bpm,
-                "tab": ascii_tab,
-                "notes_count": len(notes),
-            }
-
-            new_asset = ProjectAsset(
-                project_id=project_id,
-                asset_type="tab",
-                instrument=instrument,
-                content=json.dumps(result),
-            )
-            db.add(new_asset)
-            db.commit()
-
-            return result, False
-        except Exception as e:
-            logger.exception(f"Tab generation failed: {e}")
-            raise TranscriptionError(detail=f"타브 생성 실패: {str(e)}")
 
     @staticmethod
     def mix_audio(db: Session, project_id: str, request, current_user: Optional[User] = None):

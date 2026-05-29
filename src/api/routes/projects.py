@@ -1,7 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Response, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 from src.api.database import get_db
@@ -16,7 +15,6 @@ from src.api.schemas.project import (
     ProjectShareRequest,
     ProjectUpdate,
     StemFiles,
-    TabResponse,
 )
 from src.api.services.project_service import ProjectService, generate_thumbnail
 
@@ -143,42 +141,6 @@ async def get_project_stems(
     db: Session = Depends(get_db),
 ):
     return ProjectService.get_project_stems(db, project_id, current_user)
-
-
-@router.post("/{project_id}/score/{instrument}")
-async def generate_project_score(
-    project_id: str,
-    instrument: str,
-    current_user: Optional[User] = Depends(get_optional_current_user),
-    db: Session = Depends(get_db),
-):
-    content, cached = ProjectService.generate_score(db, project_id, instrument, current_user)
-    headers = {"X-Cache": "HIT"} if cached else {}
-    return Response(content=content, media_type="application/xml", headers=headers)
-
-
-@router.post("/{project_id}/midi/{instrument}")
-async def generate_project_midi(
-    project_id: str,
-    instrument: str,
-    current_user: Optional[User] = Depends(get_optional_current_user),
-    db: Session = Depends(get_db),
-):
-    midi_bytes, cached = ProjectService.generate_midi(db, project_id, instrument, current_user)
-    headers = {"X-Cache": "HIT"} if cached else {}
-    return Response(content=midi_bytes, media_type="audio/midi", headers=headers)
-
-
-@router.post("/{project_id}/tabs/{instrument}", response_model=TabResponse)
-async def generate_project_tab(
-    project_id: str,
-    instrument: str,
-    current_user: Optional[User] = Depends(get_optional_current_user),
-    db: Session = Depends(get_db),
-):
-    result, cached = ProjectService.generate_tab(db, project_id, instrument, current_user)
-    headers = {"X-Cache": "HIT"} if cached else {}
-    return JSONResponse(content=result, headers=headers)
 
 
 @router.post("/{project_id}/mix")

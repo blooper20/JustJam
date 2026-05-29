@@ -79,6 +79,31 @@ Before installation and execution, ensure you have the following programs instal
 
 ### Execution Guide
 
+#### 0. 🐳 Docker (Recommended) — One-Command Setup
+The easiest way to run JustJam is via Docker Compose, which starts all services (backend, Celery worker, frontend, Redis, PostgreSQL) with a single command.
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Access the application
+# Frontend: http://localhost:3001
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
+
+> **Note**: The `justjam-data` Docker volume is shared between the `backend` and `worker` containers, ensuring separated audio stems are accessible to both services.
+
+To stop all services:
+```bash
+docker-compose down
+```
+
+To stop and remove all data volumes (full reset):
+```bash
+docker-compose down -v
+```
+
 #### 1. Backend Server Setup & Run
 ```bash
 # Create and activate virtual environment

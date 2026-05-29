@@ -79,6 +79,31 @@
 
 ### 로컬 실행 방법 (Execution Guide)
 
+#### 0. 🐳 도커(Docker) — 원클릭 통합 실행 (권장)
+모든 서비스(백엔드, Celery 워커, 프론트엔드, Redis, PostgreSQL)를 단일 명령어로 실행할 수 있는 Docker Compose 기반 실행 방법입니다.
+
+```bash
+# 전체 서비스 빌드 및 실행
+docker-compose up --build
+
+# 서비스 접속 주소
+# 프론트엔드: http://localhost:3001
+# 백엔드 API: http://localhost:8000
+# API 문서(Swagger): http://localhost:8000/docs
+```
+
+> **참고**: `justjam-data` Docker 볼륨이 `backend`와 `worker` 컨테이너에 동일하게 마운트(`/app/temp`)되어 분리된 음원 스템 파일을 양 서비스에서 공유합니다.
+
+서비스 종료:
+```bash
+docker-compose down
+```
+
+전체 초기화 (볼륨 삭제 포함):
+```bash
+docker-compose down -v
+```
+
 #### 1. Backend 백엔드 서버 설정 및 실행
 ```bash
 # 가상환경 생성 및 활성화

@@ -31,6 +31,8 @@ export function useProject(id: string) {
     queryKey: ['project', id, 'stems'],
     queryFn: () => fetchProjectStems(id),
     enabled: projectQuery.data?.status === 'completed',
+    retry: 1,
+    retryDelay: 500,
   });
 
   const processMutation = useMutation({
@@ -77,6 +79,7 @@ export function useProject(id: string) {
     error: projectQuery.error,
     stems: stemsQuery.data,
     isLoadingStems: stemsQuery.isLoading,
+    stemsError: stemsQuery.error,
     processProject: processMutation.mutate,
     isProcessing: processMutation.isPending,
   };

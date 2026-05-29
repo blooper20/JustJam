@@ -316,6 +316,7 @@ export function MultiTrackPlayer({
   const [isDownloading, setIsDownloading] = useState(false);
   const [tracks, setTracks] = useState<TrackControl[]>([]);
   const [loadedTracks, setLoadedTracks] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Chords state
   const chords = useRef<Chord[]>([]);
@@ -596,56 +597,65 @@ export function MultiTrackPlayer({
       const container = containerRefs.current[track.name];
       if (!container) return;
 
-      const ws = WaveSurfer.create({
-        container,
-        waveColor: TRACK_COLORS[track.name] || '#9ca3af',
-        progressColor: 'rgba(255, 255, 255, 0.3)',
-        url: track.url,
-        height: 64,
-        barWidth: 2,
-        barGap: 1,
-        barRadius: 2,
-        cursorWidth: 0,
-        interact: false,
-        normalize: true,
-        audioContext: audioContext,
-      } as Parameters<typeof WaveSurfer.create>[0]);
+      setTimeout(() => {
+        const ws = WaveSurfer.create({
+          container,
+          waveColor: TRACK_COLORS[track.name] || '#9ca3af',
+          progressColor: 'rgba(255, 255, 255, 0.3)',
+          url: track.url,
+          height: 64,
+          barWidth: 2,
+          barGap: 1,
+          barRadius: 2,
+          cursorWidth: 0,
+          interact: false,
+          normalize: true,
+          audioContext: audioContext,
+          backend: 'WebAudio',
+          renderFunction: undefined,
+        } as Parameters<typeof WaveSurfer.create>[0]);
 
-      ws.on('ready', () => {
-        readyCount.current++;
-        setLoadedTracks((prev) => prev + 1);
+        ws.on('error', (err) => {
+          console.error(`WaveSurfer error on track "${track.name}":`, err);
+          setLoadError('오디오 파일 경로를 찾을 수 없습니다');
+        });
+
+        ws.on('ready', () => {
+          readyCount.current++;
+          setLoadedTracks((prev) => prev + 1);
+          if (index === 0) {
+            setDuration(ws.getDuration());
+          }
+
+          const vol = useProjectStore.getState().trackVolumes[track.name] ?? 0.8;
+          ws.setVolume(vol);
+        });
+
         if (index === 0) {
-          setDuration(ws.getDuration());
+          ws.on('timeupdate', (time) => {
+            const state = useProjectStore.getState();
+            setCurrentTime(time);
+            if (onTimeUpdate) onTimeUpdate(time);
+
+            if (state.isLoopEnabled && state.loopStart !== null && state.loopEnd !== null) {
+              if (time >= state.loopEnd) {
+                handleSeek([state.loopStart]);
+              }
+            }
+          });
+
+          ws.on('finish', () => {
+            const state = useProjectStore.getState();
+            if (state.isLoopEnabled && state.loopStart !== null) {
+              handleSeek([state.loopStart]);
+            } else {
+              setIsPlaying(false);
+            }
+          });
         }
 
-        const vol = useProjectStore.getState().trackVolumes[track.name] ?? 0.8;
-        ws.setVolume(vol);
-      });
-
-      if (index === 0) {
-        ws.on('timeupdate', (time) => {
-          const state = useProjectStore.getState();
-          setCurrentTime(time);
-          if (onTimeUpdate) onTimeUpdate(time);
-
-          if (state.isLoopEnabled && state.loopStart !== null && state.loopEnd !== null) {
-            if (time >= state.loopEnd) {
-              handleSeek([state.loopStart]);
-            }
-          }
-        });
-
-        ws.on('finish', () => {
-          const state = useProjectStore.getState();
-          if (state.isLoopEnabled && state.loopStart !== null) {
-            handleSeek([state.loopStart]);
-          } else {
-            setIsPlaying(false);
-          }
-        });
-      }
-
-      setTracks((prev) => prev.map((t) => (t.name === track.name ? { ...t, instance: ws } : t)));
+        setTracks((prev) => prev.map((t) => (t.name === track.name ? { ...t, instance: ws } : t)));
+      }, index * 100);
     });
   }, [tracks, audioContext, setDuration, setCurrentTime, onTimeUpdate, setIsPlaying, handleSeek]);
 
@@ -927,11 +937,11 @@ export function MultiTrackPlayer({
   }, [togglePlay, handleSeek, duration]);
 
   // 시간 포맷팅 (분:초)
-  const formatTime = (seconds: number) => {
+  const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
   // BPM 입력 완료 (Blur) 처리
   const handleBpmBlur = useCallback(() => {
@@ -1031,6 +1041,27 @@ export function MultiTrackPlayer({
       <div className="flex h-64 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950/50 backdrop-blur-xl">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card className="flex flex-col items-center justify-center gap-4 rounded-xl border border-red-800/60 bg-red-950/20 p-10 text-center">
+        <p className="text-base font-bold text-red-400">{loadError}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-red-700 text-red-400 hover:bg-red-900/30"
+          onClick={() => {
+            setLoadError(null);
+            setLoadedTracks(0);
+            readyCount.current = 0;
+            setTracks([]);
+          }}
+        >
+          다시 시도
+        </Button>
+      </Card>
     );
   }
 

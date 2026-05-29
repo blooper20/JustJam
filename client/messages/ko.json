@@ -51,6 +51,7 @@
         "tabs": "타브악보 (Tab)",
         "owned": "보유 중",
         "processing": "진행 중",
+        "processingBadge": "분리 중...",
         "creatable": "생성 가능",
         "myProjects": "내 프로젝트",
         "loading": "프로젝트 불러오는 중...",

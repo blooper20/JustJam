@@ -51,6 +51,7 @@
         "tabs": "Guitar Tabs",
         "owned": "Owned",
         "processing": "Processing",
+        "processingBadge": "Processing",
         "creatable": "Available",
         "myProjects": "My Projects",
         "loading": "Loading projects...",

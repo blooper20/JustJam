@@ -480,7 +480,7 @@ function StatusBadge({ status }: { status: string }) {
 
   const labels = {
     pending: t('pending'),
-    processing: t('processing'),
+    processing: t('processingBadge'),
     completed: t('completed'),
     failed: t('failed'),
   };

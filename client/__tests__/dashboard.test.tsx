@@ -34,16 +34,12 @@ describe('DashboardPage', () => {
       name: 'Test Song 1',
       status: 'completed',
       created_at: '2024-01-20T10:00:00Z',
-      has_score: true,
-      has_tab: false,
     },
     {
       id: '2',
       name: 'Test Song 2',
       status: 'processing',
       created_at: '2024-01-21T10:00:00Z',
-      has_score: false,
-      has_tab: false,
     },
   ];
 
@@ -90,11 +86,9 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
 
     // Completed projects: 1 (Song 1 is completed. Song 2 is processing).
-    // Song 1 has score.
-    // Song 1 has no tab.
 
     // Check "보유 중" for Songs (completedProjects)
     const completedLabels = screen.getAllByText('보유 중');
-    expect(completedLabels.length).toBe(3); // One for each category
+    expect(completedLabels.length).toBe(1); // One for tracks category
   });
 });

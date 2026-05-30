@@ -87,7 +87,7 @@ export default function LandingPage() {
             <p className="text-xl text-muted-foreground">{t('allFeaturesDesc')}</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <FeatureCard
               title={t('trackSeparation')}
               description={t('trackSeparationDesc')}
@@ -99,12 +99,6 @@ export default function LandingPage() {
               description={t('mixerDesc')}
               image="/images/landing/feature-mixer.jpg"
               delay={100}
-            />
-            <FeatureCard
-              title={t('scoreGen')}
-              description={t('scoreGenDesc')}
-              image="/images/landing/feature-score.jpg"
-              delay={200}
             />
           </div>
         </div>

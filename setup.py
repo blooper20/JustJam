@@ -26,7 +26,6 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "mcp>=1.0.0",
-        "basic-pitch>=0.2.5",
         "librosa>=0.10.0",
         "tensorflow>=2.13.0",
         "numpy>=1.24.0,<2.0.0",

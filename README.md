@@ -37,8 +37,7 @@
 ### Frontend
 - **Framework**: Next.js 16.1.2 (App Router) & React 19.2.3
 - **Styling**: Tailwind CSS v4 & Radix UI / Shadcn UI
-- **Audio Rendering**: WaveSurfer.js 7.12.1
-- **Score Rendering**: OpenSheetMusicDisplay 1.9.3 (MusicXML Renderer)
+- **Audio Playback**: WaveSurfer.js 7.x
 - **State Management & Fetching**: Zustand 5.0.10 & TanStack React Query v5
 - **Internationalization (i18n)**: next-intl 4.8.2 (Korean & English support)
 - **Authentication**: NextAuth.js 4.24.13

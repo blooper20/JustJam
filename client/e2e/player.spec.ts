@@ -29,7 +29,6 @@ test.describe('멀티트랙 플레이어 인터페이스', () => {
 
   test('사이드 인덱스 탭(MIXING, COLLAB)이 정상 동작한다', async ({ page }) => {
     const mixingTab = page.getByText('MIXING');
-    const collabTab = page.getByText('COLLAB');
 
     if (await mixingTab.isVisible()) {
       await mixingTab.click();

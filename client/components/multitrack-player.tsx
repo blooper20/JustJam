@@ -1066,6 +1066,7 @@ export function MultiTrackPlayer({
       </Card>
     );
   }
+  if (!isMounted) return null;
 
   return (
     <div className="space-y-6 select-none relative">

@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.1.2-black.svg)](https://nextjs.org/)
 
-**JustJam** is an AI-powered smart band practice and music arrangement collaboration platform. Utilizing local deep learning models, it separates user-uploaded audio into individual tracks (Stems), transcribes melodies and chords, and automatically generates easy-to-play tablature (Tab) scores. It also integrates a WaveSurfer.js-based multitrack mixer and a Web Audio API-based precision metronome to provide the ultimate practice environment.
+**JustJam** is an AI-powered smart band practice and music arrangement collaboration platform. Utilizing local deep learning models, it separates user-uploaded audio into individual tracks (Stems) in real time. It also integrates a WaveSurfer.js-based multitrack mixer and a Web Audio API-based precision metronome to provide the ultimate practice environment.
 
 [English Document](./README.md) | [한국어 문서](./README_KR.md)
 
@@ -143,8 +143,7 @@ JustJam/
 │   │   └── globals.css         # Tailwind v4 globals & custom styles
 │   ├── components/             # Reusable UI Components
 │   │   ├── multitrack-player.tsx # WaveSurfer multimixer and Web Audio metronome
-│   │   ├── score-viewer.tsx    # MusicXML score renderer
-│   │   └── tab-viewer.tsx      # ASCII tablature score viewer
+│   │   └── mixer.tsx           # Multi-track audio player
 │   ├── hooks/                  # React custom hooks
 │   │   └── use-project.ts      # Project polling API hook integrated with Zustand
 │   └── package.json            # Frontend dependency specifications
@@ -155,9 +154,7 @@ JustJam/
 │   │   ├── models.py           # SQLAlchemy DB models
 │   │   ├── routes/             # Route controllers (projects, auth, etc.)
 │   │   └── services/           # Async audio processing & core business logic
-│   ├── audio_processor.py      # Demucs source separation wrapper
-│   ├── score_generator.py      # MusicXML compilation engine
-│   ├── tab_generator.py        # ASCII Tab transcription & fingering optimizer
+│   ├── audio_processor.py      # Core stem extraction logic
 │   ├── transcriber.py          # Basic Pitch wrapper and quantized cleaning
 │   └── config.py               # YAML configuration loader
 └── README_KR.md                # Korean specification document

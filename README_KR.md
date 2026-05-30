@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.1.2-black.svg)](https://nextjs.org/)
 
-**JustJam**은 AI 기술을 기반으로 하는 스마트 밴드 연습 및 편곡 협업 플랫폼입니다. 로컬 딥러닝 모델을 활용하여 사용자가 업로드한 음원을 개별 트랙(Stem)으로 분리하고, 멜로디 및 코드 악보를 전사하며, 연주가 용이한 타브(Tab) 악보를 자동으로 생성해 줍니다. 또한, WaveSurfer.js를 기반으로 한 멀티트랙 믹서와 Web Audio API 기반의 정밀 메트로놈을 결합하여 최상의 연습 환경을 제공합니다.
+**JustJam**은 AI 기술을 기반으로 하는 스마트 밴드 연습 및 편곡 협업 플랫폼입니다. 로컬 딥러닝 모델을 활용하여 사용자가 업로드한 음원을 개별 트랙(Stem)으로 분리해 줍니다. 또한, WaveSurfer.js를 기반으로 한 멀티트랙 믹서와 Web Audio API 기반의 정밀 메트로놈을 결합하여 최상의 연습 환경을 제공합니다.
 
 [English Document](./README.md) | [한국어 문서](./README_KR.md)
 
@@ -143,8 +143,7 @@ JustJam/
 │   │   └── globals.css         # Tailwind v4 전역 스타일 정의
 │   ├── components/             # 재사용 가능한 UI 컴포넌트
 │   │   ├── multitrack-player.tsx # WaveSurfer 멀티믹서 및 Web Audio 메트로놈
-│   │   ├── score-viewer.tsx    # MusicXML 악보 렌더러
-│   │   └── tab-viewer.tsx      # 아스키 타브 악보 뷰어
+│   │   ├── mixer.tsx           # 멀티트랙 오디오 플레이어
 │   ├── hooks/                  # 리액트 커스텀 훅
 │   │   └── use-project.ts      # Zustand와 결합된 1초 주기 상태 폴링 API 훅
 │   └── package.json            # 프론트엔드 패키지 명세
@@ -156,8 +155,6 @@ JustJam/
 │   │   ├── routes/             # 도메인별 API 라우트 컨트롤러 (projects, auth 등)
 │   │   └── services/           # 비동기 오디오 처리 및 핵심 비즈니스 로직 서비스
 │   ├── audio_processor.py      # Demucs v4 음원 분리 래퍼 클래스
-│   ├── score_generator.py      # MusicXML 변환 및 생성 엔진
-│   ├── tab_generator.py        # 스마트 타브(Tab) 지판 운지 최적화 알고리즘
 │   └── transcriber.py          # Basic Pitch 멜로디 추출 및 16분음표 퀀타이즈
 └── README_KR.md                # 한국어 사양 통합 문서 (본 문서)
 ```

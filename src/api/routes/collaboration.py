@@ -25,11 +25,34 @@ from src.api.schemas.collaboration import (
     CollaborationCommentResponse,
     CollaborationPostCreate,
     CollaborationPostResponse,
+    PostOptionCreate,
+    PostOptionResponse,
     PracticeLogResponse,
 )
 from src.api.schemas.user import UserResponse
 
-router = APIRouter(prefix="/projects/{project_id}", tags=["Collaboration"])
+router = APIRouter(tags=["Collaboration"])
+
+
+
+from src.api.models import Team, TeamMember
+
+def check_team_access(db: Session, team_id: int, current_user: User) -> Team:
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    is_owner = team.owner_id == current_user.id
+    is_member = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team_id, TeamMember.user_id == current_user.id)
+        .first()
+        is not None
+    )
+    if not is_owner and not is_member:
+        raise HTTPException(status_code=403, detail="이 팀에 접근할 권한이 없습니다.")
+
+    return team
 
 
 def check_project_access(db: Session, project_id: str, current_user: User) -> ProjectModel:
@@ -54,18 +77,18 @@ def check_project_access(db: Session, project_id: str, current_user: User) -> Pr
 
 
 @router.get(
-    "/posts", response_model=List[CollaborationPostResponse], summary="협업 포스트 목록 조회"
+    "/teams/{team_id}/posts", response_model=List[CollaborationPostResponse], summary="협업 포스트 목록 조회"
 )
 async def list_posts(
-    project_id: str,
+    team_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    check_team_access(db, team_id, current_user)
 
     posts = (
         db.query(CollaborationPost)
-        .filter(CollaborationPost.project_id == project_id)
+        .filter(CollaborationPost.team_id == team_id)
         .options(
             joinedload(CollaborationPost.user),
             joinedload(CollaborationPost.comments).joinedload(CollaborationComment.user),
@@ -90,28 +113,29 @@ async def list_posts(
     return posts
 
 
-@router.post("/posts", response_model=CollaborationPostResponse, summary="협업 포스트 작성")
+@router.post("/teams/{team_id}/posts", response_model=CollaborationPostResponse, summary="협업 포스트 작성")
 async def create_post(
-    project_id: str,
+    team_id: int,
     post_in: CollaborationPostCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    check_team_access(db, team_id, current_user)
 
     post = CollaborationPost(
-        project_id=project_id,
+        team_id=team_id,
         user_id=current_user.id,
         title=post_in.title,
-        content=post_in.content,
+        content=post_in.content or '',
         post_type=post_in.post_type,
+        youtube_url=post_in.youtube_url,
     )
     db.add(post)
     db.flush()  # Obtain post.id
 
     if post_in.post_type == "vote" and post_in.options:
-        for opt_text in post_in.options:
-            option = PostOption(post_id=post.id, option_text=opt_text)
+        for opt in post_in.options:
+            option = PostOption(post_id=post.id, option_text=opt.option_text, youtube_url=opt.youtube_url)
             db.add(option)
 
     elif post_in.post_type == "schedule" and post_in.schedule_times:
@@ -147,26 +171,26 @@ async def create_post(
     return post
 
 
-@router.delete("/posts/{post_id}", summary="협업 포스트 삭제")
+@router.delete("/teams/{team_id}/posts/{post_id}", summary="협업 포스트 삭제")
 async def delete_post(
-    project_id: str,
+    team_id: int,
     post_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    check_team_access(db, team_id, current_user)
 
     post = (
         db.query(CollaborationPost)
-        .filter(CollaborationPost.id == post_id, CollaborationPost.project_id == project_id)
+        .filter(CollaborationPost.id == post_id, CollaborationPost.team_id == team_id)
         .first()
     )
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    # Only creator or project owner can delete
-    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
-    if post.user_id != current_user.id and project.user_id != current_user.id:
+    # Only creator or team owner can delete
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if post.user_id != current_user.id and team.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Permission denied")
 
     db.delete(post)
@@ -174,26 +198,68 @@ async def delete_post(
     return {"message": "Post deleted successfully"}
 
 
-# ============= Comments Routes =============
+# ============= Vote Option Routes =============
 
 
 @router.post(
-    "/posts/{post_id}/comments",
+    "/teams/{team_id}/posts/{post_id}/options",
+    response_model=PostOptionResponse,
+    summary="투표 항목 추가",
+)
+async def add_vote_option(
+    team_id: int,
+    post_id: int,
+    option_in: PostOptionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    check_team_access(db, team_id, current_user)
+
+    post = (
+        db.query(CollaborationPost)
+        .filter(CollaborationPost.id == post_id, CollaborationPost.team_id == team_id)
+        .first()
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.post_type != "vote":
+        raise HTTPException(status_code=400, detail="This post is not a vote post")
+
+    option = PostOption(
+        post_id=post.id,
+        option_text=option_in.option_text,
+        youtube_url=option_in.youtube_url,
+    )
+    db.add(option)
+    db.commit()
+    db.refresh(option)
+
+    option.votes_count = 0
+    option.voted_user_ids = []
+    return option
+
+
+# ============= Comments Routes =============
+
+
+
+@router.post(
+    "/teams/{team_id}/posts/{post_id}/comments",
     response_model=CollaborationCommentResponse,
     summary="포스트 댓글 작성",
 )
 async def create_comment(
-    project_id: str,
+    team_id: int,
     post_id: int,
     comment_in: CollaborationCommentCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    check_team_access(db, team_id, current_user)
 
     post = (
         db.query(CollaborationPost)
-        .filter(CollaborationPost.id == post_id, CollaborationPost.project_id == project_id)
+        .filter(CollaborationPost.id == post_id, CollaborationPost.team_id == team_id)
         .first()
     )
     if not post:
@@ -218,15 +284,15 @@ async def create_comment(
     return comment
 
 
-@router.delete("/posts/{post_id}/comments/{comment_id}", summary="포스트 댓글 삭제")
+@router.delete("/teams/{team_id}/posts/{post_id}/comments/{comment_id}", summary="포스트 댓글 삭제")
 async def delete_comment(
-    project_id: str,
+    team_id: int,
     post_id: int,
     comment_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    check_team_access(db, team_id, current_user)
 
     comment = (
         db.query(CollaborationComment)
@@ -248,22 +314,22 @@ async def delete_comment(
 
 
 @router.post(
-    "/posts/{post_id}/vote/{option_id}",
+    "/teams/{team_id}/posts/{post_id}/vote/{option_id}",
     response_model=CollaborationPostResponse,
     summary="포스트 투표 토글",
 )
 async def toggle_vote(
-    project_id: str,
+    team_id: int,
     post_id: int,
     option_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    check_team_access(db, team_id, current_user)
 
     post = (
         db.query(CollaborationPost)
-        .filter(CollaborationPost.id == post_id, CollaborationPost.project_id == project_id)
+        .filter(CollaborationPost.id == post_id, CollaborationPost.team_id == team_id)
         .first()
     )
     if not post:
@@ -318,22 +384,22 @@ async def toggle_vote(
 
 
 @router.post(
-    "/posts/{post_id}/availability/{schedule_time_id}",
+    "/teams/{team_id}/posts/{post_id}/availability/{schedule_time_id}",
     response_model=CollaborationPostResponse,
     summary="후보 일정 가능 여부 토글",
 )
 async def toggle_availability(
-    project_id: str,
+    team_id: int,
     post_id: int,
     schedule_time_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    check_team_access(db, team_id, current_user)
 
     post = (
         db.query(CollaborationPost)
-        .filter(CollaborationPost.id == post_id, CollaborationPost.project_id == project_id)
+        .filter(CollaborationPost.id == post_id, CollaborationPost.team_id == team_id)
         .first()
     )
     if not post:
@@ -394,14 +460,17 @@ async def toggle_availability(
 
 
 @router.get(
-    "/practice-logs", response_model=List[PracticeLogResponse], summary="연습 일지 목록 조회"
+    "/projects/{project_id}/practice-logs", response_model=List[PracticeLogResponse], summary="연습 일지 목록 조회"
 )
 async def list_practice_logs(
     project_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or not project.team_id:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, project.team_id, current_user)
 
     logs = (
         db.query(PracticeLog)
@@ -414,7 +483,7 @@ async def list_practice_logs(
 
 
 @router.post(
-    "/practice-logs",
+    "/projects/{project_id}/practice-logs",
     response_model=PracticeLogResponse,
     summary="연습 일지 등록 및 Vlog 비디오 업로드",
 )
@@ -426,7 +495,10 @@ async def create_practice_log(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    check_project_access(db, project_id, current_user)
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or not project.team_id:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, project.team_id, current_user)
 
     # Limit to video uploads
     if not file.content_type.startswith("video/"):
@@ -451,7 +523,7 @@ async def create_practice_log(
 
     # Create database log entry
     log_entry = PracticeLog(
-        project_id=project_id,
+        team_id=team_id,
         user_id=current_user.id,
         video_url=video_url,
         description=description,
@@ -474,14 +546,14 @@ async def create_practice_log(
 # ============= User Search / Invite Routes =============
 
 
-@router.get("/search-users", response_model=List[UserResponse], summary="초대할 사용자 검색")
+@router.get("/projects/{project_id}/search-users", response_model=List[UserResponse], summary="초대할 사용자 검색")
 async def search_users(
     project_id: str,
     q: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    project = check_project_access(db, project_id, current_user)
+    project = check_team_access(db, team_id, current_user)
 
     # Exclude owner and existing members
     existing_user_ids = [project.user_id] if project.user_id else []

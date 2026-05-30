@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
 import {
   Loader2,
   Trash2,
@@ -13,16 +12,15 @@ import {
   CalendarDays,
   Megaphone,
   Check,
+  Link2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { API_BASE_URL } from '@/lib/api-client';
-
-interface CollaborationBoardProps {
-  projectId: string;
-}
+import apiClient from '@/lib/api-client';
 
 export interface UserResponse {
   id: number;
@@ -49,6 +47,7 @@ export interface PostOptionResponse {
   id: number;
   post_id: number;
   option_text: string;
+  youtube_url?: string;
   votes_count: number;
   voted_user_ids: number[];
 }
@@ -68,6 +67,7 @@ export interface CollaborationPostResponse {
   title: string;
   content: string;
   post_type: 'general' | 'vote' | 'schedule';
+  youtube_url?: string;
   created_at: string;
   user: UserResponse;
   comments: CollaborationCommentResponse[];
@@ -75,578 +75,844 @@ export interface CollaborationPostResponse {
   schedule_times: PostScheduleTimeResponse[];
 }
 
-export function CollaborationBoard({ projectId }: CollaborationBoardProps) {
+// ─── YouTube embed helper ────────────────────────────────────────────────────
+function toEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const videoId = u.hostname.includes('youtu.be') ? u.pathname.slice(1) : u.searchParams.get('v');
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+  } catch {
+    return url;
+  }
+}
+
+// ─── Mini Calendar component ─────────────────────────────────────────────────
+function MiniCalendar({
+  selectedDates,
+  onToggle,
+  readOnly = false,
+}: {
+  selectedDates: string[];
+  onToggle: (date: string) => void;
+  readOnly?: boolean;
+}) {
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const cells: (number | null)[] = Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const toDateStr = (d: number) =>
+    `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
+    else setViewMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); }
+    else setViewMonth((m) => m + 1);
+  };
+
+  return (
+    <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 select-none">
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={prevMonth} className="p-1 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-bold text-zinc-200">{viewYear}년 {monthNames[viewMonth]}</span>
+        <button onClick={nextMonth} className="p-1 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 mb-1">
+        {dayLabels.map((d, i) => (
+          <div key={d} className={`text-center text-[10px] font-bold pb-1 ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-400' : 'text-zinc-500'}`}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-y-1">
+        {cells.map((day, idx) => {
+          if (!day) return <div key={`empty-${idx}`} />;
+          const dateStr = toDateStr(day);
+          const isSelected = selectedDates.includes(dateStr);
+          const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+          const dayOfWeek = (firstDay + day - 1) % 7;
+
+          return (
+            <button
+              key={dateStr}
+              type="button"
+              disabled={readOnly}
+              onClick={() => onToggle(dateStr)}
+              className={`
+                relative h-8 w-full rounded-lg text-xs font-medium transition-all
+                ${isSelected
+                  ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(147,51,234,0.5)]'
+                  : readOnly
+                    ? 'text-zinc-500 cursor-default'
+                    : 'hover:bg-zinc-800 text-zinc-300'
+                }
+                ${dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : ''}
+                ${isSelected && dayOfWeek === 0 ? 'text-red-200' : ''}
+                ${isSelected && dayOfWeek === 6 ? 'text-blue-200' : ''}
+              `}
+            >
+              {day}
+              {isToday && !isSelected && (
+                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-purple-400 rounded-full" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {!readOnly && selectedDates.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {selectedDates.sort().map((d) => (
+            <span key={d} className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+              {d}
+              <button type="button" onClick={() => onToggle(d)} className="hover:text-white"><X size={10} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Schedule display calendar (read-only with availability marks) ────────────
+function ScheduleCalendar({
+  scheduleTimes,
+  currentUserId,
+  onToggle,
+}: {
+  scheduleTimes: PostScheduleTimeResponse[];
+  currentUserId?: number;
+  onToggle: (scheduleTimeId: number) => void;
+}) {
+  const markedDates = scheduleTimes.map((st) => st.time_slot);
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (number | null)[] = Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const toDateStr = (d: number) =>
+    `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
+    else setViewMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); }
+    else setViewMonth((m) => m + 1);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 select-none">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={prevMonth} className="p-1 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-bold text-zinc-200">{viewYear}년 {monthNames[viewMonth]}</span>
+          <button onClick={nextMonth} className="p-1 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 mb-1">
+          {dayLabels.map((d, i) => (
+            <div key={d} className={`text-center text-[10px] font-bold pb-1 ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-400' : 'text-zinc-500'}`}>
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-y-1">
+          {cells.map((day, idx) => {
+            if (!day) return <div key={`e-${idx}`} />;
+            const dateStr = toDateStr(day);
+            const stForDay = scheduleTimes.find((st) => st.time_slot === dateStr);
+            const isCandidate = markedDates.includes(dateStr);
+            const myAvailable = currentUserId && stForDay?.available_user_ids?.includes(currentUserId);
+            const dayOfWeek = (firstDay + day - 1) % 7;
+
+            return (
+              <button
+                key={dateStr}
+                type="button"
+                onClick={() => stForDay && onToggle(stForDay.id)}
+                disabled={!isCandidate}
+                className={`
+                  relative h-9 w-full rounded-lg text-xs font-medium transition-all flex flex-col items-center justify-center
+                  ${myAvailable
+                    ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(147,51,234,0.4)]'
+                    : isCandidate
+                      ? 'bg-zinc-800/80 border border-purple-500/30 text-purple-300 hover:bg-purple-900/30'
+                      : 'text-zinc-600 cursor-default'
+                  }
+                  ${!isCandidate && dayOfWeek === 0 ? 'text-red-900' : ''}
+                  ${!isCandidate && dayOfWeek === 6 ? 'text-blue-900' : ''}
+                `}
+              >
+                <span>{day}</span>
+                {isCandidate && (
+                  <span className={`text-[8px] mt-0.5 ${myAvailable ? 'text-purple-200' : 'text-purple-400'}`}>
+                    {stForDay?.availabilities_count ?? 0}명
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-[10px] text-zinc-500 px-1">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-zinc-800 border border-purple-500/30" />
+          <span>후보 날짜</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-purple-600" />
+          <span>내가 가능 (클릭해서 토글)</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+export function CollaborationBoard({ teamId }: { teamId: number }) {
   const queryClient = useQueryClient();
-  const t = useTranslations('Collab');
+
+  // ── Post form state (general / vote only) ──
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [postType, setPostType] = useState<'general' | 'vote' | 'schedule'>('general');
-  const [options, setOptions] = useState<string[]>(['', '']);
-  const [scheduleTimes, setScheduleTimes] = useState<string[]>(['', '']);
+  const [postType, setPostType] = useState<'general' | 'vote'>('general');
+  const [options, setOptions] = useState<
+    { option_text: string; youtube_url?: string; showYt?: boolean }[]
+  >([{ option_text: '' }, { option_text: '' }]);
+  const [isFormExpanded, setIsFormExpanded] = useState(false);
+
+  // ── Schedule form state (separate) ──
+  const [scheduleTitle, setScheduleTitle] = useState('');
+  const [scheduleDates, setScheduleDates] = useState<string[]>([]);
+  const [isScheduleFormExpanded, setIsScheduleFormExpanded] = useState(false);
+
+  // ── Misc ──
   const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
+  const [addOptionInputs, setAddOptionInputs] = useState<
+    Record<number, { text: string; yt?: string; showYt?: boolean; open?: boolean }>
+  >({});
 
   // 1. Fetch Posts
   const { data: posts, isLoading } = useQuery<CollaborationPostResponse[]>({
-    queryKey: ['collab-posts', projectId],
+    queryKey: ['collab-posts', teamId],
     queryFn: async () => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/projects/${projectId}/posts`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error('Failed to fetch posts');
-      return res.json();
+      const res = await apiClient.get(`/teams/${teamId}/posts`);
+      return res.data;
     },
   });
 
-  // 2. Fetch current user (to identify post/comment owners)
+  const schedulePosts = posts?.filter((p) => p.post_type === 'schedule') ?? [];
+  const generalPosts = posts?.filter((p) => p.post_type !== 'schedule') ?? [];
+
+  // 2. Current User
   const { data: currentUser } = useQuery<UserResponse>({
     queryKey: ['current-user'],
     queryFn: async () => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error('Failed to fetch user');
-      return res.json();
+      const res = await apiClient.get('/users/me');
+      return res.data;
     },
   });
 
-  // 3. Create Post Mutation
+  // 3. Create Post
   const createPostMutation = useMutation({
-    mutationFn: async (newPost: {
+    mutationFn: async (payload: {
       title: string;
-      content: string;
+      content?: string;
       post_type: string;
-      options?: string[];
+      options?: { option_text: string; youtube_url?: string }[];
       schedule_times?: string[];
     }) => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/projects/${projectId}/posts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(newPost),
-      });
-      if (!res.ok) throw new Error('Failed to create post');
-      return res.json();
+      const res = await apiClient.post(`/teams/${teamId}/posts`, payload);
+      return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collab-posts', projectId] });
-      setTitle('');
-      setContent('');
-      setOptions(['', '']);
-      setScheduleTimes(['', '']);
-      setPostType('general');
-      toast.success('포스트가 작성되었습니다.');
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
+      if (vars.post_type === 'schedule') {
+        setScheduleTitle('');
+        setScheduleDates([]);
+        setIsScheduleFormExpanded(false);
+        toast.success('일정 조율이 등록되었습니다.');
+      } else {
+        setTitle('');
+        setContent('');
+        setOptions([{ option_text: '' }, { option_text: '' }]);
+        setPostType('general');
+        setIsFormExpanded(false);
+        toast.success('포스트가 작성되었습니다.');
+      }
     },
-    onError: () => {
-      toast.error('포스트 작성에 실패했습니다.');
+    onError: (err: unknown) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (err as any)?.response?.data;
+      let msg = '작성에 실패했습니다.';
+      if (data?.detail) {
+        msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+      }
+      toast.error(msg);
     },
   });
 
-  // 4. Delete Post Mutation
+  // 4. Delete Post
   const deletePostMutation = useMutation({
     mutationFn: async (postId: number) => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/projects/${projectId}/posts/${postId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error('Failed to delete post');
-      return res.json();
+      await apiClient.delete(`/teams/${teamId}/posts/${postId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collab-posts', projectId] });
-      toast.success('포스트가 삭제되었습니다.');
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
+      toast.success('삭제되었습니다.');
     },
   });
 
-  // 5. Create Comment Mutation
+  // 5. Create Comment
   const createCommentMutation = useMutation({
     mutationFn: async ({ postId, content }: { postId: number; content: string }) => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/projects/${projectId}/posts/${postId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content }),
-      });
-      if (!res.ok) throw new Error('Failed to add comment');
-      return res.json();
+      const res = await apiClient.post(`/teams/${teamId}/posts/${postId}/comments`, { content });
+      return res.data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['collab-posts', projectId] });
-      setCommentInputs((prev) => ({ ...prev, [variables.postId]: '' }));
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
+      setCommentInputs((prev) => ({ ...prev, [vars.postId]: '' }));
     },
   });
 
-  // 6. Delete Comment Mutation
+  // 6. Delete Comment
   const deleteCommentMutation = useMutation({
     mutationFn: async ({ postId, commentId }: { postId: number; commentId: number }) => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(
-        `${API_BASE_URL}/projects/${projectId}/posts/${postId}/comments/${commentId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      if (!res.ok) throw new Error('Failed to delete comment');
-      return res.json();
+      await apiClient.delete(`/teams/${teamId}/posts/${postId}/comments/${commentId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collab-posts', projectId] });
-      toast.success('댓글이 삭제되었습니다.');
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
     },
   });
 
-  // 7. Toggle Vote Mutation
+  // 7. Toggle Vote
   const toggleVoteMutation = useMutation({
     mutationFn: async ({ postId, optionId }: { postId: number; optionId: number }) => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(
-        `${API_BASE_URL}/projects/${projectId}/posts/${postId}/vote/${optionId}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      if (!res.ok) throw new Error('Failed to submit vote');
-      return res.json();
+      const res = await apiClient.post(`/teams/${teamId}/posts/${postId}/vote/${optionId}`);
+      return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collab-posts', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
     },
   });
 
-  // 8. Toggle Availability Mutation
+  // 8. Toggle Availability
   const toggleAvailabilityMutation = useMutation({
     mutationFn: async ({ postId, scheduleTimeId }: { postId: number; scheduleTimeId: number }) => {
-      const token = localStorage.getItem('token');
-      const res = await fetch(
-        `${API_BASE_URL}/projects/${projectId}/posts/${postId}/availability/${scheduleTimeId}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+      const res = await apiClient.post(
+        `/teams/${teamId}/posts/${postId}/availability/${scheduleTimeId}`,
       );
-      if (!res.ok) throw new Error('Failed to toggle availability');
-      return res.json();
+      return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collab-posts', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
     },
   });
 
+  // 9. Add option to existing vote
+  const addOptionMutation = useMutation({
+    mutationFn: async ({ postId, option_text, youtube_url }: { postId: number; option_text: string; youtube_url?: string }) => {
+      const res = await apiClient.post(`/teams/${teamId}/posts/${postId}/options`, {
+        option_text,
+        youtube_url: youtube_url || undefined,
+      });
+      return res.data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
+      setAddOptionInputs((prev) => ({
+        ...prev,
+        [vars.postId]: { text: '', yt: '', showYt: false, open: false },
+      }));
+      toast.success('투표 항목이 추가되었습니다.');
+    },
+    onError: () => {
+      toast.error('항목 추가에 실패했습니다.');
+    },
+  });
+
+  // ── Submit: general/vote post ──
   const handlePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (!title.trim()) {
+      toast.error('제목을 입력해주세요.');
+      return;
+    }
+    if (!content.trim()) {
+      toast.error('내용을 입력해주세요.');
+      return;
+    }
 
-    const filteredOptions = options.filter((opt) => opt.trim() !== '');
-    const filteredSchedules = scheduleTimes.filter((time) => time.trim() !== '');
+    const filteredOptions = options
+      .filter((o) => o.option_text.trim() !== '')
+      .map((o) => ({
+        option_text: o.option_text.trim(),
+        youtube_url: o.youtube_url?.trim() || undefined,
+      }));
 
     if (postType === 'vote' && filteredOptions.length < 2) {
       toast.error('투표 항목은 최소 2개 이상 입력해야 합니다.');
       return;
     }
 
-    if (postType === 'schedule' && filteredSchedules.length < 1) {
-      toast.error('후보 일정 시간대를 입력해주세요.');
-      return;
-    }
-
     createPostMutation.mutate({
-      title,
-      content,
+      title: title.trim(),
+      content: content.trim(),
       post_type: postType,
       options: postType === 'vote' ? filteredOptions : undefined,
-      schedule_times: postType === 'schedule' ? filteredSchedules : undefined,
+    });
+  };
+
+  // ── Submit: schedule ──
+  const handleScheduleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduleTitle.trim()) {
+      toast.error('일정 제목을 입력해주세요.');
+      return;
+    }
+    if (scheduleDates.length < 1) {
+      toast.error('캘린더에서 후보 날짜를 1개 이상 선택해주세요.');
+      return;
+    }
+    createPostMutation.mutate({
+      title: scheduleTitle.trim(),
+      post_type: 'schedule',
+      schedule_times: scheduleDates,
     });
   };
 
   const handleCommentSubmit = (postId: number) => {
-    const commentContent = commentInputs[postId];
-    if (!commentContent || !commentContent.trim()) return;
-    createCommentMutation.mutate({ postId, content: commentContent.trim() });
+    const c = commentInputs[postId];
+    if (!c?.trim()) return;
+    createCommentMutation.mutate({ postId, content: c.trim() });
   };
 
-  return (
-    <div className="space-y-8">
-      {/* Create Post Form */}
-      <Card className="bg-[#111113] border border-zinc-800/60 shadow-lg backdrop-blur-xl rounded-2xl">
-        <CardHeader className="pb-4 pt-6 px-6">
-          <CardTitle className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-            <Plus size={20} className="text-[#EC4899]" /> 글쓰기
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-6 pb-6">
-          <form onSubmit={handlePostSubmit} className="space-y-6">
-            <Input
-              placeholder="내일 합주할때"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-12 rounded-xl px-4 placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
-              required
-            />
-            <textarea
-              placeholder="이 길로 오세요"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="flex min-h-[140px] w-full rounded-xl border border-zinc-800/80 bg-[#18181b] p-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              required
-            />
-
-            {/* Post Type Selector */}
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                onClick={() => setPostType('general')}
-                className={`gap-2 h-11 px-5 rounded-xl transition-all ${
-                  postType === 'general'
-                    ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-transparent'
-                    : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
-                }`}
-              >
-                <Megaphone size={16} /> 일반 공지
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setPostType('vote')}
-                className={`gap-2 h-11 px-5 rounded-xl transition-all ${
-                  postType === 'vote'
-                    ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-transparent'
-                    : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
-                }`}
-              >
-                <BarChart3 size={16} /> 투표 생성
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setPostType('schedule')}
-                className={`gap-2 h-11 px-5 rounded-xl transition-all ${
-                  postType === 'schedule'
-                    ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-transparent'
-                    : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
-                }`}
-              >
-                <CalendarDays size={16} /> 일정 조율
-              </Button>
-            </div>
-
-            {/* Voting Options */}
-            {postType === 'vote' && (
-              <div className="space-y-3 pt-2">
-                <p className="text-sm font-medium text-zinc-400">투표 선택지</p>
-                {options.map((opt, idx) => (
-                  <div key={idx} className="relative flex items-center">
-                    <Input
-                      placeholder={`옵션 ${idx + 1}`}
-                      value={opt}
-                      onChange={(e) => {
-                        const newOpts = [...options];
-                        newOpts[idx] = e.target.value;
-                        setOptions(newOpts);
-                      }}
-                      className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-11 rounded-xl px-4 pr-12 w-full placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
-                    />
-                    {options.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => setOptions(options.filter((_, i) => i !== idx))}
-                        className="absolute right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  onClick={() => setOptions([...options, ''])}
-                  className="bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white h-11 rounded-xl px-5 gap-2 mt-2"
-                >
-                  <Plus size={16} /> 항목 추가
-                </Button>
+  // ── Post card renderer (shared for general/vote/schedule) ──
+  const renderPost = (post: CollaborationPostResponse) => (
+    <Card
+      key={post.id}
+      className="bg-zinc-950/20 border-zinc-800 hover:border-zinc-700 transition-all shadow-md overflow-hidden"
+    >
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="relative w-8 h-8 rounded-full overflow-hidden bg-zinc-900 border border-zinc-800">
+            {post.user.profile_image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={post.user.profile_image} alt={post.user.nickname} className="object-cover w-full h-full" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-600">
+                {post.user.nickname?.substring(0, 2).toUpperCase()}
               </div>
             )}
-
-            {/* Schedule Slot Options */}
-            {postType === 'schedule' && (
-              <div className="space-y-3 pt-2">
-                <p className="text-sm font-medium text-zinc-400">
-                  후보 시간대 (예: 6월 1일 14시)
-                </p>
-                {scheduleTimes.map((time, idx) => (
-                  <div key={idx} className="relative flex items-center">
-                    <Input
-                      placeholder="YYYY-MM-DD HH:MM 또는 자유 양식"
-                      value={time}
-                      onChange={(e) => {
-                        const newTimes = [...scheduleTimes];
-                        newTimes[idx] = e.target.value;
-                        setScheduleTimes(newTimes);
-                      }}
-                      className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-11 rounded-xl px-4 pr-12 w-full placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
-                    />
-                    {scheduleTimes.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setScheduleTimes(scheduleTimes.filter((_, i) => i !== idx))}
-                        className="absolute right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  onClick={() => setScheduleTimes([...scheduleTimes, ''])}
-                  className="bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white h-11 rounded-xl px-5 gap-2 mt-2"
-                >
-                  <Plus size={16} /> 시간 추가
-                </Button>
-              </div>
-            )}
-
-            <div className="flex justify-end pt-4">
-              <Button
-                type="submit"
-                disabled={createPostMutation.isPending}
-                className="bg-[#E11D48] hover:bg-[#BE123C] text-white h-11 px-8 rounded-xl font-medium shadow-[0_0_15px_rgba(225,29,72,0.3)] transition-all"
-              >
-                {createPostMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-                등록하기
-              </Button>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm text-zinc-200">{post.user.nickname}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wider uppercase ${
+                post.post_type === 'vote'
+                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                  : post.post_type === 'schedule'
+                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                    : 'bg-zinc-800 text-zinc-400'
+              }`}>
+                {post.post_type === 'vote' ? '투표' : post.post_type === 'schedule' ? '일정조율' : '공지'}
+              </span>
             </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Posts list */}
-      {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
+            <span className="text-[10px] text-zinc-500">{new Date(post.created_at).toLocaleString()}</span>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {posts?.map((post) => (
-            <Card
-              key={post.id}
-              className="bg-zinc-950/20 border-zinc-800 hover:border-zinc-800/80 transition-all shadow-md overflow-hidden"
-            >
-              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="relative w-8 h-8 rounded-full overflow-hidden bg-zinc-900 border border-zinc-800">
-                    {post.user.profile_image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={post.user.profile_image}
-                        alt={post.user.nickname}
-                        className="object-cover w-full h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-600">
-                        {post.user.nickname?.substring(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-zinc-200">{post.user.nickname}</span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wider uppercase ${
-                          post.post_type === 'vote'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : post.post_type === 'schedule'
-                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                              : 'bg-zinc-800 text-zinc-400'
-                        }`}
-                      >
-                        {post.post_type}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-zinc-500">
-                      {new Date(post.created_at).toLocaleString()}
+        {currentUser && post.user_id === currentUser.id && (
+          <button
+            onClick={() => deletePostMutation.mutate(post.id)}
+            className="text-zinc-600 hover:text-red-400 transition-colors p-1 rounded-md hover:bg-zinc-900"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <div>
+          <h3 className="text-md font-bold text-zinc-200">{post.title}</h3>
+          {post.content && (
+            <p className="text-zinc-400 text-sm mt-1 whitespace-pre-line">{post.content}</p>
+          )}
+        </div>
+
+        {post.youtube_url && (
+          <div className="rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 aspect-video w-full max-w-md">
+            <iframe width="100%" height="100%" src={toEmbedUrl(post.youtube_url)} title="YouTube" frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+          </div>
+        )}
+
+        {/* Vote options */}
+        {post.post_type === 'vote' && (
+          <div className="space-y-2 p-4 rounded-xl bg-zinc-950/60 border border-zinc-900 max-w-lg">
+            {post.options.map((opt) => {
+              const total = post.options.reduce((s, o) => s + (o.votes_count || 0), 0);
+              const pct = total > 0 ? Math.round(((opt.votes_count || 0) / total) * 100) : 0;
+              const hasVoted = currentUser && opt.voted_user_ids?.includes(currentUser.id);
+              return (
+                <div key={opt.id} className="space-y-1">
+                  <button
+                    onClick={() => toggleVoteMutation.mutate({ postId: post.id, optionId: opt.id })}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all border ${
+                      hasVoted
+                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-300 font-semibold'
+                        : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {hasVoted && <Check size={13} className="text-blue-400" />}
+                      {opt.option_text}
                     </span>
+                    <span className="text-xs shrink-0 ml-2">{opt.votes_count}표 ({pct}%)</span>
+                  </button>
+                  {opt.youtube_url && (
+                    <div className="rounded-lg overflow-hidden border border-zinc-800">
+                      <iframe width="100%" height="160" src={toEmbedUrl(opt.youtube_url)} title={opt.option_text}
+                        frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                    </div>
+                  )}
+                  <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
-                {currentUser && post.user_id === currentUser.id && (
+              );
+            })}
+
+            {/* Add option to existing vote */}
+            {(() => {
+              const state = addOptionInputs[post.id] || {};
+              return state.open ? (
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="새 선택지 입력"
+                      value={state.text || ''}
+                      onChange={(e) => setAddOptionInputs((p) => ({ ...p, [post.id]: { ...p[post.id], text: e.target.value } }))}
+                      className="bg-zinc-900 border-zinc-700 text-zinc-100 h-9 rounded-lg px-3 flex-1 text-sm placeholder:text-zinc-500"
+                      autoFocus
+                    />
+                    <button type="button" title="유튜브 링크 추가"
+                      onClick={() => setAddOptionInputs((p) => ({ ...p, [post.id]: { ...p[post.id], showYt: !p[post.id]?.showYt } }))}
+                      className={`p-2 rounded-lg border transition-colors ${state.showYt || state.yt ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}>
+                      <Link2 size={14} />
+                    </button>
+                    <button type="button"
+                      onClick={() => setAddOptionInputs((p) => ({ ...p, [post.id]: { text: '', open: false } }))}
+                      className="p-2 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  {(state.showYt || state.yt) && (
+                    <Input placeholder="유튜브 링크 (선택사항)" value={state.yt || ''}
+                      onChange={(e) => setAddOptionInputs((p) => ({ ...p, [post.id]: { ...p[post.id], yt: e.target.value } }))}
+                      className="bg-zinc-900 border-zinc-700 text-zinc-100 h-9 rounded-lg px-3 text-xs placeholder:text-zinc-500" />
+                  )}
+                  <Button size="sm"
+                    onClick={() => {
+                      if (!state.text?.trim()) return;
+                      addOptionMutation.mutate({ postId: post.id, option_text: state.text.trim(), youtube_url: state.yt?.trim() });
+                    }}
+                    disabled={!state.text?.trim() || addOptionMutation.isPending}
+                    className="h-8 px-4 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg">
+                    {addOptionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : '추가'}
+                  </Button>
+                </div>
+              ) : (
+                <button type="button"
+                  onClick={() => setAddOptionInputs((p) => ({ ...p, [post.id]: { text: '', open: true } }))}
+                  className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                  <Plus size={13} /> 항목 추가
+                </button>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Schedule Calendar */}
+        {post.post_type === 'schedule' && (
+          <ScheduleCalendar
+            scheduleTimes={post.schedule_times}
+            currentUserId={currentUser?.id}
+            onToggle={(scheduleTimeId) =>
+              toggleAvailabilityMutation.mutate({ postId: post.id, scheduleTimeId })
+            }
+          />
+        )}
+
+        {/* Comments */}
+        <div className="pt-4 border-t border-zinc-800 space-y-3">
+          <div className="space-y-2">
+            {post.comments?.map((comment) => (
+              <div key={comment.id} className="flex items-start justify-between gap-2 p-2 rounded-lg bg-zinc-900/40 text-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-zinc-300">{comment.user.nickname}</span>
+                    <span className="text-[9px] text-zinc-600">{new Date(comment.created_at).toLocaleString()}</span>
+                  </div>
+                  <p className="text-zinc-400">{comment.content}</p>
+                </div>
+                {currentUser && comment.user_id === currentUser.id && (
                   <button
-                    onClick={() => deletePostMutation.mutate(post.id)}
-                    className="text-zinc-600 hover:text-red-400 transition-colors p-1 rounded-md hover:bg-zinc-900"
-                    title="포스트 삭제"
-                  >
-                    <Trash2 size={14} />
+                    onClick={() => deleteCommentMutation.mutate({ postId: post.id, commentId: comment.id })}
+                    className="text-zinc-600 hover:text-red-400 transition-colors p-1">
+                    <Trash2 size={12} />
                   </button>
                 )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="text-md font-bold text-zinc-200">{post.title}</h3>
-                  <p className="text-zinc-400 text-sm mt-1 whitespace-pre-line">{post.content}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="댓글을 작성해 보세요..."
+              value={commentInputs[post.id] || ''}
+              onChange={(e) => setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))}
+              className="bg-zinc-900 border-zinc-800 text-zinc-200 text-xs h-8"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCommentSubmit(post.id); }}
+            />
+            <Button size="sm" onClick={() => handleCommentSubmit(post.id)}
+              className="h-8 px-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800">
+              <Send size={12} />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-10">
+
+      {/* ════ 일정 조율 섹션 ════ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={18} className="text-purple-400" />
+          <h2 className="text-base font-bold text-zinc-200 tracking-tight">일정 조율</h2>
+          <div className="flex-1 h-px bg-zinc-800" />
+        </div>
+
+        {/* Schedule create form */}
+        <Card className="bg-[#111113] border border-zinc-800/60 shadow-lg backdrop-blur-xl rounded-2xl overflow-hidden transition-all">
+          <div
+            className={`cursor-pointer hover:bg-white/5 transition-colors select-none ${!isScheduleFormExpanded ? 'py-5' : 'pt-5 pb-3'} px-6`}
+            onClick={() => setIsScheduleFormExpanded((v) => !v)}
+          >
+            <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <Plus size={16} className={`text-purple-400 transition-transform duration-300 ${isScheduleFormExpanded ? 'rotate-45' : ''}`} />
+              새 일정 조율 만들기
+            </h3>
+          </div>
+
+          {isScheduleFormExpanded && (
+            <CardContent className="px-6 pb-6 animate-in slide-in-from-top-2 fade-in duration-200">
+              <form onSubmit={handleScheduleSubmit} className="space-y-5">
+                <Input
+                  placeholder="일정 제목 (예: 6월 합주 날짜 조율)"
+                  value={scheduleTitle}
+                  onChange={(e) => setScheduleTitle(e.target.value)}
+                  className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-12 rounded-xl px-4 placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
+                />
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-zinc-400">후보 날짜를 캘린더에서 선택하세요</p>
+                  <MiniCalendar
+                    selectedDates={scheduleDates}
+                    onToggle={(date) =>
+                      setScheduleDates((prev) =>
+                        prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date]
+                      )
+                    }
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="ghost"
+                    onClick={() => setIsScheduleFormExpanded(false)}
+                    className="h-10 px-5 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800">
+                    취소
+                  </Button>
+                  <Button type="submit" disabled={createPostMutation.isPending}
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-10 px-6 rounded-xl font-medium shadow-[0_0_15px_rgba(147,51,234,0.3)] transition-all">
+                    {createPostMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+                    캘린더 등록
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Schedule posts list */}
+        {isLoading ? (
+          <div className="flex h-20 items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-zinc-600" />
+          </div>
+        ) : schedulePosts.length === 0 ? (
+          <p className="text-xs text-zinc-600 text-center py-6">아직 등록된 일정 조율이 없습니다.</p>
+        ) : (
+          <div className="space-y-4">{schedulePosts.map(renderPost)}</div>
+        )}
+      </section>
+
+      {/* ════ 공지 / 투표 섹션 ════ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Megaphone size={18} className="text-yellow-400" />
+          <h2 className="text-base font-bold text-zinc-200 tracking-tight">공지 / 투표</h2>
+          <div className="flex-1 h-px bg-zinc-800" />
+        </div>
+
+        {/* Post create form */}
+        <Card className="bg-[#111113] border border-zinc-800/60 shadow-lg backdrop-blur-xl rounded-2xl overflow-hidden transition-all">
+          <div
+            className={`cursor-pointer hover:bg-white/5 transition-colors select-none ${!isFormExpanded ? 'py-5' : 'pt-5 pb-3'} px-6`}
+            onClick={() => setIsFormExpanded((v) => !v)}
+          >
+            <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <Plus size={16} className={`text-[#EC4899] transition-transform duration-300 ${isFormExpanded ? 'rotate-45' : ''}`} />
+              글쓰기
+            </h3>
+          </div>
+
+          {isFormExpanded && (
+            <CardContent className="px-6 pb-6 animate-in slide-in-from-top-2 fade-in duration-200">
+              <form onSubmit={handlePostSubmit} className="space-y-5">
+                <Input
+                  placeholder="제목을 입력해주세요."
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-12 rounded-xl px-4 placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
+                />
+                <textarea
+                  placeholder="내용을 입력해주세요."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="flex min-h-[100px] w-full rounded-xl border border-zinc-800/80 bg-[#18181b] p-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 resize-none"
+                />
+
+                {/* Type Selector: general / vote only */}
+                <div className="flex gap-3">
+                  {(['general', 'vote'] as const).map((type) => (
+                    <Button
+                      key={type}
+                      type="button"
+                      onClick={() => setPostType(type)}
+                      className={`gap-2 h-10 px-5 rounded-xl transition-all ${
+                        postType === type
+                          ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-transparent'
+                          : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
+                      }`}
+                    >
+                      {type === 'general' ? <><Megaphone size={15} /> 일반 공지</> : <><BarChart3 size={15} /> 투표 생성</>}
+                    </Button>
+                  ))}
                 </div>
 
-                {/* Vote Options Rendering */}
-                {post.post_type === 'vote' && (
-                  <div className="space-y-2 p-4 rounded-xl bg-zinc-950/60 border border-zinc-900 max-w-md">
-                    {post.options.map((opt) => {
-                      const totalVotes = post.options.reduce(
-                        (sum, o) => sum + (o.votes_count || 0),
-                        0,
-                      );
-                      const percentage =
-                        totalVotes > 0
-                          ? Math.round(((opt.votes_count || 0) / totalVotes) * 100)
-                          : 0;
-                      const hasVoted = currentUser && opt.voted_user_ids?.includes(currentUser.id);
-
-                      return (
-                        <div key={opt.id} className="space-y-1">
-                          <button
-                            onClick={() =>
-                              toggleVoteMutation.mutate({ postId: post.id, optionId: opt.id })
-                            }
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all border ${
-                              hasVoted
-                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-300 font-semibold'
-                                : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-400 hover:border-zinc-700'
-                            }`}
-                          >
-                            <span>{opt.option_text}</span>
-                            <span className="text-xs">
-                              {opt.votes_count}표 ({percentage}%)
-                            </span>
+                {/* Vote Options */}
+                {postType === 'vote' && (
+                  <div className="space-y-3 pt-1">
+                    <p className="text-sm font-medium text-zinc-400">투표 선택지</p>
+                    {options.map((opt, idx) => (
+                      <div key={idx} className="relative flex flex-col gap-2 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder={`옵션 ${idx + 1}`}
+                            value={opt.option_text}
+                            onChange={(e) => {
+                              const n = [...options];
+                              n[idx] = { ...n[idx], option_text: e.target.value };
+                              setOptions(n);
+                            }}
+                            className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-10 rounded-lg px-3 flex-1 placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
+                          />
+                          <button type="button" title="유튜브 링크 추가"
+                            onClick={() => { const n = [...options]; n[idx] = { ...n[idx], showYt: !n[idx].showYt }; setOptions(n); }}
+                            className={`p-2 rounded-lg border transition-colors ${opt.showYt || opt.youtube_url ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'}`}>
+                            <Link2 size={14} />
                           </button>
-                          <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className="bg-blue-500 h-full transition-all duration-500"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
+                          {options.length > 2 && (
+                            <button type="button" onClick={() => setOptions(options.filter((_, i) => i !== idx))}
+                              className="p-2 rounded-lg border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-500/40 transition-colors">
+                              <X size={14} />
+                            </button>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Schedule Times Rendering */}
-                {post.post_type === 'schedule' && (
-                  <div className="space-y-2 p-4 rounded-xl bg-zinc-950/60 border border-zinc-900 max-w-md">
-                    {post.schedule_times.map((st) => {
-                      const isAvailable =
-                        currentUser && st.available_user_ids?.includes(currentUser.id);
-                      return (
-                        <button
-                          key={st.id}
-                          onClick={() =>
-                            toggleAvailabilityMutation.mutate({
-                              postId: post.id,
-                              scheduleTimeId: st.id,
-                            })
-                          }
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all border ${
-                            isAvailable
-                              ? 'bg-purple-500/10 border-purple-500/30 text-purple-300 font-semibold'
-                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-400 hover:border-zinc-700'
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <CalendarDays
-                              size={14}
-                              className={isAvailable ? 'text-purple-400' : 'text-zinc-500'}
-                            />
-                            {st.time_slot}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs bg-zinc-850 px-2 py-0.5 rounded text-zinc-400 border border-zinc-800">
-                              {st.availabilities_count}명 가능
-                            </span>
-                            {isAvailable && <Check size={14} className="text-purple-400" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Comment Section */}
-                <div className="pt-4 border-t border-zinc-800 space-y-3">
-                  <div className="space-y-2">
-                    {post.comments?.map((comment) => (
-                      <div
-                        key={comment.id}
-                        className="flex items-start justify-between gap-2 p-2 rounded-lg bg-zinc-900/40 text-xs"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-zinc-300">{comment.user.nickname}</span>
-                            <span className="text-[9px] text-zinc-600">
-                              {new Date(comment.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-zinc-400">{comment.content}</p>
-                        </div>
-                        {currentUser && comment.user_id === currentUser.id && (
-                          <button
-                            onClick={() =>
-                              deleteCommentMutation.mutate({
-                                postId: post.id,
-                                commentId: comment.id,
-                              })
-                            }
-                            className="text-zinc-600 hover:text-red-400 transition-colors p-1"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                        {(opt.showYt || opt.youtube_url) && (
+                          <Input
+                            placeholder="유튜브 링크 (예: https://youtu.be/...)"
+                            value={opt.youtube_url || ''}
+                            onChange={(e) => { const n = [...options]; n[idx] = { ...n[idx], youtube_url: e.target.value }; setOptions(n); }}
+                            className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-9 rounded-lg px-3 text-xs placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
+                          />
                         )}
                       </div>
                     ))}
-                  </div>
-
-                  {/* Comment Input */}
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="댓글을 작성해 보세요..."
-                      value={commentInputs[post.id] || ''}
-                      onChange={(e) =>
-                        setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
-                      }
-                      className="bg-zinc-900 border-zinc-800 text-zinc-200 text-xs h-8"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleCommentSubmit(post.id);
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => handleCommentSubmit(post.id)}
-                      className="h-8 px-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800"
-                    >
-                      <Send size={12} />
+                    <Button type="button" onClick={() => setOptions([...options, { option_text: '' }])}
+                      className="bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white h-10 rounded-xl px-5 gap-2">
+                      <Plus size={16} /> 항목 추가
                     </Button>
                   </div>
+                )}
+
+                <div className="flex justify-end pt-1 gap-3">
+                  <Button type="button" variant="ghost" onClick={() => setIsFormExpanded(false)}
+                    className="h-10 px-5 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800">
+                    취소
+                  </Button>
+                  <Button type="submit" disabled={createPostMutation.isPending}
+                    className="bg-[#E11D48] hover:bg-[#BE123C] text-white h-10 px-7 rounded-xl font-medium shadow-[0_0_15px_rgba(225,29,72,0.3)] transition-all">
+                    {createPostMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+                    등록하기
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              </form>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* General/Vote posts list */}
+        {isLoading ? (
+          <div className="flex h-20 items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-zinc-600" />
+          </div>
+        ) : generalPosts.length === 0 ? (
+          <p className="text-xs text-zinc-600 text-center py-6">아직 작성된 글이 없습니다.</p>
+        ) : (
+          <div className="space-y-4">{generalPosts.map(renderPost)}</div>
+        )}
+      </section>
     </div>
   );
 }

@@ -289,66 +289,72 @@ export function CollaborationBoard({ projectId }: CollaborationBoardProps) {
   return (
     <div className="space-y-8">
       {/* Create Post Form */}
-      <Card className="bg-zinc-950/40 border-zinc-800/80 shadow-lg backdrop-blur-xl">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-md font-bold text-zinc-100 flex items-center gap-2">
-            <Plus size={16} className="text-pink-500" /> {t('writePost')}
+      <Card className="bg-[#111113] border border-zinc-800/60 shadow-lg backdrop-blur-xl rounded-2xl">
+        <CardHeader className="pb-4 pt-6 px-6">
+          <CardTitle className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+            <Plus size={20} className="text-[#EC4899]" /> 글쓰기
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handlePostSubmit} className="space-y-4">
+        <CardContent className="px-6 pb-6">
+          <form onSubmit={handlePostSubmit} className="space-y-6">
             <Input
-              placeholder="제목을 입력하세요..."
+              placeholder="내일 합주할때"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-zinc-900 border-zinc-800 text-zinc-100"
+              className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-12 rounded-xl px-4 placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
               required
             />
             <textarea
-              placeholder="내용을 작성하세요..."
+              placeholder="이 길로 오세요"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="flex min-h-[100px] w-full rounded-md border border-zinc-850/80 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-[140px] w-full rounded-xl border border-zinc-800/80 bg-[#18181b] p-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               required
             />
 
             {/* Post Type Selector */}
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button
                 type="button"
-                variant={postType === 'general' ? 'default' : 'outline'}
-                size="sm"
                 onClick={() => setPostType('general')}
-                className="gap-1.5"
+                className={`gap-2 h-11 px-5 rounded-xl transition-all ${
+                  postType === 'general'
+                    ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-transparent'
+                    : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
+                }`}
               >
-                <Megaphone size={14} /> 일반 공지
+                <Megaphone size={16} /> 일반 공지
               </Button>
               <Button
                 type="button"
-                variant={postType === 'vote' ? 'default' : 'outline'}
-                size="sm"
                 onClick={() => setPostType('vote')}
-                className="gap-1.5"
+                className={`gap-2 h-11 px-5 rounded-xl transition-all ${
+                  postType === 'vote'
+                    ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-transparent'
+                    : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
+                }`}
               >
-                <BarChart3 size={14} /> 투표 생성
+                <BarChart3 size={16} /> 투표 생성
               </Button>
               <Button
                 type="button"
-                variant={postType === 'schedule' ? 'default' : 'outline'}
-                size="sm"
                 onClick={() => setPostType('schedule')}
-                className="gap-1.5"
+                className={`gap-2 h-11 px-5 rounded-xl transition-all ${
+                  postType === 'schedule'
+                    ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-transparent'
+                    : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
+                }`}
               >
-                <CalendarDays size={14} /> 일정 조율
+                <CalendarDays size={16} /> 일정 조율
               </Button>
             </div>
 
             {/* Voting Options */}
             {postType === 'vote' && (
-              <div className="space-y-2 pl-4 border-l border-zinc-800">
-                <p className="text-xs font-semibold text-zinc-400">투표 선택지</p>
+              <div className="space-y-3 pt-2">
+                <p className="text-sm font-medium text-zinc-400">투표 선택지</p>
                 {options.map((opt, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
+                  <div key={idx} className="relative flex items-center">
                     <Input
                       placeholder={`옵션 ${idx + 1}`}
                       value={opt}
@@ -357,39 +363,37 @@ export function CollaborationBoard({ projectId }: CollaborationBoardProps) {
                         newOpts[idx] = e.target.value;
                         setOptions(newOpts);
                       }}
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100 h-8 text-sm"
+                      className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-11 rounded-xl px-4 pr-12 w-full placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
                     />
                     {options.length > 2 && (
                       <button
                         type="button"
                         onClick={() => setOptions(options.filter((_, i) => i !== idx))}
-                        className="text-zinc-500 hover:text-zinc-300"
+                        className="absolute right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
                       >
-                        <X size={14} />
+                        <X size={16} />
                       </button>
                     )}
                   </div>
                 ))}
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setOptions([...options, ''])}
-                  className="mt-1"
+                  className="bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white h-11 rounded-xl px-5 gap-2 mt-2"
                 >
-                  <Plus size={10} className="mr-1" /> 항목 추가
+                  <Plus size={16} /> 항목 추가
                 </Button>
               </div>
             )}
 
             {/* Schedule Slot Options */}
             {postType === 'schedule' && (
-              <div className="space-y-2 pl-4 border-l border-zinc-800">
-                <p className="text-xs font-semibold text-zinc-400">
+              <div className="space-y-3 pt-2">
+                <p className="text-sm font-medium text-zinc-400">
                   후보 시간대 (예: 6월 1일 14시)
                 </p>
                 {scheduleTimes.map((time, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
+                  <div key={idx} className="relative flex items-center">
                     <Input
                       placeholder="YYYY-MM-DD HH:MM 또는 자유 양식"
                       value={time}
@@ -398,36 +402,34 @@ export function CollaborationBoard({ projectId }: CollaborationBoardProps) {
                         newTimes[idx] = e.target.value;
                         setScheduleTimes(newTimes);
                       }}
-                      className="bg-zinc-900 border-zinc-800 text-zinc-100 h-8 text-sm"
+                      className="bg-[#18181b] border-zinc-800/80 text-zinc-100 h-11 rounded-xl px-4 pr-12 w-full placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-zinc-700"
                     />
                     {scheduleTimes.length > 1 && (
                       <button
                         type="button"
                         onClick={() => setScheduleTimes(scheduleTimes.filter((_, i) => i !== idx))}
-                        className="text-zinc-500 hover:text-zinc-300"
+                        className="absolute right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
                       >
-                        <X size={14} />
+                        <X size={16} />
                       </button>
                     )}
                   </div>
                 ))}
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setScheduleTimes([...scheduleTimes, ''])}
-                  className="mt-1"
+                  className="bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white h-11 rounded-xl px-5 gap-2 mt-2"
                 >
-                  <Plus size={10} className="mr-1" /> 시간 추가
+                  <Plus size={16} /> 시간 추가
                 </Button>
               </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-4">
               <Button
                 type="submit"
                 disabled={createPostMutation.isPending}
-                className="bg-pink-600 hover:bg-pink-700 text-white"
+                className="bg-[#E11D48] hover:bg-[#BE123C] text-white h-11 px-8 rounded-xl font-medium shadow-[0_0_15px_rgba(225,29,72,0.3)] transition-all"
               >
                 {createPostMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
                 등록하기

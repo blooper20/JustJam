@@ -49,7 +49,24 @@ const INSTRUMENTS = [
   { id: 'other', icon: Music },
 ];
 
-const RECORD_SECONDS = 180;
+const RECORD_SECONDS = 15;
+
+function getSupportedMimeType() {
+  if (typeof MediaRecorder === 'undefined') return '';
+  const types = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+    'video/mp4;codecs=avc1,mp4a.40.2',
+    'video/mp4',
+  ];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+  return '';
+}
 
 export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const queryClient = useQueryClient();
@@ -61,17 +78,81 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [activeVlogUrl, setActiveVlogUrl] = useState<string | null>(null);
 
+  // ── 크롭 및 중앙 텍스트 상태 ──
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [overlayText, setOverlayText] = useState('');
+  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+
   // ── 카메라 촬영 상태 ──
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [countdown, setCountdown] = useState(RECORD_SECONDS);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedObjectUrl, setRecordedObjectUrl] = useState<string | null>(null);
 
   const liveVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 비디오 파일 설정 및 관리 헬퍼 (useEffect setState 방지)
+  const updateVideoFile = (file: File | null) => {
+    // 기존 미리보기 URL 해제
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+      setPreviewObjectUrl(null);
+    }
+
+    setVideoFile(file);
+
+    if (!file) {
+      setVideoDuration(null);
+      setStartTime(0);
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setPreviewObjectUrl(url);
+
+    // 재생 시간 추출
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      setVideoDuration(video.duration);
+    };
+    video.src = url;
+  };
+
+  // 녹화된 Blob 설정 및 관리 헬퍼 (useEffect setState 방지)
+  const updateRecordedBlob = (blob: Blob | null) => {
+    if (recordedObjectUrl) {
+      URL.revokeObjectURL(recordedObjectUrl);
+      setRecordedObjectUrl(null);
+    }
+    setRecordedBlob(blob);
+    if (blob) {
+      setRecordedObjectUrl(URL.createObjectURL(blob));
+    }
+  };
+
+  // 언마운트 시 URL 해제
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+      if (recordedObjectUrl) URL.revokeObjectURL(recordedObjectUrl);
+    };
+  }, [previewObjectUrl, recordedObjectUrl]);
+
+  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setStartTime(val);
+    if (previewVideoRef.current) {
+      previewVideoRef.current.currentTime = val;
+    }
+  };
 
   // 카메라 모달이 열리면 스트림을 video 요소에 연결
   useEffect(() => {
@@ -128,7 +209,9 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['practice-logs', projectId] });
       setDescription('');
-      setVideoFile(null);
+      setOverlayText('');
+      setStartTime(0);
+      updateVideoFile(null);
       toast.success('연습 인증 영상이 성공적으로 업로드되었습니다!');
     },
     onError: (err: { message?: string }) => {
@@ -144,7 +227,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
         toast.error('동영상 파일만 선택할 수 있습니다.');
         return;
       }
-      setVideoFile(file);
+      updateVideoFile(file);
     }
   };
 
@@ -154,8 +237,16 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
       toast.error('동영상 파일을 선택하세요.');
       return;
     }
+    if (overlayText.trim().length > 20) {
+      toast.error('오버레이 텍스트는 최대 20자까지만 입력 가능합니다.');
+      return;
+    }
     const formData = new FormData();
     formData.append('file', videoFile);
+    formData.append('start_time', startTime.toString());
+    if (overlayText.trim()) {
+      formData.append('overlay_text', overlayText.trim());
+    }
     uploadVlogMutation.mutate(formData);
   };
 
@@ -164,7 +255,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
-      setRecordedBlob(null);
+      updateRecordedBlob(null);
       setIsRecording(false);
       setCountdown(RECORD_SECONDS);
       setIsCameraOpen(true);
@@ -181,7 +272,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     setIsCameraOpen(false);
     setIsRecording(false);
     setCountdown(RECORD_SECONDS);
-    setRecordedBlob(null);
+    updateRecordedBlob(null);
   };
 
   const stopRecording = () => {
@@ -195,15 +286,17 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     if (!streamRef.current) return;
     chunksRef.current = [];
 
-    const recorder = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
+    const mimeType = getSupportedMimeType();
+    const options = mimeType ? { mimeType } : undefined;
+    const recorder = new MediaRecorder(streamRef.current, options);
     mediaRecorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-      setRecordedBlob(blob);
+      const blob = new Blob(chunksRef.current, { type: mimeType || 'video/webm' });
+      updateRecordedBlob(blob);
       setIsRecording(false);
     };
 
@@ -225,7 +318,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   };
 
   const retake = () => {
-    setRecordedBlob(null);
+    updateRecordedBlob(null);
     setCountdown(RECORD_SECONDS);
     // 스트림이 살아있으면 live preview 재연결
     if (liveVideoRef.current && streamRef.current) {
@@ -235,14 +328,15 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
 
   const useRecordedVideo = () => {
     if (!recordedBlob) return;
-    const file = new File([recordedBlob], `practice_${Date.now()}.webm`, { type: 'video/webm' });
-    setVideoFile(file);
+    const mimeType = getSupportedMimeType();
+    const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const file = new File([recordedBlob], `practice_${Date.now()}.${extension}`, {
+      type: recordedBlob.type,
+    });
+    updateVideoFile(file);
     closeCamera();
     toast.success('촬영된 영상이 선택됐습니다.');
   };
-
-  // 녹화된 영상 URL (모달 내 미리보기용)
-  const recordedObjectUrl = recordedBlob ? URL.createObjectURL(recordedBlob) : null;
 
   // ── 달력 데이터 ──
   const today = new Date();
@@ -374,18 +468,91 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               className="bg-zinc-900 border-zinc-800 text-zinc-200 h-8 text-xs"
             />
 
-            {/* 선택된 파일 표시 */}
+            {/* 선택된 파일 표시 및 편집 오버레이 */}
             {videoFile && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-pink-500/10 border border-pink-500/20 text-xs text-pink-300">
-                <Video size={12} />
-                <span className="flex-1 truncate">{videoFile.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setVideoFile(null)}
-                  className="hover:text-white"
-                >
-                  <X size={12} />
-                </button>
+              <div className="space-y-4 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-md shadow-inner">
+                <div className="flex items-center justify-between text-xs text-zinc-300">
+                  <div className="flex items-center gap-2">
+                    <Video size={14} className="text-pink-500 animate-pulse" />
+                    <span className="font-semibold truncate max-w-[200px]">{videoFile.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVideoFile(null);
+                      setOverlayText('');
+                      setStartTime(0);
+                    }}
+                    className="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                {/* 미리보기 동영상 플레이어 */}
+                {previewObjectUrl && (
+                  <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-zinc-800">
+                    <video
+                      ref={previewVideoRef}
+                      src={previewObjectUrl}
+                      className="w-full h-full object-contain"
+                      muted
+                      playsInline
+                    />
+                    <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-zinc-300 font-mono">
+                      미리보기
+                    </div>
+                  </div>
+                )}
+
+                {/* 시작 구간 선택 슬라이더 */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-zinc-400">
+                    <span>저장 구간 설정 (5초 고정)</span>
+                    <span className="text-pink-400 font-mono">
+                      {videoDuration
+                        ? `${startTime.toFixed(1)}s ~ ${(startTime + 5 > videoDuration ? videoDuration : startTime + 5).toFixed(1)}s`
+                        : '길이 계산 중...'}
+                    </span>
+                  </div>
+                  {videoDuration && videoDuration > 5 ? (
+                    <div className="space-y-1">
+                      <input
+                        type="range"
+                        min={0}
+                        max={videoDuration - 5}
+                        step={0.1}
+                        value={startTime}
+                        onChange={handleStartTimeChange}
+                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                      />
+                      <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                        <span>0.0s</span>
+                        <span>{(videoDuration - 5).toFixed(1)}s</span>
+                      </div>
+                    </div>
+                  ) : videoDuration ? (
+                    <p className="text-[10px] text-zinc-500 italic">
+                      5초 이하의 영상은 전체 구간이 저장됩니다.
+                    </p>
+                  ) : (
+                    <div className="h-1 bg-zinc-800 rounded animate-pulse" />
+                  )}
+                </div>
+
+                {/* 중앙 텍스트 입력 상자 */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-zinc-400">
+                    화면 중앙 텍스트 오버레이 (최대 20자)
+                  </label>
+                  <Input
+                    placeholder="영상 중앙에 표시할 짧은 문구 입력..."
+                    value={overlayText}
+                    onChange={(e) => setOverlayText(e.target.value)}
+                    maxLength={20}
+                    className="bg-zinc-950 border-zinc-850 text-zinc-200 h-8 text-xs focus-visible:ring-pink-500/50"
+                  />
+                </div>
               </div>
             )}
 

@@ -3,7 +3,7 @@ import shutil
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session, joinedload
 
 from src.api.database import get_db
@@ -498,6 +498,8 @@ async def create_practice_log(
     project_id: str,
     logged_date: str,
     description: Optional[str] = None,
+    start_time: float = Form(0.0),
+    overlay_text: Optional[str] = Form(None),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -520,13 +522,66 @@ async def create_practice_log(
 
     # Generate unique filename
     ext = os.path.splitext(file.filename)[1]
-    filename = f"vlog_{project_id}_{current_user.id}_{datetime.now().strftime('%Y%md_%H%M%S')}{ext}"
-    file_path = os.path.join(vlog_dir, filename)
+    if not ext:
+        ext = ".mp4"
 
-    with open(file_path, "wb") as buffer:
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    temp_filename = f"raw_vlog_{project_id}_{current_user.id}_{timestamp}{ext}"
+    temp_file_path = os.path.join(vlog_dir, temp_filename)
+
+    with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    video_url = f"/static/uploads/vlogs/{filename}"
+    processed_filename = f"vlog_{project_id}_{current_user.id}_{timestamp}.mp4"
+    processed_file_path = os.path.join(vlog_dir, processed_filename)
+
+    # ffmpeg processing command
+    import subprocess
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        str(start_time),
+        "-t",
+        "5",
+        "-i",
+        temp_file_path,
+    ]
+
+    vf_filters = []
+    if overlay_text:
+        # Check if NanumGothic font exists
+        font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+        if not os.path.exists(font_path):
+            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        escaped_text = overlay_text.replace("'", "'\\''")
+        vf_filters.append(
+            f"drawtext=fontfile={font_path}:text='{escaped_text}':"
+            "x=(w-text_w)/2:y=(h-text_h)/2:fontsize=36:fontcolor=white:"
+            "box=1:boxcolor=black@0.5:boxborderw=10"
+        )
+
+    if vf_filters:
+        cmd.extend(["-vf", ",".join(vf_filters)])
+
+    cmd.extend(["-c:v", "libx264", "-c:a", "aac", processed_file_path])
+
+    try:
+        # Run ffmpeg
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Delete temporary input file
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+    except Exception as e:
+        from src.api.logging_config import logger
+        logger.error(f"Video processing failed, using original file: {e}")
+        if os.path.exists(temp_file_path):
+            if os.path.exists(processed_file_path):
+                os.remove(processed_file_path)
+            shutil.copy(temp_file_path, processed_file_path)
+            os.remove(temp_file_path)
+
+    video_url = f"/static/uploads/vlogs/{processed_filename}"
 
     # Create database log entry
     log_entry = PracticeLog(

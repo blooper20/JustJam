@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     libsndfile1 \
     pkg-config \
     build-essential \
+    fonts-nanum \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

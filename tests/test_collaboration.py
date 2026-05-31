@@ -123,6 +123,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
             response = client.post(
                 url,
                 files={"file": ("test_vlog.mp4", f, "video/mp4")},
+                data={"start_time": "2.5", "overlay_text": "Test overlay text"},
                 headers=auth_headers,
             )
         assert response.status_code == status.HTTP_200_OK

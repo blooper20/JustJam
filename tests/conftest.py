@@ -27,6 +27,9 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def setup_test_db():
     # 테스트 시작 전 테이블 생성
     Base.metadata.create_all(bind=engine)
+    from src.api.database import check_and_upgrade_schema
+
+    check_and_upgrade_schema(engine)
     yield
     # 테스트 종료 후 DB 삭제
     if os.path.exists("./test.db"):

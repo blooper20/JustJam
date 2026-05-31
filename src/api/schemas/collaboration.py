@@ -124,6 +124,9 @@ class PracticeLogResponse(BaseModel):
     project_id: str
     user_id: int
     video_url: str
+    raw_video_url: Optional[str] = None
+    start_time: Optional[float] = 0.0
+    overlay_text: Optional[str] = None
     description: Optional[str]
     logged_date: str
     created_at: datetime

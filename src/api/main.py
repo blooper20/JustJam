@@ -32,6 +32,9 @@ if SENTRY_DSN:
     )
 
 Base.metadata.create_all(bind=engine)
+from src.api.database import check_and_upgrade_schema
+
+check_and_upgrade_schema(engine)
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded

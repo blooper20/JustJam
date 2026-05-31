@@ -131,7 +131,27 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         assert vlog_json["logged_date"] == "2026-05-28"
         assert vlog_json["description"] == "First practice vlog"
         assert "video_url" in vlog_json
+        assert vlog_json["raw_video_url"] is not None
+        assert vlog_json["start_time"] == 2.5
+        assert vlog_json["overlay_text"] == "Test overlay text"
         vlog_id = vlog_json["id"]
+
+        # 10.3 Update Practice Vlog
+        put_url = f"/projects/{project_id}/practice-logs/{vlog_id}"
+        put_response = client.put(
+            put_url,
+            data={
+                "description": "Updated practice vlog description",
+                "start_time": "5.0",
+                "overlay_text": "Updated overlay text",
+            },
+            headers=auth_headers,
+        )
+        assert put_response.status_code == status.HTTP_200_OK
+        updated_json = put_response.json()
+        assert updated_json["description"] == "Updated practice vlog description"
+        assert updated_json["start_time"] == 5.0
+        assert updated_json["overlay_text"] == "Updated overlay text"
 
         # 10.5 Delete Practice Vlog
         del_url = f"/projects/{project_id}/practice-logs/{vlog_id}"

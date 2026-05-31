@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from src.api.database import Base
@@ -276,6 +276,9 @@ class PracticeLog(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
     video_url = Column(String, nullable=False)
+    raw_video_url = Column(String, nullable=True)
+    start_time = Column(Float, nullable=True, default=0.0)
+    overlay_text = Column(String, nullable=True)
     description = Column(String, nullable=True)
     logged_date = Column(String, nullable=False)  # YYYY-MM-DD
     created_at = Column(DateTime, default=datetime.utcnow)

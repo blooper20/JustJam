@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Check,
   Trash2,
+  Edit2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,6 +34,9 @@ export interface PracticeLogResponse {
   project_id: string;
   user_id: number;
   video_url: string;
+  raw_video_url?: string;
+  start_time?: number;
+  overlay_text?: string;
   description?: string;
   logged_date: string;
   created_at: string;
@@ -85,9 +89,20 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   // ── 크롭 및 중앙 텍스트 상태 ──
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
+  const [previewCurrentTime, setPreviewCurrentTime] = useState<number>(0);
   const [overlayText, setOverlayText] = useState('');
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+
+  // ── 비디오 수정 상태 ──
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<PracticeLogResponse | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editStartTime, setEditStartTime] = useState<number>(0);
+  const [editOverlayText, setEditOverlayText] = useState('');
+  const [editVideoDuration, setEditVideoDuration] = useState<number | null>(null);
+  const [editPreviewCurrentTime, setEditPreviewCurrentTime] = useState<number>(0);
+  const editVideoRef = useRef<HTMLVideoElement>(null);
 
   // ── 카메라 촬영 상태 ──
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -111,10 +126,11 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     }
 
     setVideoFile(file);
+    setStartTime(0);
+    setPreviewCurrentTime(0);
 
     if (!file) {
       setVideoDuration(null);
-      setStartTime(0);
       return;
     }
 
@@ -153,6 +169,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setStartTime(val);
+    setPreviewCurrentTime(val);
     if (previewVideoRef.current) {
       previewVideoRef.current.currentTime = val;
     }
@@ -235,6 +252,41 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     },
     onError: (err: { message?: string }) => {
       toast.error(err.message || '인증 영상 삭제에 실패했습니다.');
+    },
+  });
+
+  // 4. Update Vlog Mutation
+  const updateVlogMutation = useMutation({
+    mutationFn: async ({
+      logId,
+      description,
+      startTime,
+      overlayText,
+    }: {
+      logId: number;
+      description: string;
+      startTime: number;
+      overlayText: string;
+    }) => {
+      const formData = new FormData();
+      formData.append('description', description);
+      formData.append('start_time', startTime.toString());
+      if (overlayText.trim()) {
+        formData.append('overlay_text', overlayText.trim());
+      }
+      const res = await apiClient.put(`/projects/${projectId}/practice-logs/${logId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['practice-logs', projectId] });
+      setIsEditModalOpen(false);
+      setEditingLog(null);
+      toast.success('연습 인증 영상이 성공적으로 수정되었습니다!');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || '인증 영상 수정에 실패했습니다.');
     },
   });
 
@@ -471,23 +523,41 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                       <Play size={10} className="fill-current" /> 재생
                     </Button>
                     {log.user_id === currentUserId && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={deleteVlogMutation.isPending}
-                        onClick={() => {
-                          if (confirm('이 연습 영상을 삭제하시겠습니까?')) {
-                            deleteVlogMutation.mutate(log.id);
-                          }
-                        }}
-                        className="text-zinc-500 hover:text-red-500 h-8 w-8 p-0"
-                      >
-                        {deleteVlogMutation.isPending ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Trash2 size={12} />
-                        )}
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingLog(log);
+                            setEditDescription(log.description || '');
+                            setEditStartTime(log.start_time || 0);
+                            setEditOverlayText(log.overlay_text || '');
+                            setEditPreviewCurrentTime(log.start_time || 0);
+                            setEditVideoDuration(null);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="text-zinc-500 hover:text-pink-500 h-8 w-8 p-0"
+                        >
+                          <Edit2 size={12} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={deleteVlogMutation.isPending}
+                          onClick={() => {
+                            if (confirm('이 연습 영상을 삭제하시겠습니까?')) {
+                              deleteVlogMutation.mutate(log.id);
+                            }
+                          }}
+                          className="text-zinc-500 hover:text-red-500 h-8 w-8 p-0"
+                        >
+                          {deleteVlogMutation.isPending ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Trash2 size={12} />
+                          )}
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -538,6 +608,11 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                       className="w-full h-full object-contain"
                       controls
                       playsInline
+                      onTimeUpdate={() => {
+                        if (previewVideoRef.current) {
+                          setPreviewCurrentTime(previewVideoRef.current.currentTime);
+                        }
+                      }}
                     />
                     {/* 실시간 텍스트 오버레이 미리보기 */}
                     {overlayText && (
@@ -553,62 +628,99 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                   </div>
                 )}
 
-                {/* 비주얼 타임라인 범위 표시기 */}
+                {/* 비주얼 타임라인 범위 표시기 및 시작 구간 선택 슬라이더 (합쳐진 버전) */}
                 {videoDuration && (
-                  <div className="space-y-1">
-                    <div className="text-[10px] text-zinc-500 font-semibold">
-                      저장 범위 (5초 구간)
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs font-bold text-zinc-400">
+                      <span>저장 구간 설정 (5초 고정)</span>
+                      <span className="text-pink-400 font-mono">
+                        {videoDuration > 5
+                          ? `${startTime.toFixed(1)}s ~ ${(startTime + 5 > videoDuration ? videoDuration : startTime + 5).toFixed(1)}s`
+                          : '전체 구간 저장'}
+                      </span>
                     </div>
-                    <div className="relative w-full h-4 bg-zinc-950 border border-zinc-800/80 rounded-md overflow-hidden flex items-center">
-                      <div
-                        className="absolute h-full bg-pink-500/25 border-l border-r border-pink-500 transition-all duration-75"
-                        style={{
-                          left: `${(startTime / videoDuration) * 100}%`,
-                          width: `${(5 / videoDuration) * 100}%`,
-                        }}
-                      />
-                      <div className="absolute inset-0 flex justify-between px-2 items-center pointer-events-none text-[8px] text-zinc-500 font-mono font-bold">
-                        <span>0.0s</span>
-                        <span>{videoDuration.toFixed(1)}s</span>
+
+                    {videoDuration > 5 ? (
+                      <div className="space-y-1">
+                        <div
+                          className="relative w-full h-8 bg-zinc-950 border border-zinc-800/85 rounded-md overflow-hidden flex items-center cursor-pointer select-none"
+                          onClick={(e) => {
+                            // 전체 타임라인 클릭 시 클릭한 지점으로 시작 구간 이동
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const clickX = e.clientX - rect.left;
+                            const percentage = clickX / rect.width;
+                            const clickedTime = percentage * videoDuration;
+
+                            // 클릭한 지점을 5초 선택 영역의 중심으로 설정
+                            let newStart = clickedTime - 2.5;
+                            if (newStart < 0) newStart = 0;
+                            if (newStart > videoDuration - 5) newStart = videoDuration - 5;
+
+                            setStartTime(newStart);
+                            setPreviewCurrentTime(newStart);
+                            if (previewVideoRef.current) {
+                              previewVideoRef.current.currentTime = newStart;
+                            }
+                          }}
+                        >
+                          {/* 5초 선택 영역 하이라이트 */}
+                          <div
+                            className="absolute h-full bg-pink-500/20 border-l border-r border-pink-500 transition-all duration-75 pointer-events-none"
+                            style={{
+                              left: `${(startTime / videoDuration) * 100}%`,
+                              width: `${(5 / videoDuration) * 100}%`,
+                            }}
+                          />
+
+                          {/* 재생 헤드 (현재 재생 위치) */}
+                          {previewCurrentTime !== undefined && (
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 pointer-events-none shadow-[0_0_8px_rgba(250,204,21,0.8)]"
+                              style={{
+                                left: `${(previewCurrentTime / videoDuration) * 100}%`,
+                              }}
+                            />
+                          )}
+
+                          {/* 슬라이더 인풋 (드래그 조작용, 5초 제외 영역까지만 너비 설정) */}
+                          <input
+                            type="range"
+                            min={0}
+                            max={videoDuration - 5}
+                            step={0.1}
+                            value={startTime}
+                            onChange={handleStartTimeChange}
+                            onClick={(e) => e.stopPropagation()} // 컨테이너 클릭 이벤트 버블링 방지
+                            className="absolute top-0 bottom-0 left-0 h-full opacity-0 cursor-ew-resize z-20"
+                            style={{
+                              width: `${((videoDuration - 5) / videoDuration) * 100}%`,
+                            }}
+                          />
+
+                          {/* 조작용 핸들 비주얼 (시작 위치 표시) */}
+                          <div
+                            className="absolute top-0 bottom-0 w-1 bg-pink-500 z-10 pointer-events-none flex items-center justify-center"
+                            style={{
+                              left: `${(startTime / videoDuration) * 100}%`,
+                            }}
+                          >
+                            <div className="w-3.5 h-3.5 rounded-full bg-pink-400 shadow-[0_0_6px_rgba(244,63,94,0.6)] transform -translate-x-1/2" />
+                          </div>
+
+                          {/* 좌우 시간 텍스트 오버레이 */}
+                          <div className="absolute inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-500 font-mono font-bold select-none">
+                            <span>0.0s</span>
+                            <span>{videoDuration.toFixed(1)}s</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <p className="text-[10px] text-zinc-500 italic">
+                        5초 이하의 영상은 전체 구간이 저장됩니다.
+                      </p>
+                    )}
                   </div>
                 )}
-
-                {/* 시작 구간 선택 슬라이더 */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs font-bold text-zinc-400">
-                    <span>저장 구간 설정 (5초 고정)</span>
-                    <span className="text-pink-400 font-mono">
-                      {videoDuration
-                        ? `${startTime.toFixed(1)}s ~ ${(startTime + 5 > videoDuration ? videoDuration : startTime + 5).toFixed(1)}s`
-                        : '길이 계산 중...'}
-                    </span>
-                  </div>
-                  {videoDuration && videoDuration > 5 ? (
-                    <div className="space-y-1">
-                      <input
-                        type="range"
-                        min={0}
-                        max={videoDuration - 5}
-                        step={0.1}
-                        value={startTime}
-                        onChange={handleStartTimeChange}
-                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-pink-500"
-                      />
-                      <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
-                        <span>0.0s</span>
-                        <span>{(videoDuration - 5).toFixed(1)}s</span>
-                      </div>
-                    </div>
-                  ) : videoDuration ? (
-                    <p className="text-[10px] text-zinc-500 italic">
-                      5초 이하의 영상은 전체 구간이 저장됩니다.
-                    </p>
-                  ) : (
-                    <div className="h-1 bg-zinc-800 rounded animate-pulse" />
-                  )}
-                </div>
 
                 {/* 중앙 텍스트 입력 상자 */}
                 <div className="space-y-1">
@@ -781,6 +893,222 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               <X size={16} />
             </button>
             <video src={activeVlogUrl} controls autoPlay className="w-full h-full object-contain" />
+          </div>
+        </div>
+      )}
+
+      {/* ── 연습 영상 수정 모달 ── */}
+      {isEditModalOpen && editingLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm">
+          <div className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <Edit2 size={16} className="text-pink-500" />
+                <span className="text-sm font-bold text-zinc-100">연습 인증 수정</span>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingLog(null);
+                }}
+                className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content (Scrollable) */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-zinc-300">연습 코멘트 수정</label>
+                <Input
+                  placeholder="연습 코멘트 입력..."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="bg-zinc-900 border-zinc-800 text-zinc-200 h-9 text-xs focus-visible:ring-pink-500/50"
+                />
+              </div>
+
+              {/* 비디오 미리보기 */}
+              <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-zinc-800">
+                <video
+                  ref={editVideoRef}
+                  src={`${API_BASE_URL.replace('/api/v1', '')}${editingLog.raw_video_url || editingLog.video_url}`}
+                  className="w-full h-full object-contain"
+                  controls
+                  playsInline
+                  onLoadedMetadata={(e) => setEditVideoDuration(e.currentTarget.duration)}
+                  onTimeUpdate={() => {
+                    if (editVideoRef.current) {
+                      setEditPreviewCurrentTime(editVideoRef.current.currentTime);
+                    }
+                  }}
+                />
+                {/* 실시간 텍스트 오버레이 미리보기 */}
+                {editOverlayText && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="bg-black/60 text-white px-3.5 py-1.5 rounded-lg text-sm md:text-base font-bold border border-white/20 shadow-2xl text-center max-w-[80%] break-all backdrop-blur-sm">
+                      {editOverlayText}
+                    </span>
+                  </div>
+                )}
+                <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-zinc-300 font-mono pointer-events-none">
+                  수정 미리보기
+                </div>
+              </div>
+
+              {/* 크롭 타임라인 */}
+              {editVideoDuration && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-zinc-400">
+                    <span>저장 구간 재설정 (5초 고정)</span>
+                    <span className="text-pink-400 font-mono">
+                      {editVideoDuration > 5
+                        ? `${editStartTime.toFixed(1)}s ~ ${(editStartTime + 5 > editVideoDuration ? editVideoDuration : editStartTime + 5).toFixed(1)}s`
+                        : '전체 구간 저장'}
+                    </span>
+                  </div>
+
+                  {editVideoDuration > 5 ? (
+                    <div className="space-y-1">
+                      <div
+                        className="relative w-full h-8 bg-zinc-950 border border-zinc-800/85 rounded-md overflow-hidden flex items-center cursor-pointer select-none"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const clickX = e.clientX - rect.left;
+                          const percentage = clickX / rect.width;
+                          const clickedTime = percentage * editVideoDuration;
+
+                          let newStart = clickedTime - 2.5;
+                          if (newStart < 0) newStart = 0;
+                          if (newStart > editVideoDuration - 5) newStart = editVideoDuration - 5;
+
+                          setEditStartTime(newStart);
+                          setEditPreviewCurrentTime(newStart);
+                          if (editVideoRef.current) {
+                            editVideoRef.current.currentTime = newStart;
+                          }
+                        }}
+                      >
+                        {/* 5초 선택 영역 하이라이트 */}
+                        <div
+                          className="absolute h-full bg-pink-500/20 border-l border-r border-pink-500 transition-all duration-75 pointer-events-none"
+                          style={{
+                            left: `${(editStartTime / editVideoDuration) * 100}%`,
+                            width: `${(5 / editVideoDuration) * 100}%`,
+                          }}
+                        />
+
+                        {/* 재생 헤드 */}
+                        {editPreviewCurrentTime !== undefined && (
+                          <div
+                            className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 pointer-events-none shadow-[0_0_8px_rgba(250,204,21,0.8)]"
+                            style={{
+                              left: `${(editPreviewCurrentTime / editVideoDuration) * 100}%`,
+                            }}
+                          />
+                        )}
+
+                        {/* 슬라이더 인풋 */}
+                        <input
+                          type="range"
+                          min={0}
+                          max={editVideoDuration - 5}
+                          step={0.1}
+                          value={editStartTime}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setEditStartTime(val);
+                            setEditPreviewCurrentTime(val);
+                            if (editVideoRef.current) {
+                              editVideoRef.current.currentTime = val;
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute top-0 bottom-0 left-0 h-full opacity-0 cursor-ew-resize z-20"
+                          style={{
+                            width: `${((editVideoDuration - 5) / editVideoDuration) * 100}%`,
+                          }}
+                        />
+
+                        {/* 조작용 핸들 */}
+                        <div
+                          className="absolute top-0 bottom-0 w-1 bg-pink-500 z-10 pointer-events-none flex items-center justify-center"
+                          style={{
+                            left: `${(editStartTime / editVideoDuration) * 100}%`,
+                          }}
+                        >
+                          <div className="w-3.5 h-3.5 rounded-full bg-pink-400 shadow-[0_0_6px_rgba(244,63,94,0.6)] transform -translate-x-1/2" />
+                        </div>
+
+                        {/* 좌우 시간 오버레이 */}
+                        <div className="absolute inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-500 font-mono font-bold select-none">
+                          <span>0.0s</span>
+                          <span>{editVideoDuration.toFixed(1)}s</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-zinc-500 italic">
+                      5초 이하의 영상은 전체 구간이 저장됩니다.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* 중앙 텍스트 입력 */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-zinc-400">
+                  화면 중앙 텍스트 오버레이 수정 (최대 20자)
+                </label>
+                <Input
+                  placeholder="영상 중앙에 표시할 짧은 문구 입력..."
+                  value={editOverlayText}
+                  onChange={(e) => setEditOverlayText(e.target.value)}
+                  maxLength={20}
+                  className="bg-zinc-950 border-zinc-850 text-zinc-200 h-8 text-xs focus-visible:ring-pink-500/50"
+                />
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-5 py-4 flex items-center justify-end gap-2 border-t border-zinc-850 bg-zinc-900/10 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingLog(null);
+                }}
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 text-xs h-9"
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                disabled={updateVlogMutation.isPending}
+                onClick={() => {
+                  if (editOverlayText.trim().length > 20) {
+                    toast.error('오버레이 텍스트는 최대 20자까지만 입력 가능합니다.');
+                    return;
+                  }
+                  updateVlogMutation.mutate({
+                    logId: editingLog.id,
+                    description: editDescription,
+                    startTime: editStartTime,
+                    overlayText: editOverlayText,
+                  });
+                }}
+                className="bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs h-9 px-4"
+              >
+                {updateVlogMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  '변경사항 저장'
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}

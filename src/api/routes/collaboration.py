@@ -525,7 +525,7 @@ async def create_practice_log(
     if not ext:
         ext = ".mp4"
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     temp_filename = f"raw_vlog_{project_id}_{current_user.id}_{timestamp}{ext}"
     temp_file_path = os.path.join(vlog_dir, temp_filename)
 
@@ -537,6 +537,7 @@ async def create_practice_log(
 
     # ffmpeg processing command
     import subprocess
+
     cmd = [
         "ffmpeg",
         "-y",
@@ -569,19 +570,17 @@ async def create_practice_log(
     try:
         # Run ffmpeg
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # Delete temporary input file
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
     except Exception as e:
         from src.api.logging_config import logger
+
         logger.error(f"Video processing failed, using original file: {e}")
         if os.path.exists(temp_file_path):
             if os.path.exists(processed_file_path):
                 os.remove(processed_file_path)
             shutil.copy(temp_file_path, processed_file_path)
-            os.remove(temp_file_path)
 
     video_url = f"/static/uploads/vlogs/{processed_filename}"
+    raw_video_url = f"/static/uploads/vlogs/{temp_filename}"
 
     # Create database log entry
     log_entry = PracticeLog(
@@ -589,6 +588,9 @@ async def create_practice_log(
         team_id=project.team_id,
         user_id=current_user.id,
         video_url=video_url,
+        raw_video_url=raw_video_url,
+        start_time=start_time,
+        overlay_text=overlay_text,
         description=description,
         logged_date=logged_date,
     )
@@ -628,7 +630,9 @@ async def delete_practice_log(
 
     # 올린 유저만 삭제 가능
     if log.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="자신이 업로드한 연습 비디오만 삭제할 수 있습니다.")
+        raise HTTPException(
+            status_code=403, detail="자신이 업로드한 연습 비디오만 삭제할 수 있습니다."
+        )
 
     # Delete local video file if it exists
     PROJECT_ROOT = os.path.dirname(
@@ -642,11 +646,160 @@ async def delete_practice_log(
                 os.remove(file_path)
             except Exception as e:
                 from src.api.logging_config import logger
+
                 logger.error(f"Failed to delete video file {file_path}: {e}")
+
+    if log.raw_video_url and log.raw_video_url.startswith("/static/"):
+        relative_raw_path = log.raw_video_url.replace("/static/", "")
+        raw_file_path = os.path.join(PROJECT_ROOT, "temp", relative_raw_path)
+        if os.path.exists(raw_file_path):
+            try:
+                os.remove(raw_file_path)
+            except Exception as e:
+                from src.api.logging_config import logger
+
+                logger.error(f"Failed to delete raw video file {raw_file_path}: {e}")
 
     db.delete(log)
     db.commit()
     return {"message": "Practice log deleted successfully"}
+
+
+@router.put(
+    "/projects/{project_id}/practice-logs/{log_id}",
+    response_model=PracticeLogResponse,
+    summary="연습 일지 및 비디오 수정",
+)
+async def update_practice_log(
+    project_id: str,
+    log_id: int,
+    description: Optional[str] = Form(None),
+    start_time: float = Form(0.0),
+    overlay_text: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or not project.team_id:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, project.team_id, current_user)
+
+    log = (
+        db.query(PracticeLog)
+        .filter(PracticeLog.id == log_id, PracticeLog.project_id == project_id)
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="Practice log not found")
+
+    if log.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="자신이 업로드한 연습 비디오만 수정할 수 있습니다."
+        )
+
+    log.description = description
+
+    if log.raw_video_url:
+        PROJECT_ROOT = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        relative_raw_path = log.raw_video_url.replace("/static/", "")
+        raw_file_path = os.path.join(PROJECT_ROOT, "temp", relative_raw_path)
+
+        if os.path.exists(raw_file_path):
+            vlog_dir = os.path.dirname(raw_file_path)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            processed_filename = f"vlog_{project_id}_{current_user.id}_{timestamp}.mp4"
+            processed_file_path = os.path.join(vlog_dir, processed_filename)
+
+            import subprocess
+
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-ss",
+                str(start_time),
+                "-t",
+                "5",
+                "-i",
+                raw_file_path,
+            ]
+
+            vf_filters = []
+            if overlay_text:
+                font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+                if not os.path.exists(font_path):
+                    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+                escaped_text = overlay_text.replace("'", "'\\''")
+                vf_filters.append(
+                    f"drawtext=fontfile={font_path}:text='{escaped_text}':"
+                    "x=(w-text_w)/2:y=(h-text_h)/2:fontsize=36:fontcolor=white:"
+                    "box=1:boxcolor=black@0.5:boxborderw=10"
+                )
+
+            if vf_filters:
+                cmd.extend(["-vf", ",".join(vf_filters)])
+
+            cmd.extend(["-c:v", "libx264", "-c:a", "aac", processed_file_path])
+
+            try:
+                subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                if log.video_url.startswith("/static/"):
+                    old_relative_path = log.video_url.replace("/static/", "")
+                    old_file_path = os.path.join(PROJECT_ROOT, "temp", old_relative_path)
+                    if os.path.exists(old_file_path):
+                        try:
+                            os.remove(old_file_path)
+                        except Exception as e:
+                            from src.api.logging_config import logger
+
+                            logger.error(f"Failed to delete old video {old_file_path}: {e}")
+
+                log.video_url = f"/static/uploads/vlogs/{processed_filename}"
+                log.start_time = start_time
+                log.overlay_text = overlay_text
+
+            except Exception as e:
+                from src.api.logging_config import logger
+
+                logger.error(f"Re-processing video failed during update: {e}")
+                if os.path.exists(raw_file_path):
+                    if os.path.exists(processed_file_path):
+                        os.remove(processed_file_path)
+                    import shutil
+
+                    shutil.copy(raw_file_path, processed_file_path)
+
+                    if log.video_url.startswith("/static/"):
+                        old_relative_path = log.video_url.replace("/static/", "")
+                        old_file_path = os.path.join(PROJECT_ROOT, "temp", old_relative_path)
+                        if os.path.exists(old_file_path) and old_file_path != processed_file_path:
+                            try:
+                                os.remove(old_file_path)
+                            except Exception:
+                                pass
+
+                    log.video_url = f"/static/uploads/vlogs/{processed_filename}"
+                    log.start_time = start_time
+                    log.overlay_text = overlay_text
+        else:
+            log.start_time = start_time
+            log.overlay_text = overlay_text
+    else:
+        log.start_time = start_time
+        log.overlay_text = overlay_text
+
+    db.commit()
+    db.refresh(log)
+
+    log = (
+        db.query(PracticeLog)
+        .filter(PracticeLog.id == log.id)
+        .options(joinedload(PracticeLog.user))
+        .first()
+    )
+    return log
 
 
 # ============= User Search / Invite Routes =============

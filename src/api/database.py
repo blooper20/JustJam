@@ -38,3 +38,18 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def check_and_upgrade_schema(db_engine):
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db_engine)
+    if "practice_logs" in inspector.get_table_names():
+        columns = [c["name"] for c in inspector.get_columns("practice_logs")]
+        with db_engine.begin() as conn:
+            if "raw_video_url" not in columns:
+                conn.execute(text("ALTER TABLE practice_logs ADD COLUMN raw_video_url VARCHAR"))
+            if "start_time" not in columns:
+                conn.execute(text("ALTER TABLE practice_logs ADD COLUMN start_time FLOAT"))
+            if "overlay_text" not in columns:
+                conn.execute(text("ALTER TABLE practice_logs ADD COLUMN overlay_text VARCHAR"))

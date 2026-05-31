@@ -479,7 +479,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      setVideoFile(null);
+                      updateVideoFile(null);
                       setOverlayText('');
                       setStartTime(0);
                     }}
@@ -496,11 +496,41 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                       ref={previewVideoRef}
                       src={previewObjectUrl}
                       className="w-full h-full object-contain"
-                      muted
+                      controls
                       playsInline
                     />
-                    <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-zinc-300 font-mono">
+                    {/* 실시간 텍스트 오버레이 미리보기 */}
+                    {overlayText && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="bg-black/60 text-white px-3.5 py-1.5 rounded-lg text-sm md:text-base font-bold border border-white/20 shadow-2xl text-center max-w-[80%] break-all backdrop-blur-sm">
+                          {overlayText}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-zinc-300 font-mono pointer-events-none">
                       미리보기
+                    </div>
+                  </div>
+                )}
+
+                {/* 비주얼 타임라인 범위 표시기 */}
+                {videoDuration && (
+                  <div className="space-y-1">
+                    <div className="text-[10px] text-zinc-500 font-semibold">
+                      저장 범위 (5초 구간)
+                    </div>
+                    <div className="relative w-full h-4 bg-zinc-950 border border-zinc-800/80 rounded-md overflow-hidden flex items-center">
+                      <div
+                        className="absolute h-full bg-pink-500/25 border-l border-r border-pink-500 transition-all duration-75"
+                        style={{
+                          left: `${(startTime / videoDuration) * 100}%`,
+                          width: `${(5 / videoDuration) * 100}%`,
+                        }}
+                      />
+                      <div className="absolute inset-0 flex justify-between px-2 items-center pointer-events-none text-[8px] text-zinc-500 font-mono font-bold">
+                        <span>0.0s</span>
+                        <span>{videoDuration.toFixed(1)}s</span>
+                      </div>
                     </div>
                   </div>
                 )}

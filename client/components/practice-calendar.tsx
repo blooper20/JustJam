@@ -49,7 +49,7 @@ const INSTRUMENTS = [
   { id: 'other', icon: Music },
 ];
 
-const RECORD_SECONDS = 5;
+const RECORD_SECONDS = 180;
 
 export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const queryClient = useQueryClient();
@@ -184,6 +184,13 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     setRecordedBlob(null);
   };
 
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+      mediaRecorderRef.current.stop();
+    }
+  };
+
   const startRecording = () => {
     if (!streamRef.current) return;
     chunksRef.current = [];
@@ -210,7 +217,9 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
       setCountdown(remaining);
       if (remaining <= 0) {
         clearInterval(countdownTimerRef.current!);
-        recorder.stop();
+        if (recorder.state !== 'inactive') {
+          recorder.stop();
+        }
       }
     }, 1000);
   };
@@ -384,7 +393,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               {/* 파일 업로드 버튼 */}
               <label className="flex-1 flex items-center justify-center border border-dashed border-zinc-700 rounded-lg h-9 bg-zinc-900/30 hover:bg-zinc-800/50 cursor-pointer transition-colors text-zinc-400 text-xs gap-1.5">
                 <Upload size={12} />
-                파일 업로드
+                보관함에서 선택
                 <input
                   type="file"
                   accept="video/*"
@@ -400,7 +409,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                 className="flex-1 flex items-center justify-center border border-dashed border-purple-700/50 rounded-lg h-9 bg-purple-900/10 hover:bg-purple-900/20 cursor-pointer transition-colors text-purple-400 text-xs gap-1.5"
               >
                 <Camera size={12} />
-                카메라 촬영
+                직접 촬영하기
               </button>
 
               {/* 제출 버튼 */}
@@ -483,23 +492,23 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
             {/* Controls */}
             <div className="px-5 py-4 flex items-center justify-center gap-3">
               {!recordedBlob ? (
-                <Button
-                  onClick={startRecording}
-                  disabled={isRecording}
-                  className="gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 h-11 rounded-xl disabled:opacity-50"
-                >
-                  {isRecording ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      녹화 중... ({countdown}s)
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-3 h-3 rounded-full bg-white" />
-                      촬영 시작
-                    </>
-                  )}
-                </Button>
+                isRecording ? (
+                  <Button
+                    onClick={stopRecording}
+                    className="gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-8 h-11 rounded-xl shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse"
+                  >
+                    <div className="w-3 h-3 bg-white rounded-sm" />
+                    녹화 중지 ({countdown}초 남음)
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={startRecording}
+                    className="gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold px-8 h-11 rounded-xl"
+                  >
+                    <Camera size={14} />
+                    촬영 시작 (최대 {RECORD_SECONDS}초)
+                  </Button>
+                )
               ) : (
                 <>
                   <Button

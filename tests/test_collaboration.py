@@ -131,6 +131,12 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         assert vlog_json["logged_date"] == "2026-05-28"
         assert vlog_json["description"] == "First practice vlog"
         assert "video_url" in vlog_json
+        vlog_id = vlog_json["id"]
+
+        # 10.5 Delete Practice Vlog
+        del_url = f"/projects/{project_id}/practice-logs/{vlog_id}"
+        del_response = client.delete(del_url, headers=auth_headers)
+        assert del_response.status_code == status.HTTP_200_OK
     finally:
         if os.path.exists("test_vlog.mp4"):
             os.remove("test_vlog.mp4")

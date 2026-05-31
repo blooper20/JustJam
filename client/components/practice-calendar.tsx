@@ -13,6 +13,7 @@ import {
   Video,
   RotateCcw,
   Check,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import apiClient, { API_BASE_URL } from '@/lib/api-client';
 import { UserResponse } from './collaboration-board';
+import { useSession } from 'next-auth/react';
 
 interface PracticeCalendarProps {
   projectId: string;
@@ -71,6 +73,8 @@ function getSupportedMimeType() {
 export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const queryClient = useQueryClient();
   const t = useTranslations('Collab');
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
 
   // ── 기존 상태 ──
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -216,6 +220,21 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     },
     onError: (err: { message?: string }) => {
       toast.error(err.message || '인증 영상 업로드에 실패했습니다.');
+    },
+  });
+
+  // 3. Delete Mutation
+  const deleteVlogMutation = useMutation({
+    mutationFn: async (logId: number) => {
+      const res = await apiClient.delete(`/projects/${projectId}/practice-logs/${logId}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['practice-logs', projectId] });
+      toast.success('연습 인증 영상이 삭제되었습니다.');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || '인증 영상 삭제에 실패했습니다.');
     },
   });
 
@@ -439,17 +458,38 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                       {log.description || '연습 완료'}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const videoFullUrl = `${API_BASE_URL.replace('/api/v1', '')}${log.video_url}`;
-                      setActiveVlogUrl(videoFullUrl);
-                    }}
-                    className="shrink-0 gap-1 text-pink-400 hover:text-pink-300"
-                  >
-                    <Play size={10} className="fill-current" /> 재생
-                  </Button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const videoFullUrl = `${API_BASE_URL.replace('/api/v1', '')}${log.video_url}`;
+                        setActiveVlogUrl(videoFullUrl);
+                      }}
+                      className="gap-1 text-pink-400 hover:text-pink-300"
+                    >
+                      <Play size={10} className="fill-current" /> 재생
+                    </Button>
+                    {log.user_id === currentUserId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={deleteVlogMutation.isPending}
+                        onClick={() => {
+                          if (confirm('이 연습 영상을 삭제하시겠습니까?')) {
+                            deleteVlogMutation.mutate(log.id);
+                          }
+                        }}
+                        className="text-zinc-500 hover:text-red-500 h-8 w-8 p-0"
+                      >
+                        {deleteVlogMutation.isPending ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 size={12} />
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

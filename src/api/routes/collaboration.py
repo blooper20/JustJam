@@ -606,6 +606,49 @@ async def create_practice_log(
     return log_entry
 
 
+@router.delete("/projects/{project_id}/practice-logs/{log_id}", summary="연습 일지 삭제")
+async def delete_practice_log(
+    project_id: str,
+    log_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or not project.team_id:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, project.team_id, current_user)
+
+    log = (
+        db.query(PracticeLog)
+        .filter(PracticeLog.id == log_id, PracticeLog.project_id == project_id)
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="Practice log not found")
+
+    # 올린 유저만 삭제 가능
+    if log.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="자신이 업로드한 연습 비디오만 삭제할 수 있습니다.")
+
+    # Delete local video file if it exists
+    PROJECT_ROOT = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
+    if log.video_url.startswith("/static/"):
+        relative_path = log.video_url.replace("/static/", "")
+        file_path = os.path.join(PROJECT_ROOT, "temp", relative_path)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                from src.api.logging_config import logger
+                logger.error(f"Failed to delete video file {file_path}: {e}")
+
+    db.delete(log)
+    db.commit()
+    return {"message": "Practice log deleted successfully"}
+
+
 # ============= User Search / Invite Routes =============
 
 

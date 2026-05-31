@@ -42,6 +42,11 @@ async def create_team(
 ):
     db_team = Team(name=team.name, owner_id=current_user.id)
     db.add(db_team)
+    db.flush()
+
+    # Add owner as first member with owner role
+    owner_member = TeamMember(team_id=db_team.id, user_id=current_user.id, role="owner")
+    db.add(owner_member)
     db.commit()
     db.refresh(db_team)
 
@@ -81,6 +86,18 @@ async def list_team_members(
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+
+    # Ensure owner is in TeamMember table (Self-Healing)
+    owner_member = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team_id, TeamMember.user_id == team.owner_id)
+        .first()
+    )
+    if not owner_member:
+        owner_member = TeamMember(team_id=team_id, user_id=team.owner_id, role="owner")
+        db.add(owner_member)
+        db.commit()
+        db.refresh(owner_member)
 
     members = db.query(TeamMember).filter(TeamMember.team_id == team_id).all()
     result = []

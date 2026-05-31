@@ -622,6 +622,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                 /* Live preview */
                 <>
                   <video
+                    key="live-webcam"
                     ref={liveVideoRef}
                     autoPlay
                     muted
@@ -647,6 +648,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               ) : (
                 /* 녹화 완료 — 미리보기 */
                 <video
+                  key="recorded-preview"
                   src={recordedObjectUrl ?? undefined}
                   controls
                   autoPlay

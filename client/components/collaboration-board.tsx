@@ -2,17 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import {
-  Loader2,
-  Trash2,
-  Send,
-  Plus,
-  X,
-  BarChart3,
-  Megaphone,
-  Check,
-  Link2,
-} from 'lucide-react';
+import { Loader2, Trash2, Send, Plus, X, BarChart3, Megaphone, Check, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -77,9 +67,7 @@ export interface CollaborationPostResponse {
 function toEmbedUrl(url: string): string {
   try {
     const u = new URL(url);
-    const videoId = u.hostname.includes('youtu.be')
-      ? u.pathname.slice(1)
-      : u.searchParams.get('v');
+    const videoId = u.hostname.includes('youtu.be') ? u.pathname.slice(1) : u.searchParams.get('v');
     return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
   } catch {
     return url;
@@ -221,12 +209,21 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
 
   const handlePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) { toast.error('제목을 입력해주세요.'); return; }
-    if (!content.trim()) { toast.error('내용을 입력해주세요.'); return; }
+    if (!title.trim()) {
+      toast.error('제목을 입력해주세요.');
+      return;
+    }
+    if (!content.trim()) {
+      toast.error('내용을 입력해주세요.');
+      return;
+    }
 
     const filteredOptions = options
       .filter((o) => o.option_text.trim() !== '')
-      .map((o) => ({ option_text: o.option_text.trim(), youtube_url: o.youtube_url?.trim() || undefined }));
+      .map((o) => ({
+        option_text: o.option_text.trim(),
+        youtube_url: o.youtube_url?.trim() || undefined,
+      }));
 
     if (postType === 'vote' && filteredOptions.length < 2) {
       toast.error('투표 항목은 최소 2개 이상 입력해야 합니다.');
@@ -256,7 +253,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
           onClick={() => setIsFormExpanded((v) => !v)}
         >
           <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-            <Plus size={16} className={`text-[#EC4899] transition-transform duration-300 ${isFormExpanded ? 'rotate-45' : ''}`} />
+            <Plus
+              size={16}
+              className={`text-[#EC4899] transition-transform duration-300 ${isFormExpanded ? 'rotate-45' : ''}`}
+            />
             글쓰기
           </h3>
         </div>
@@ -289,7 +289,15 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                         : 'bg-transparent border border-zinc-800 text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
                     }`}
                   >
-                    {type === 'general' ? <><Megaphone size={15} /> 일반 공지</> : <><BarChart3 size={15} /> 투표 생성</>}
+                    {type === 'general' ? (
+                      <>
+                        <Megaphone size={15} /> 일반 공지
+                      </>
+                    ) : (
+                      <>
+                        <BarChart3 size={15} /> 투표 생성
+                      </>
+                    )}
                   </Button>
                 ))}
               </div>
@@ -298,7 +306,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                 <div className="space-y-3 pt-1">
                   <p className="text-sm font-medium text-zinc-400">투표 선택지</p>
                   {options.map((opt, idx) => (
-                    <div key={idx} className="relative flex flex-col gap-2 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50">
+                    <div
+                      key={idx}
+                      className="relative flex flex-col gap-2 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50"
+                    >
                       <div className="flex items-center gap-2">
                         <Input
                           placeholder={`옵션 ${idx + 1}`}
@@ -374,7 +385,9 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                   disabled={createPostMutation.isPending}
                   className="bg-[#E11D48] hover:bg-[#BE123C] text-white h-10 px-7 rounded-xl font-medium shadow-[0_0_15px_rgba(225,29,72,0.3)] transition-all"
                 >
-                  {createPostMutation.isPending && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+                  {createPostMutation.isPending && (
+                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                  )}
                   등록하기
                 </Button>
               </div>
@@ -402,7 +415,11 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                   <div className="relative w-8 h-8 rounded-full overflow-hidden bg-zinc-900 border border-zinc-800">
                     {post.user.profile_image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={post.user.profile_image} alt={post.user.nickname} className="object-cover w-full h-full" />
+                      <img
+                        src={post.user.profile_image}
+                        alt={post.user.nickname}
+                        className="object-cover w-full h-full"
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-600">
                         {post.user.nickname?.substring(0, 2).toUpperCase()}
@@ -412,11 +429,13 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-zinc-200">{post.user.nickname}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wider uppercase ${
-                        post.post_type === 'vote'
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : 'bg-zinc-800 text-zinc-400'
-                      }`}>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wider uppercase ${
+                          post.post_type === 'vote'
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            : 'bg-zinc-800 text-zinc-400'
+                        }`}
+                      >
                         {post.post_type === 'vote' ? '투표' : '공지'}
                       </span>
                     </div>
@@ -460,12 +479,15 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                   <div className="space-y-2 p-4 rounded-xl bg-zinc-950/60 border border-zinc-900 max-w-lg">
                     {post.options.map((opt) => {
                       const total = post.options.reduce((s, o) => s + (o.votes_count || 0), 0);
-                      const pct = total > 0 ? Math.round(((opt.votes_count || 0) / total) * 100) : 0;
+                      const pct =
+                        total > 0 ? Math.round(((opt.votes_count || 0) / total) * 100) : 0;
                       const hasVoted = currentUser && opt.voted_user_ids?.includes(currentUser.id);
                       return (
                         <div key={opt.id} className="space-y-1">
                           <button
-                            onClick={() => toggleVoteMutation.mutate({ postId: post.id, optionId: opt.id })}
+                            onClick={() =>
+                              toggleVoteMutation.mutate({ postId: post.id, optionId: opt.id })
+                            }
                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all border ${
                               hasVoted
                                 ? 'bg-blue-500/10 border-blue-500/30 text-blue-300 font-semibold'
@@ -476,7 +498,9 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                               {hasVoted && <Check size={13} className="text-blue-400" />}
                               {opt.option_text}
                             </span>
-                            <span className="text-xs shrink-0 ml-2">{opt.votes_count}표 ({pct}%)</span>
+                            <span className="text-xs shrink-0 ml-2">
+                              {opt.votes_count}표 ({pct}%)
+                            </span>
                           </button>
                           {opt.youtube_url && (
                             <div className="rounded-lg overflow-hidden border border-zinc-800">
@@ -491,7 +515,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                             </div>
                           )}
                           <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                            <div
+                              className="bg-blue-500 h-full transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
                           </div>
                         </div>
                       );
@@ -507,7 +534,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                               placeholder="새 선택지 입력"
                               value={state.text || ''}
                               onChange={(e) =>
-                                setAddOptionInputs((p) => ({ ...p, [post.id]: { ...p[post.id], text: e.target.value } }))
+                                setAddOptionInputs((p) => ({
+                                  ...p,
+                                  [post.id]: { ...p[post.id], text: e.target.value },
+                                }))
                               }
                               className="bg-zinc-900 border-zinc-700 text-zinc-100 h-9 rounded-lg px-3 flex-1 text-sm placeholder:text-zinc-500"
                               autoFocus
@@ -516,7 +546,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                               type="button"
                               title="유튜브 링크 추가"
                               onClick={() =>
-                                setAddOptionInputs((p) => ({ ...p, [post.id]: { ...p[post.id], showYt: !p[post.id]?.showYt } }))
+                                setAddOptionInputs((p) => ({
+                                  ...p,
+                                  [post.id]: { ...p[post.id], showYt: !p[post.id]?.showYt },
+                                }))
                               }
                               className={`p-2 rounded-lg border transition-colors ${
                                 state.showYt || state.yt
@@ -529,7 +562,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                             <button
                               type="button"
                               onClick={() =>
-                                setAddOptionInputs((p) => ({ ...p, [post.id]: { text: '', open: false } }))
+                                setAddOptionInputs((p) => ({
+                                  ...p,
+                                  [post.id]: { text: '', open: false },
+                                }))
                               }
                               className="p-2 rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300"
                             >
@@ -541,7 +577,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                               placeholder="유튜브 링크 (선택사항)"
                               value={state.yt || ''}
                               onChange={(e) =>
-                                setAddOptionInputs((p) => ({ ...p, [post.id]: { ...p[post.id], yt: e.target.value } }))
+                                setAddOptionInputs((p) => ({
+                                  ...p,
+                                  [post.id]: { ...p[post.id], yt: e.target.value },
+                                }))
                               }
                               className="bg-zinc-900 border-zinc-700 text-zinc-100 h-9 rounded-lg px-3 text-xs placeholder:text-zinc-500"
                             />
@@ -559,14 +598,21 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                             disabled={!state.text?.trim() || addOptionMutation.isPending}
                             className="h-8 px-4 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg"
                           >
-                            {addOptionMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : '추가'}
+                            {addOptionMutation.isPending ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              '추가'
+                            )}
                           </Button>
                         </div>
                       ) : (
                         <button
                           type="button"
                           onClick={() =>
-                            setAddOptionInputs((p) => ({ ...p, [post.id]: { text: '', open: true } }))
+                            setAddOptionInputs((p) => ({
+                              ...p,
+                              [post.id]: { text: '', open: true },
+                            }))
                           }
                           className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                         >
@@ -581,7 +627,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                 <div className="pt-4 border-t border-zinc-800 space-y-3">
                   <div className="space-y-2">
                     {post.comments?.map((comment) => (
-                      <div key={comment.id} className="flex items-start justify-between gap-2 p-2 rounded-lg bg-zinc-900/40 text-xs">
+                      <div
+                        key={comment.id}
+                        className="flex items-start justify-between gap-2 p-2 rounded-lg bg-zinc-900/40 text-xs"
+                      >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-zinc-300">{comment.user.nickname}</span>
@@ -594,7 +643,10 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                         {currentUser && comment.user_id === currentUser.id && (
                           <button
                             onClick={() =>
-                              deleteCommentMutation.mutate({ postId: post.id, commentId: comment.id })
+                              deleteCommentMutation.mutate({
+                                postId: post.id,
+                                commentId: comment.id,
+                              })
                             }
                             className="text-zinc-600 hover:text-red-400 transition-colors p-1"
                           >
@@ -612,7 +664,9 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
                         setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
                       }
                       className="bg-zinc-900 border-zinc-800 text-zinc-200 text-xs h-8"
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleCommentSubmit(post.id); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCommentSubmit(post.id);
+                      }}
                     />
                     <Button
                       size="sm"

@@ -12,8 +12,6 @@ import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { ShareModal } from '@/components/share-modal';
 import { useTranslations } from 'next-intl';
-import { CollaborationBoard } from '@/components/collaboration-board';
-import { PracticeCalendar } from '@/components/practice-calendar';
 
 const MultiTrackPlayer = dynamic(
   () => import('@/components/multitrack-player').then((mod) => mod.MultiTrackPlayer),
@@ -216,78 +214,10 @@ export default function ProjectPage() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Collab View */}
-            {activeTab === 'collab' && (
-              <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20">
-                <CardHeader>
-                  <CardTitle>{t('title')}</CardTitle>
-                  <CardDescription>팀원들과 소통하고 연습 기록을 확인하세요.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <CollaborationBoard projectId={project.id} />
-                  </div>
-                  <div>
-                    <PracticeCalendar projectId={project.id} />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* Vertical Index Sticker Tabs (Right Side) */}
-          <div className="flex flex-col gap-1 pt-12 -ml-[1px] z-10 shrink-0">
-            <button
-              onClick={() => setActiveTab('mixer')}
-              className={cn(
-                'w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative',
-                activeTab === 'mixer'
-                  ? 'bg-zinc-900 border-zinc-800 text-primary translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]'
-                  : 'bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner',
-              )}
-              style={
-                activeTab === 'mixer'
-                  ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' }
-                  : {}
-              }
-            >
-              <div
-                className={cn(
-                  'w-2 h-2 rounded-full',
-                  activeTab === 'mixer'
-                    ? 'bg-primary shadow-[0_0_10px_rgba(250,204,21,0.6)] animate-pulse'
-                    : 'bg-zinc-800',
-                )}
-              />
-              MIXING
-            </button>
-
-            <button
-              onClick={() => setActiveTab('collab')}
-              className={cn(
-                'w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative',
-                activeTab === 'collab'
-                  ? 'bg-zinc-900 border-zinc-800 text-pink-400 translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]'
-                  : 'bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner',
-              )}
-              style={
-                activeTab === 'collab'
-                  ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' }
-                  : {}
-              }
-            >
-              <div
-                className={cn(
-                  'w-2 h-2 rounded-full',
-                  activeTab === 'collab'
-                    ? 'bg-pink-400 shadow-[0_0_10px_rgba(244,114,182,0.6)] animate-pulse'
-                    : 'bg-zinc-800',
-                )}
-              />
-              COLLAB
-            </button>
-          </div>
+          <div className="flex flex-col gap-1 pt-12 -ml-[1px] z-10 shrink-0"></div>
         </div>
       )}
 

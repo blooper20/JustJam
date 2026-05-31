@@ -59,7 +59,9 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401) {
       // 401 Unauthorized인 경우 세션 만료로 간주하여 로그아웃 처리
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      const isLoginPage =
+        typeof window !== 'undefined' && window.location.pathname.match(/^(\/(ko|en))?\/login/);
+      if (typeof window !== 'undefined' && !isLoginPage) {
         await signOut({ callbackUrl: '/login' });
       }
     }

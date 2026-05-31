@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { UserNav } from '@/components/user-nav';
-import { LayoutDashboard, FolderOpen } from 'lucide-react';
+import { LayoutDashboard, Disc3, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -18,25 +18,37 @@ import { Menu, Languages, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { useTranslations, useLocale } from 'next-intl';
+import { useTeam } from '@/components/team-provider';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations('Header');
   const currentLocale = useLocale();
+  const { selectedTeam } = useTeam();
 
   const routes = [
     {
       href: `/${currentLocale}/dashboard`,
-      label: t('dashboard'),
+      label: '내 밴드',
       icon: <LayoutDashboard className="w-4 h-4 mr-2" />,
-      active: pathname.includes('/dashboard'),
+      active: pathname === `/${currentLocale}/dashboard`,
     },
+    ...(selectedTeam
+      ? [
+          {
+            href: `/${currentLocale}/dashboard/collab`,
+            label: selectedTeam.name,
+            icon: <Disc3 className="w-4 h-4 mr-2" />,
+            active: pathname.includes('/dashboard/collab'),
+          },
+        ]
+      : []),
     {
       href: `/${currentLocale}/projects`,
       label: t('projects'),
-      icon: <FolderOpen className="w-4 h-4 mr-2" />,
-      active: pathname.includes('/projects'),
+      icon: <Music className="w-4 h-4 mr-2" />,
+      active: pathname.includes('/projects') && !pathname.includes('/dashboard'),
     },
   ];
 

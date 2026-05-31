@@ -50,7 +50,11 @@ export interface StemFiles {
 
 const SERVER_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export const fetchProjects = async (params?: { q?: string; sort?: string }): Promise<Project[]> => {
+export const fetchProjects = async (params?: {
+  q?: string;
+  sort?: string;
+  team_id?: number;
+}): Promise<Project[]> => {
   const response = await apiClient.get('/projects/', { params });
   return response.data;
 };
@@ -70,9 +74,12 @@ export const fetchProject = async (id: string): Promise<Project> => {
   return response.data;
 };
 
-export const createProject = async (file: File): Promise<Project> => {
+export const createProject = async (file: File, teamId?: number): Promise<Project> => {
   const formData = new FormData();
   formData.append('file', file);
+  if (teamId) {
+    formData.append('team_id', teamId.toString());
+  }
 
   const response = await apiClient.post('/projects/', formData, {
     headers: {
@@ -170,6 +177,63 @@ export const uploadProfileImage = async (file: File): Promise<User> => {
   formData.append('file', file);
   const response = await apiClient.post('/users/me/profile-image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export interface TeamMember {
+  id: number;
+  team_id: number;
+  user_id: number;
+  role: 'owner' | 'editor' | 'viewer';
+  instrument: string | null;
+  created_at: string;
+  email: string | null;
+  nickname: string | null;
+}
+
+export interface Team {
+  id: number;
+  name: string;
+  owner_id: number;
+  created_at: string;
+  members: TeamMember[];
+  is_owner: boolean;
+}
+
+export const fetchTeams = async (): Promise<Team[]> => {
+  const response = await apiClient.get('/teams/');
+  return response.data;
+};
+
+export const createTeam = async (name: string): Promise<Team> => {
+  const response = await apiClient.post('/teams/', { name });
+  return response.data;
+};
+
+export const fetchTeamMembers = async (teamId: number): Promise<TeamMember[]> => {
+  const response = await apiClient.get(`/teams/${teamId}/members`);
+  return response.data;
+};
+
+export const inviteTeamMember = async (
+  teamId: number,
+  email: string,
+  role: string = 'viewer',
+): Promise<TeamMember> => {
+  const response = await apiClient.post(`/teams/${teamId}/share`, null, {
+    params: { email, role },
+  });
+  return response.data;
+};
+
+export const updateTeamMemberInstrument = async (
+  teamId: number,
+  userId: number,
+  instrument: string,
+): Promise<TeamMember> => {
+  const response = await apiClient.patch(`/teams/${teamId}/members/${userId}/instrument`, {
+    instrument,
   });
   return response.data;
 };

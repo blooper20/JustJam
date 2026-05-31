@@ -17,7 +17,7 @@ class ProjectBase(BaseModel):
 
 
 class ProjectCreate(ProjectBase):
-    pass
+    team_id: int = Field(..., example=1)
 
 
 class ProjectUpdate(BaseModel):
@@ -27,6 +27,11 @@ class ProjectUpdate(BaseModel):
 class ProjectMemberBase(BaseModel):
     user_id: int = Field(..., example=1)
     role: str = Field(..., example="viewer")  # 'viewer' or 'editor'
+    instrument: Optional[str] = Field(None, example="vocal")
+
+
+class ProjectMemberInstrumentUpdate(BaseModel):
+    instrument: Optional[str] = Field(None, example="vocal")
 
 
 class ProjectMember(ProjectMemberBase):
@@ -47,6 +52,7 @@ class ProjectShareRequest(BaseModel):
 
 class Project(ProjectBase):
     id: str = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
+    team_id: Optional[int] = Field(None, example=1)
     original_filename: str = Field(..., example="awesome_track.mp3")
     status: TaskStatus = Field(..., example=TaskStatus.COMPLETED)
     status_text: Optional[str] = Field(None, example="분석 중...")

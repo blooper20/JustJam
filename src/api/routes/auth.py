@@ -12,7 +12,7 @@ from src.api.models import User
 from src.api.schemas.user import LoginRequest, RefreshTokenRequest, TokenResponse
 from src.api.services.auth_service import AuthService
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(tags=["Authentication"])
 
 
 @router.post(

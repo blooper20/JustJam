@@ -150,7 +150,10 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
 
   const handleUploadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!videoFile) { toast.error('동영상 파일을 선택하세요.'); return; }
+    if (!videoFile) {
+      toast.error('동영상 파일을 선택하세요.');
+      return;
+    }
     const formData = new FormData();
     formData.append('file', videoFile);
     uploadVlogMutation.mutate(formData);
@@ -253,11 +256,15 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
           <CardTitle className="text-md font-bold text-zinc-100 flex items-center gap-2">
             <CalendarIcon size={16} className="text-pink-500" /> {t('calendar')}
           </CardTitle>
-          <CardDescription>{year}년 {month + 1}월</CardDescription>
+          <CardDescription>
+            {year}년 {month + 1}월
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-zinc-500 mb-2">
-            {['일','월','화','수','목','금','토'].map((d) => <div key={d}>{d}</div>)}
+            {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
+              <div key={d}>{d}</div>
+            ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
             {daysGrid.map((day, idx) => {
@@ -289,7 +296,9 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                           return <Icon key={userId} className="w-2.5 h-2.5 text-pink-500" />;
                         })}
                       {new Set(dateLogs.map((l) => l.user_id)).size > 3 && (
-                        <span className="w-2.5 h-2.5 flex items-center justify-center text-[8px] text-pink-500 font-bold">+</span>
+                        <span className="w-2.5 h-2.5 flex items-center justify-center text-[8px] text-pink-500 font-bold">
+                          +
+                        </span>
                       )}
                     </div>
                   )}
@@ -317,10 +326,15 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
           ) : (
             <div className="space-y-3">
               {getLogsForDate(selectedDate).map((log) => (
-                <div key={log.id} className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-850">
+                <div
+                  key={log.id}
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-850"
+                >
                   <div className="space-y-1 min-w-0">
                     <p className="text-xs font-bold text-zinc-300 truncate">{log.user.nickname}</p>
-                    <p className="text-[10px] text-zinc-400 truncate">{log.description || '연습 완료'}</p>
+                    <p className="text-[10px] text-zinc-400 truncate">
+                      {log.description || '연습 완료'}
+                    </p>
                   </div>
                   <Button
                     size="sm"
@@ -339,7 +353,10 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
           )}
 
           {/* Upload Form */}
-          <form onSubmit={handleUploadSubmit} className="pt-3 border-t border-zinc-800/80 space-y-3">
+          <form
+            onSubmit={handleUploadSubmit}
+            className="pt-3 border-t border-zinc-800/80 space-y-3"
+          >
             <p className="text-xs font-bold text-zinc-300">{t('uploadVlog')}</p>
             <Input
               placeholder="연습 코멘트 입력..."
@@ -353,7 +370,11 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-pink-500/10 border border-pink-500/20 text-xs text-pink-300">
                 <Video size={12} />
                 <span className="flex-1 truncate">{videoFile.name}</span>
-                <button type="button" onClick={() => setVideoFile(null)} className="hover:text-white">
+                <button
+                  type="button"
+                  onClick={() => setVideoFile(null)}
+                  className="hover:text-white"
+                >
                   <X size={12} />
                 </button>
               </div>
@@ -364,7 +385,12 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               <label className="flex-1 flex items-center justify-center border border-dashed border-zinc-700 rounded-lg h-9 bg-zinc-900/30 hover:bg-zinc-800/50 cursor-pointer transition-colors text-zinc-400 text-xs gap-1.5">
                 <Upload size={12} />
                 파일 업로드
-                <input type="file" accept="video/*" onChange={handleFileChange} className="hidden" />
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
               </label>
 
               {/* 카메라 촬영 버튼 */}
@@ -384,7 +410,11 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                 disabled={uploadVlogMutation.isPending || !videoFile}
                 className="h-9 px-4 bg-pink-600 hover:bg-pink-700 text-white font-medium"
               >
-                {uploadVlogMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '제출'}
+                {uploadVlogMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  '제출'
+                )}
               </Button>
             </div>
           </form>
@@ -402,7 +432,10 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                 <span className="text-sm font-bold text-zinc-100">카메라 촬영</span>
                 <span className="text-[10px] text-zinc-500">{RECORD_SECONDS}초 자동 녹화</span>
               </div>
-              <button onClick={closeCamera} className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+              <button
+                onClick={closeCamera}
+                className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              >
                 <X size={16} />
               </button>
             </div>

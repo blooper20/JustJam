@@ -34,8 +34,8 @@ from src.api.schemas.user import UserResponse
 router = APIRouter(tags=["Collaboration"])
 
 
-
 from src.api.models import Team, TeamMember
+
 
 def check_team_access(db: Session, team_id: int, current_user: User) -> Team:
     team = db.query(Team).filter(Team.id == team_id).first()
@@ -77,7 +77,9 @@ def check_project_access(db: Session, project_id: str, current_user: User) -> Pr
 
 
 @router.get(
-    "/teams/{team_id}/posts", response_model=List[CollaborationPostResponse], summary="협업 포스트 목록 조회"
+    "/teams/{team_id}/posts",
+    response_model=List[CollaborationPostResponse],
+    summary="협업 포스트 목록 조회",
 )
 async def list_posts(
     team_id: int,
@@ -113,7 +115,9 @@ async def list_posts(
     return posts
 
 
-@router.post("/teams/{team_id}/posts", response_model=CollaborationPostResponse, summary="협업 포스트 작성")
+@router.post(
+    "/teams/{team_id}/posts", response_model=CollaborationPostResponse, summary="협업 포스트 작성"
+)
 async def create_post(
     team_id: int,
     post_in: CollaborationPostCreate,
@@ -126,7 +130,7 @@ async def create_post(
         team_id=team_id,
         user_id=current_user.id,
         title=post_in.title,
-        content=post_in.content or '',
+        content=post_in.content or "",
         post_type=post_in.post_type,
         youtube_url=post_in.youtube_url,
     )
@@ -135,7 +139,9 @@ async def create_post(
 
     if post_in.post_type == "vote" and post_in.options:
         for opt in post_in.options:
-            option = PostOption(post_id=post.id, option_text=opt.option_text, youtube_url=opt.youtube_url)
+            option = PostOption(
+                post_id=post.id, option_text=opt.option_text, youtube_url=opt.youtube_url
+            )
             db.add(option)
 
     elif post_in.post_type == "schedule" and post_in.schedule_times:
@@ -240,7 +246,6 @@ async def add_vote_option(
 
 
 # ============= Comments Routes =============
-
 
 
 @router.post(
@@ -460,7 +465,9 @@ async def toggle_availability(
 
 
 @router.get(
-    "/projects/{project_id}/practice-logs", response_model=List[PracticeLogResponse], summary="연습 일지 목록 조회"
+    "/projects/{project_id}/practice-logs",
+    response_model=List[PracticeLogResponse],
+    summary="연습 일지 목록 조회",
 )
 async def list_practice_logs(
     project_id: str,
@@ -523,7 +530,8 @@ async def create_practice_log(
 
     # Create database log entry
     log_entry = PracticeLog(
-        team_id=team_id,
+        project_id=project_id,
+        team_id=project.team_id,
         user_id=current_user.id,
         video_url=video_url,
         description=description,
@@ -546,14 +554,21 @@ async def create_practice_log(
 # ============= User Search / Invite Routes =============
 
 
-@router.get("/projects/{project_id}/search-users", response_model=List[UserResponse], summary="초대할 사용자 검색")
+@router.get(
+    "/projects/{project_id}/search-users",
+    response_model=List[UserResponse],
+    summary="초대할 사용자 검색",
+)
 async def search_users(
     project_id: str,
     q: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    project = check_team_access(db, team_id, current_user)
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or not project.team_id:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, project.team_id, current_user)
 
     # Exclude owner and existing members
     existing_user_ids = [project.user_id] if project.user_id else []

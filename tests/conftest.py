@@ -52,7 +52,12 @@ class ApiV1TestClient:
         self._client = client
 
     def _prefix(self, url: str) -> str:
-        if url.startswith("/auth") or url.startswith("/projects") or url.startswith("/users"):
+        if (
+            url.startswith("/auth")
+            or url.startswith("/projects")
+            or url.startswith("/users")
+            or url.startswith("/teams")
+        ):
             return f"/api/v1{url}"
         return url
 

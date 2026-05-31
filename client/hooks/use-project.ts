@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchProject, processProject, fetchProjectStems } from '@/lib/api';
 import { useProjectStore } from '@/store/project-store';
+import { toast } from 'sonner';
 
 export function useProject(id: string) {
   const queryClient = useQueryClient();
@@ -60,12 +61,17 @@ export function useProject(id: string) {
     },
   });
 
-  // Sync to Zustand Store
   useEffect(() => {
     if (projectQuery.data) {
       setProject(projectQuery.data);
     }
   }, [projectQuery.data, setProject]);
+
+  useEffect(() => {
+    if (projectQuery.error) {
+      toast.error('프로젝트 상태를 불러오는데 실패했습니다.');
+    }
+  }, [projectQuery.error]);
 
   useEffect(() => {
     if (stemsQuery.data) {

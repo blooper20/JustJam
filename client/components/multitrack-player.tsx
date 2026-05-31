@@ -465,9 +465,11 @@ export function MultiTrackPlayer({
 
   // 오디오 컨텍스트 및 메트로놈 엔진 초기화
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const AudioContextClass =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
     setAudioContext(ctx);
 

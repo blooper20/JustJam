@@ -39,7 +39,7 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-    command: celery -A src.api.services.project_service.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A src.api.celery_app worker --loglevel=info -c 1
 
   frontend:
     build:
@@ -49,14 +49,10 @@ services:
     container_name: justjam-frontend
     ports:
       - "3001:3000"
+    env_file:
+      - ./client/.env.local
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXTAUTH_URL=http://localhost:3001
-      - NEXTAUTH_SECRET=nextauth_development_secret_key_change_me_in_production_32_chars_long
-      - GOOGLE_CLIENT_ID=google-client-id-placeholder
-      - GOOGLE_CLIENT_SECRET=google-client-secret-placeholder
-      - KAKAO_CLIENT_ID=kakao-client-id-placeholder
-      - KAKAO_CLIENT_SECRET=kakao-client-secret-placeholder
+      - INTERNAL_API_URL=http://backend:8000
     depends_on:
       - backend
 

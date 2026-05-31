@@ -3,11 +3,16 @@ import uuid
 
 from fastapi import status
 
-from src.api.models import ProjectModel
+from src.api.models import ProjectModel, Team
 
 
 def test_collaboration_workflow(client, auth_headers, test_user, db):
-    # 1. Setup a test project owned by the user
+    # 1. Setup a test team and project owned by the user
+    team = Team(name="Collaboration Team", owner_id=test_user.id)
+    db.add(team)
+    db.commit()
+    db.refresh(team)
+
     project_id = str(uuid.uuid4())
     project = ProjectModel(
         id=project_id,
@@ -15,6 +20,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         original_filename="test.mp3",
         user_id=test_user.id,
         status="completed",
+        team_id=team.id,
     )
     db.add(project)
     db.commit()
@@ -25,7 +31,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         "content": "Hello team, let's start practicing!",
         "post_type": "general",
     }
-    response = client.post(f"/projects/{project_id}/posts", json=post_data, headers=auth_headers)
+    response = client.post(f"/teams/{team.id}/posts", json=post_data, headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     post_json = response.json()
     assert post_json["title"] == "Welcome Announcement"
@@ -33,7 +39,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
     post_id = post_json["id"]
 
     # 3. List posts
-    response = client.get(f"/projects/{project_id}/posts", headers=auth_headers)
+    response = client.get(f"/teams/{team.id}/posts", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     posts = response.json()
     assert len(posts) >= 1
@@ -42,7 +48,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
     # 4. Add a comment
     comment_data = {"content": "Great announcement!"}
     response = client.post(
-        f"/projects/{project_id}/posts/{post_id}/comments", json=comment_data, headers=auth_headers
+        f"/teams/{team.id}/posts/{post_id}/comments", json=comment_data, headers=auth_headers
     )
     assert response.status_code == status.HTTP_200_OK
     comment_json = response.json()
@@ -51,7 +57,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
 
     # 5. Delete the comment
     response = client.delete(
-        f"/projects/{project_id}/posts/{post_id}/comments/{comment_id}", headers=auth_headers
+        f"/teams/{team.id}/posts/{post_id}/comments/{comment_id}", headers=auth_headers
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -60,11 +66,9 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         "title": "Song Choice Poll",
         "content": "Which song should we perform next?",
         "post_type": "vote",
-        "options": ["Song A", "Song B"],
+        "options": [{"option_text": "Song A"}, {"option_text": "Song B"}],
     }
-    response = client.post(
-        f"/projects/{project_id}/posts", json=vote_post_data, headers=auth_headers
-    )
+    response = client.post(f"/teams/{team.id}/posts", json=vote_post_data, headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     vote_post_json = response.json()
     assert vote_post_json["post_type"] == "vote"
@@ -74,7 +78,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
 
     # 7. Vote for the first option (toggles on)
     response = client.post(
-        f"/projects/{project_id}/posts/{vote_post_id}/vote/{option_id}", headers=auth_headers
+        f"/teams/{team.id}/posts/{vote_post_id}/vote/{option_id}", headers=auth_headers
     )
     assert response.status_code == status.HTTP_200_OK
     updated_post = response.json()
@@ -88,9 +92,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         "post_type": "schedule",
         "schedule_times": ["2026-06-01 14:00", "2026-06-02 18:00"],
     }
-    response = client.post(
-        f"/projects/{project_id}/posts", json=schedule_post_data, headers=auth_headers
-    )
+    response = client.post(f"/teams/{team.id}/posts", json=schedule_post_data, headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     sched_post_json = response.json()
     assert sched_post_json["post_type"] == "schedule"
@@ -100,7 +102,7 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
 
     # 9. Toggle availability for the time slot (toggles on)
     response = client.post(
-        f"/projects/{project_id}/posts/{sched_post_id}/availability/{time_slot_id}",
+        f"/teams/{team.id}/posts/{sched_post_id}/availability/{time_slot_id}",
         headers=auth_headers,
     )
     assert response.status_code == status.HTTP_200_OK

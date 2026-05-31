@@ -54,10 +54,7 @@ export default function CollabDashboardPage() {
   }
 
   return (
-    <DashboardLayoutWrapper
-      activeTab={activeTab}
-      onTabChange={(tab) => setActiveTab(tab as Tab)}
-    >
+    <DashboardLayoutWrapper activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as Tab)}>
       {activeTab === 'notice' && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 h-full">
           <div className="xl:col-span-2">

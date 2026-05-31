@@ -27,6 +27,10 @@ class User(Base):
 
     # Relationships
     projects = relationship("ProjectModel", back_populates="owner", cascade="all, delete-orphan")
+    owned_teams = relationship("Team", back_populates="owner", cascade="all, delete-orphan")
+    team_memberships = relationship(
+        "TeamMember", back_populates="user", cascade="all, delete-orphan"
+    )
     shared_projects = relationship(
         "ProjectMember", back_populates="user", cascade="all, delete-orphan"
     )
@@ -44,6 +48,32 @@ class User(Base):
     __table_args__ = (Index("idx_provider_id", "provider", "provider_id"),)
 
 
+class Team(Base):
+    __tablename__ = "teams"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    owner = relationship("User", back_populates="owned_teams")
+    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    projects = relationship("ProjectModel", back_populates="team", cascade="all, delete-orphan")
+    posts = relationship("CollaborationPost", back_populates="team", cascade="all, delete-orphan")
+
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role = Column(String, default="viewer")  # 'owner', 'editor', 'viewer'
+    instrument = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    team = relationship("Team", back_populates="members")
+    user = relationship("User", back_populates="team_memberships")
+
+
 class ProjectMember(Base):
     """프로젝트 협업 멤버 모델 - 특정 프로젝트를 공유받은 사용자"""
 
@@ -53,6 +83,9 @@ class ProjectMember(Base):
     project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     role = Column(String, default="viewer")  # 'viewer' or 'editor'
+    instrument = Column(
+        String, nullable=True
+    )  # 'vocal', 'keyboard', 'drum', 'guitar', 'bass', etc.
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -79,10 +112,12 @@ class ProjectModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # 사용자 연결
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # nullable=True for migration
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=True)
 
     # Relationships
     owner = relationship("User", back_populates="projects")
+    team = relationship("Team", back_populates="projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
     posts = relationship(
         "CollaborationPost", back_populates="project", cascade="all, delete-orphan"
@@ -98,8 +133,9 @@ class CollaborationPost(Base):
     __tablename__ = "collaboration_posts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), index=True, nullable=True)
     project_id = Column(
-        String, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+        String, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=True
     )
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
@@ -107,10 +143,12 @@ class CollaborationPost(Base):
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
     post_type = Column(String, default="general")  # 'general', 'vote', 'schedule'
+    youtube_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     project = relationship("ProjectModel", back_populates="posts")
+    team = relationship("Team", back_populates="posts")
     user = relationship("User", back_populates="posts")
     comments = relationship(
         "CollaborationComment", back_populates="post", cascade="all, delete-orphan"
@@ -157,6 +195,7 @@ class PostOption(Base):
         nullable=False,
     )
     option_text = Column(String, nullable=False)
+    youtube_url = Column(String, nullable=True)
 
     # Relationships
     post = relationship("CollaborationPost", back_populates="options")
@@ -229,8 +268,9 @@ class PracticeLog(Base):
     __tablename__ = "practice_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), index=True, nullable=True)
     project_id = Column(
-        String, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+        String, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=True
     )
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False

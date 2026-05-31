@@ -1,18 +1,14 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from src.api.database import get_db
-from src.api.dependencies import get_current_user, get_optional_current_user
+from src.api.dependencies import get_optional_current_user
 from src.api.models import User
 from src.api.schemas.project import (
     MixRequest,
     Project,
-)
-from src.api.schemas.project import ProjectMember as ProjectMemberSchema
-from src.api.schemas.project import (
-    ProjectShareRequest,
     ProjectUpdate,
     StemFiles,
 )
@@ -30,10 +26,13 @@ router = APIRouter()
 async def create_project(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    team_id: Optional[int] = Form(None),
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ) -> Project:
-    project, file_path = ProjectService.create_project(db, file.filename, file.file, current_user)
+    project, file_path = ProjectService.create_project(
+        db, file.filename, file.file, current_user, team_id
+    )
 
     # 썸네일 생성 백그라운드 작업
     import os
@@ -96,6 +95,7 @@ async def get_project(
 
 @router.get("/", response_model=List[Project])
 async def list_projects(
+    team_id: Optional[int] = None,
     q: Optional[str] = None,
     sort: str = "newest",
     skip: int = 0,
@@ -103,7 +103,7 @@ async def list_projects(
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
-    return ProjectService.list_projects(db, current_user, q, sort, skip, limit)
+    return ProjectService.list_projects(db, current_user, q, sort, skip, limit, team_id)
 
 
 @router.post("/{project_id}/clone", response_model=Project)
@@ -152,37 +152,3 @@ async def mix_audio(
 ) -> dict:
     url = ProjectService.mix_audio(db, project_id, request, current_user)
     return {"url": url}
-
-
-# --- 협업 관련 엔드포인트 ---
-
-
-@router.post("/{project_id}/share", response_model=ProjectMemberSchema)
-async def share_project(
-    project_id: str,
-    share_request: ProjectShareRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return ProjectService.share_project(
-        db, project_id, share_request.email, share_request.role, current_user
-    )
-
-
-@router.get("/{project_id}/members", response_model=List[ProjectMemberSchema])
-async def list_project_members(
-    project_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return ProjectService.list_members(db, project_id, current_user)
-
-
-@router.delete("/{project_id}/members/{user_id}")
-async def remove_project_member(
-    project_id: str,
-    user_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> dict:
-    return ProjectService.remove_member(db, project_id, user_id, current_user)

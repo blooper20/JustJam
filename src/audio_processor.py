@@ -116,9 +116,10 @@ def separate_audio(
 
             cmd.append(str(chunk_path))
 
-            # Prepare environment with correct PATH for ffmpeg
+            # Prepare environment with correct PATH for ffmpeg and force tqdm progress
             env = os.environ.copy()
             env["PATH"] = f"/opt/homebrew/bin:/usr/local/bin:{env.get('PATH', '')}"
+            env["TQDM_FORCE"] = "1"
 
             process = subprocess.Popen(
                 cmd,

@@ -11,7 +11,7 @@ from src.api.models import User
 from src.api.schemas.user import UserResponse, UserUpdate
 from src.api.services.user_service import UserService
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter(tags=["Users"])
 
 
 @router.get("/me", response_model=UserResponse, summary="현재 사용자 정보 조회")

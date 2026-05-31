@@ -16,7 +16,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from src.api.database import Base, engine
-from src.api.routes import auth, collaboration, projects, users
+from src.api.routes import auth, collaboration, projects, teams, users
 
 # Sentry 초기화
 SENTRY_DSN = os.getenv("SENTRY_DSN")
@@ -123,10 +123,11 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 
 # 라우터 포함
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(users.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(teams.router, prefix="/api/v1/teams", tags=["teams"])
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
-app.include_router(collaboration.router, prefix="/api/v1")
+app.include_router(collaboration.router, prefix="/api/v1", tags=["collaboration"])
 
 # CORS 설정
 allowed_origins_raw = os.getenv(

@@ -179,7 +179,11 @@ def process_audio_task(self, project_id: str):
 class ProjectService:
     @staticmethod
     def create_project(
-        db: Session, file_name: str, file_content, current_user: Optional[User] = None
+        db: Session,
+        file_name: str,
+        file_content,
+        current_user: Optional[User] = None,
+        team_id: Optional[int] = None,
     ):
         """프로젝트 생성"""
         project_id = str(uuid.uuid4())
@@ -200,6 +204,7 @@ class ProjectService:
             status=TaskStatus.PENDING.value,
             progress=0,
             user_id=current_user.id if current_user else None,
+            team_id=team_id,
             created_at=datetime.utcnow(),
         )
 
@@ -257,11 +262,14 @@ class ProjectService:
         sort: str = "newest",
         skip: int = 0,
         limit: int = 50,
+        team_id: Optional[int] = None,
     ):
         """프로젝트 목록 조회"""
         query = db.query(ProjectModel)
 
-        if current_user:
+        if team_id is not None:
+            query = query.filter(ProjectModel.team_id == team_id)
+        elif current_user:
             shared_project_ids = (
                 db.query(ProjectMember.project_id)
                 .filter(ProjectMember.user_id == current_user.id)
@@ -570,6 +578,7 @@ class ProjectService:
                     "email": m.user.email,
                     "nickname": m.user.nickname,
                     "role": m.role,
+                    "instrument": m.instrument,
                     "joined_at": m.joined_at,
                 }
             )
@@ -602,3 +611,34 @@ class ProjectService:
         db.delete(member)
         db.commit()
         return {"message": "Member removed successfully"}
+
+    @staticmethod
+    def update_member_instrument(
+        db: Session, project_id: str, user_id: int, instrument: str, current_user: User
+    ):
+        """멤버 악기(역할) 업데이트"""
+        project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+        if not project:
+            raise ProjectNotFoundError()
+
+        # 권한 확인: 프로젝트 소유자만 변경 가능
+        if project.user_id != current_user.id:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=403, detail="권한이 없습니다.")
+
+        member = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+            .first()
+        )
+
+        if not member:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=404, detail="멤버를 찾을 수 없습니다.")
+
+        member.instrument = instrument
+        db.commit()
+        db.refresh(member)
+        return member

@@ -39,5 +39,5 @@ export const config = {
   // - /_next (Next.js internals)
   // - /static (static files)
   // - /favicon.ico, /sitemap.xml, /robots.txt (metadata files)
-  matcher: ['/((?!api|_next|static|favicon.ico|sitemap.xml|robots.txt).*)'],
+  matcher: ['/((?!api|_next|static|images|favicon.ico|sitemap.xml|robots.txt).*)'],
 };

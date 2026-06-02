@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > **Ratchet Rule #405**: 백엔드 API 스키마(`projects.py`)를 변경하여 프론트엔드와 동기화할 경우, 반드시 관련된 백엔드 통합 테스트(`test_workflow.py` 등)의 검증 로직도 함께 업데이트해야 한다. 또한 모든 변경 사항은 커밋 전 샌드박스 내에서 `flake8` 등 로컬 린트를 완벽히 통과해야 Exit Code 1로 인한 CI/CD 붕괴를 막을 수 있다.
 
 ### Added
+- `PracticeLogComment` database models, Pydantic schemas, and comment endpoints (`POST` & `DELETE`) to enable team commentary on practice logs.
+- Interactive comments list display and comment publishing box under each uploaded practice vlog in the practice calendar.
+- Scoped project manager tab (`SongBoard`) inside the collaboration dashboard, filtering song projects by `teamId`.
+- Local URL query parsing (`?tab=song`) in the collab dashboard page for direct deep linking.
 - TanStack Query v5 status polling system with 1-second interval checks for pending/processing status.
 - Zustand store `/client/store/project-store.ts` for unified project, playhead, metronome, and track mixing states.
 - Web Audio API drift-corrected precise lookahead MetronomeEngine.
@@ -31,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - pyproject.toml for modern Python packaging
 
 ### Changed
+- Hid the practice vlog upload form UI for a calendar date if the current logged-in user has already uploaded a vlog for that date, displaying a stylized completion message instead.
+- Removed the vlog description comment input box from the initial video upload form.
+- Replaced the standalone `/projects` route with a client-side redirection to `/dashboard/collab?tab=song` to eliminate page reload transitions when clicking index tabs.
+- Updated project detail page back-navigation to return to `/dashboard/collab?tab=song`.
+- Wrapped backend relationships in `models.py` to keep Python codebase compliance under the 100-character line limit.
+- Unified frontend styling formatting across TSX components via Prettier.
 - Integrated client components with Zustand store subscription for real-time player states.
 - Improved README with detailed usage examples and setup instructions
 - Enhanced transcriber module with better validation and error handling

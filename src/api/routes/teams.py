@@ -29,6 +29,18 @@ async def list_teams(current_user: User = Depends(get_current_user), db: Session
 
     result = []
     for t in all_teams:
+        # Ensure owner is in TeamMember table (Self-Healing)
+        owner_member = (
+            db.query(TeamMember)
+            .filter(TeamMember.team_id == t.id, TeamMember.user_id == t.owner_id)
+            .first()
+        )
+        if not owner_member:
+            owner_member = TeamMember(team_id=t.id, user_id=t.owner_id, role="owner")
+            db.add(owner_member)
+            db.commit()
+            db.refresh(t)
+
         t_dict = t.__dict__.copy()
         t_dict["is_owner"] = t.owner_id == current_user.id
         result.append(t_dict)

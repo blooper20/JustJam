@@ -144,7 +144,7 @@ export default function TeamSelectionPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-white/50">
                       <Users className="w-4 h-4" />
-                      <span>멤버 {team.members?.length ?? 1}명</span>
+                      <span>멤버 {team.members?.length || 1}명</span>
                     </div>
                     <ArrowRight className="w-4 h-4 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all" />
                   </div>

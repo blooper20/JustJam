@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
 import { Loader2, Mic2, Music, Drum, Guitar, Keyboard, Users, Plus, Trash2 } from 'lucide-react';
 import { TeamMember, inviteTeamMember, updateTeamMemberInstrument } from '@/lib/api';
@@ -27,6 +28,7 @@ const INSTRUMENTS = [
 ];
 
 export function BandMembersSidebar({ teamId }: { teamId: number }) {
+  const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
@@ -120,6 +122,20 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
     );
   }
 
+  const currentUserEmail = session?.user?.email;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentUserId = (session?.user as any)?.id;
+
+  // Find the current logged-in user in the band members list
+  const currentMember = members?.find(
+    (m) =>
+      (currentUserId && m.user_id === currentUserId) ||
+      (currentUserEmail && m.email === currentUserEmail),
+  );
+
+  const currentUserRole = currentMember?.role || 'viewer';
+  const isManagerOrSubManager = currentUserRole === 'owner' || currentUserRole === 'editor';
+
   return (
     <Card className="bg-zinc-950 border-zinc-800">
       <CardHeader>
@@ -129,63 +145,65 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="relative" ref={dropdownRef}>
-          <form onSubmit={handleInvite} className="flex gap-2">
-            <Input
-              placeholder="Invite via email or nickname..."
-              value={inviteEmail}
-              onChange={(e) => {
-                setInviteEmail(e.target.value);
-                setShowDropdown(true);
-              }}
-              onFocus={() => setShowDropdown(true)}
-              className="bg-zinc-900 border-zinc-800 text-xs"
-            />
-            <Button
-              type="submit"
-              disabled={isInviting || inviteMutation.isPending || !inviteEmail.trim()}
-              size="icon"
-              variant="secondary"
-              className="shrink-0"
-            >
-              {inviteMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-            </Button>
-          </form>
+        {isManagerOrSubManager && (
+          <div className="relative" ref={dropdownRef}>
+            <form onSubmit={handleInvite} className="flex gap-2">
+              <Input
+                placeholder="Invite via email or nickname..."
+                value={inviteEmail}
+                onChange={(e) => {
+                  setInviteEmail(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                className="bg-zinc-900 border-zinc-800 text-xs"
+              />
+              <Button
+                type="submit"
+                disabled={isInviting || inviteMutation.isPending || !inviteEmail.trim()}
+                size="icon"
+                variant="secondary"
+                className="shrink-0"
+              >
+                {inviteMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+              </Button>
+            </form>
 
-          {showDropdown && inviteEmail.trim().length >= 2 && (
-            <div className="absolute z-50 w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-              {isSearching ? (
-                <div className="flex items-center justify-center py-3 text-zinc-500 text-xs">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  검색 중...
-                </div>
-              ) : searchData && searchData.length > 0 ? (
-                searchData.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => {
-                      setInviteEmail(user.email);
-                      setShowDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors flex flex-col gap-0.5 border-b border-zinc-900/60 last:border-0"
-                  >
-                    <span className="font-bold text-zinc-200">{user.nickname}</span>
-                    <span className="text-[10px] text-zinc-500">{user.email}</span>
-                  </button>
-                ))
-              ) : (
-                <div className="py-3 px-3 text-center text-zinc-500 text-xs">
-                  검색된 가입 유저가 없습니다.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            {showDropdown && inviteEmail.trim().length >= 2 && (
+              <div className="absolute z-50 w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                {isSearching ? (
+                  <div className="flex items-center justify-center py-3 text-zinc-500 text-xs">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    검색 중...
+                  </div>
+                ) : searchData && searchData.length > 0 ? (
+                  searchData.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => {
+                        setInviteEmail(user.email);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors flex flex-col gap-0.5 border-b border-zinc-900/60 last:border-0"
+                    >
+                      <span className="font-bold text-zinc-200">{user.nickname}</span>
+                      <span className="text-[10px] text-zinc-500">{user.email}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="py-3 px-3 text-center text-zinc-500 text-xs">
+                    검색된 가입 유저가 없습니다.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-4">
           {members?.map((member) => {
@@ -207,25 +225,38 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Select
-                    value={member.instrument || 'other'}
-                    onValueChange={(val) =>
-                      updateInstrumentMutation.mutate({ userId: member.user_id, instrument: val })
-                    }
-                  >
-                    <SelectTrigger className="w-[110px] h-8 text-xs bg-zinc-950 border-zinc-800">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INSTRUMENTS.map((inst) => (
-                        <SelectItem key={inst.id} value={inst.id} className="text-xs">
-                          {inst.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(() => {
+                    const isOwnCard =
+                      (currentUserId && member.user_id === currentUserId) ||
+                      (currentUserEmail && member.email === currentUserEmail);
+                    const canEditPosition = isManagerOrSubManager || isOwnCard;
 
-                  {member.role !== 'owner' && (
+                    return (
+                      <Select
+                        value={member.instrument || 'other'}
+                        disabled={!canEditPosition}
+                        onValueChange={(val) =>
+                          updateInstrumentMutation.mutate({
+                            userId: member.user_id,
+                            instrument: val,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-[110px] h-8 text-xs bg-zinc-950 border-zinc-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {INSTRUMENTS.map((inst) => (
+                            <SelectItem key={inst.id} value={inst.id} className="text-xs">
+                              {inst.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  })()}
+
+                  {isManagerOrSubManager && member.role !== 'owner' && (
                     <Button
                       variant="ghost"
                       size="icon"

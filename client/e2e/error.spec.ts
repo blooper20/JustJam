@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('에러 핸들링', () => {
-
   test('존재하지 않는 페이지 접근 시 404 페이지 표시', async ({ page }) => {
     await page.goto('/ko/this-page-does-not-exist-12345');
     await expect(page.getByText('페이지를 찾을 수 없습니다')).toBeVisible();

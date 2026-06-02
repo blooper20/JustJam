@@ -23,7 +23,7 @@ import {
   Camera,
   Languages,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getProfileImageUrl } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -280,7 +280,7 @@ export default function SettingsPage() {
                 <div className="flex flex-col items-center gap-4 py-2">
                   <div className="relative group cursor-pointer w-28 h-28 rounded-full overflow-hidden border-2 border-zinc-800 hover:border-pink-500 transition-colors shadow-lg">
                     <Avatar className="w-full h-full">
-                      <AvatarImage src={session?.user?.image || ''} />
+                      <AvatarImage src={getProfileImageUrl(session?.user?.image)} />
                       <AvatarFallback className="text-3xl font-black bg-zinc-900 text-zinc-300">
                         {session?.user?.name?.[0] || 'U'}
                       </AvatarFallback>

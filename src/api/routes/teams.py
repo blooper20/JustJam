@@ -143,8 +143,18 @@ async def update_member_instrument(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    if team.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only team owner can change instruments")
+    current_member = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team_id, TeamMember.user_id == current_user.id)
+        .first()
+    )
+    is_owner_or_editor = (
+        (current_member and current_member.role in ["owner", "editor"])
+        or team.owner_id == current_user.id
+    )
+
+    if not is_owner_or_editor and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Only team owner, editor or the member themselves can change instruments")
 
     member = (
         db.query(TeamMember)
@@ -183,8 +193,18 @@ async def invite_team_member(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    if team.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only team owner can invite members")
+    current_member = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team_id, TeamMember.user_id == current_user.id)
+        .first()
+    )
+    is_owner_or_editor = (
+        (current_member and current_member.role in ["owner", "editor"])
+        or team.owner_id == current_user.id
+    )
+
+    if not is_owner_or_editor:
+        raise HTTPException(status_code=403, detail="Only team owner or editor can invite members")
 
     invitee = db.query(User).filter(User.email == email).first()
     if not invitee:
@@ -226,8 +246,18 @@ async def search_team_users(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    if team.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only team owner can invite members")
+    current_member = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team_id, TeamMember.user_id == current_user.id)
+        .first()
+    )
+    is_owner_or_editor = (
+        (current_member and current_member.role in ["owner", "editor"])
+        or team.owner_id == current_user.id
+    )
+
+    if not is_owner_or_editor:
+        raise HTTPException(status_code=403, detail="Only team owner or editor can invite members")
 
     # Exclude existing members
     members = db.query(TeamMember).filter(TeamMember.team_id == team_id).all()
@@ -245,3 +275,46 @@ async def search_team_users(
         .all()
     )
     return users
+
+
+@router.delete("/{team_id}/members/{user_id}", summary="팀 멤버 삭제")
+async def delete_team_member(
+    team_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    current_member = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team_id, TeamMember.user_id == current_user.id)
+        .first()
+    )
+    is_owner_or_editor = (
+        (current_member and current_member.role in ["owner", "editor"])
+        or team.owner_id == current_user.id
+    )
+
+    if not is_owner_or_editor and current_user.id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Only team owner, editor or the member themselves can remove members"
+        )
+
+    member = (
+        db.query(TeamMember)
+        .filter(TeamMember.team_id == team_id, TeamMember.user_id == user_id)
+        .first()
+    )
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    # Owner/Creator cannot be removed from the team
+    if member.role == "owner" or team.owner_id == user_id:
+        raise HTTPException(status_code=400, detail="Team owner cannot be removed")
+
+    db.delete(member)
+    db.commit()
+    return {"message": "Member removed successfully"}

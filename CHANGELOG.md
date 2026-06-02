@@ -16,9 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Catch-all dynamic route `client/app/[locale]/[...rest]/page.tsx` to cleanly route all unmapped localized paths to the beautiful custom 404 Not Found screen.
-- Language, notification preference, and screen Theme settings cards to the settings dashboard.
 - Scored `/teams/{team_id}/search-users` endpoint on Python backend to search active non-member users for team invitation.
-- Interactive user search auto-suggest dropdown in `BandMembersSidebar` allowing invitation by nickname/email search.
+- Endpoint `DELETE /teams/{team_id}/members/{user_id}` on Python backend to allow removing team members or leaving the team.
+- Language, notification preference, and screen Theme settings cards to the settings dashboard.
 - `PracticeLogComment` database models, Pydantic schemas, and comment endpoints (`POST` & `DELETE`) to enable team commentary on practice logs.
 - Interactive comments list display and comment publishing box under each uploaded practice vlog in the practice calendar.
 - Scoped project manager tab (`SongBoard`) inside the collaboration dashboard, filtering song projects by `teamId`.
@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scoped configuration `APP_ENV` check in `src/api/limiter.py` to bypass slowapi rate limiting during local development and E2E testing to prevent 429 errors.
 
 ### Changed
+- Restricted team member invitation, user search, position (instrument) updates, and member removal to team owners (managers) and editors (sub-managers) on backend and frontend sidebar.
+- Enabled normal team members (`viewer` role) to only update their own instrument/position, disabling other members' comboboxes.
 - Refactored Next.js middleware `client/proxy.ts` to only lock down explicit private routes (`/dashboard`, `/projects`, `/settings`), letting undefined URLs correctly pass through to show custom localized 404 screens.
 - Refactored settings page (`/settings`) from a single panel into an aesthetic, highly interactive 2-column settings dashboard.
 - Adjusted Next.js middleware matchers inside `proxy.ts` to allow `/images` static assets loading without throwing 307 login redirection.
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated requirements.txt with version constraints
 
 ### Fixed
+- Resolved user profile image loading and broken image issues by converting relative upload paths into absolute urls via `getProfileImageUrl` utility across the settings page, top navigation header, and cooperation boards.
 - Fixed property access compilation error in `client/app/[locale]/settings/page.tsx` by referencing unwrapped user profile image `res.profile_image` instead of raw axios `res.data`.
 - Fixed Playwright E2E tests (`project.spec.ts`, `player.spec.ts`) login flows by adopting a self-healing UI-based conditional login check and eliminating redundant `afterEach` cookie clearing, yielding a 4x testing speedup (1.1 min -> 15 sec).
 - Adjusted URL regex matchers in `error.spec.ts` to properly tolerate locale-specific route suffixes.

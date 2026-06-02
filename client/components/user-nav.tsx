@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useSession, signOut } from 'next-auth/react';
 import { LogOut, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { getProfileImageUrl } from '@/lib/utils';
 
 export function UserNav() {
   const { data: session } = useSession();
@@ -32,7 +33,10 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8 border border-zinc-700">
-            <AvatarImage src={session.user.image || ''} alt={session.user.name || ''} />
+            <AvatarImage
+              src={getProfileImageUrl(session.user.image)}
+              alt={session.user.name || ''}
+            />
             <AvatarFallback>{session.user.name?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
         </Button>

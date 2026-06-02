@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api-client';
-import { cn } from '@/lib/utils';
+import { cn, getProfileImageUrl } from '@/lib/utils';
 import { useTeam } from '@/components/team-provider';
 import type {
   CollaborationPostResponse,
@@ -578,7 +578,7 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
                     {post.user.profile_image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={post.user.profile_image}
+                        src={getProfileImageUrl(post.user.profile_image)}
                         alt={post.user.nickname}
                         className="object-cover w-full h-full"
                       />

@@ -23,11 +23,11 @@ const authMiddleware = withAuth(
 
 export default function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  
+
   // Explicit private paths that require authorization (with optional locale prefixes)
   const privatePathnameRegex = RegExp(
     `^(/(${['ko', 'en'].join('|')}))?/(dashboard|projects|settings)`,
-    'i'
+    'i',
   );
   const isPrivatePage = privatePathnameRegex.test(pathname);
 

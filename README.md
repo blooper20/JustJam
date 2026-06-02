@@ -14,9 +14,15 @@
 
 ### 1. 🎧 AI-Based Audio Source Separation
 - Equips the **Facebook Demucs v4 (htdemucs_6s)** model to precisely separate a single imported audio file into multiple individual tracks (Vocals, Drums, Bass, Guitar, Piano, and Other instruments) in real time.
-- The separated audio tracks are immediately available as stems for practicing individual part.
+- The separated audio tracks are immediately available as stems for practicing individual parts.
 
+### 2. 🎹 AI-Based MIDI Transcription
+- Utilizes the **Spotify Basic Pitch** neural network to transcribe melodies from separated vocal, guitar, bass, or piano stems.
+- Converts the transcribed notes into standard MIDI files and supports quantizing to a 16th-note grid for alignment.
 
+### 3. 🗓️ Band Setlog & Collaboration Board
+- **Setlog (Practice Logs)**: Supports capturing a 15-second practice clip, trimming it down to a 5-second window using an iOS-style trimmer UI, overlaying text (up to 20 chars), and merging them into a unified vlog (Auto-Vlog).
+- **Communication & Scheduling**: Contains an interactive scheduling board to coordinate rehearsal slots and announcement/poll pages with comments and real-time polling synchronization.
 
 ### 4. 🎛️ Interactive Multitrack Mixer
 - Leverages the **WaveSurfer.js** engine to visualize separated multitrack waveforms in the browser and provides fully synchronized playback.
@@ -28,7 +34,9 @@
 
 ### 6. 🤝 Real-Time Collaboration Workspace
 - Provides a real-time project sharing and permission management system for band members.
-- Differentiates Viewer and Editor permissions based on each member's role to sync collaborative arrangement and practice records.
+- Differentiates permissions based on roles:
+  - **Manager (Owner)** and **Sub-Manager (Editor)**: Full control to invite members, update any member's position (instrument), and remove members.
+  - **Member (Viewer)**: Only allowed to update their own position (instrument); other positions and administrative actions are locked.
 
 ---
 

@@ -1,94 +1,83 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen } from '@testing-library/react';
-import DashboardPage from '../app/[locale]/dashboard/page';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import TeamSelectionPage from '../app/[locale]/dashboard/page';
 
-// Mock react-query
-jest.mock('@tanstack/react-query', () => ({
-  useQuery: jest.fn(),
-  useMutation: jest.fn(),
-  useQueryClient: jest.fn(),
-}));
-
-// Mock sonner
-jest.mock('sonner', () => ({
-  toast: jest.fn(),
+// Mock team-provider
+const mockUseTeam = jest.fn();
+jest.mock('@/components/team-provider', () => ({
+  useTeam: () => mockUseTeam(),
 }));
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
+  useRouter: () => ({
+    push: jest.fn(),
+  }),
+}));
+
+// Mock next-auth/react
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({ data: { user: { id: 1 } } }),
+}));
+
+// Mock @tanstack/react-query
+jest.mock('@tanstack/react-query', () => ({
+  useMutation: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
+  useQueryClient: jest.fn(() => ({ invalidateQueries: jest.fn() })),
+}));
+
+// Mock next-intl
+jest.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
 }));
 
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
-  // eslint-disable-next-line @next/next/no-img-element
   default: (props: any) => <img {...props} alt="" />,
 }));
 
-describe('DashboardPage', () => {
-  const mockProjects = [
-    {
-      id: '1',
-      name: 'Test Song 1',
-      status: 'completed',
-      created_at: '2024-01-20T10:00:00Z',
-    },
-    {
-      id: '2',
-      name: 'Test Song 2',
-      status: 'processing',
-      created_at: '2024-01-21T10:00:00Z',
-    },
-  ];
-
-  beforeEach(() => {
-    (useQueryClient as jest.Mock).mockReturnValue({
-      invalidateQueries: jest.fn(),
-    });
-    (useMutation as jest.Mock).mockReturnValue({
-      mutate: jest.fn(),
-      isPending: false,
-    });
-  });
-
+describe('TeamSelectionPage', () => {
   it('renders loading state', () => {
-    (useQuery as jest.Mock).mockReturnValue({
-      data: null,
+    mockUseTeam.mockReturnValue({
+      teams: [],
+      setSelectedTeamId: jest.fn(),
       isLoading: true,
     });
 
-    render(<DashboardPage />);
-    expect(screen.getByText(/프로젝트 불러오는 중/i)).toBeInTheDocument();
+    render(<TeamSelectionPage />);
+    const spinner = document.querySelector('.animate-spin');
+    expect(spinner).toBeInTheDocument();
   });
 
-  it('renders project list correctly', () => {
-    (useQuery as jest.Mock).mockReturnValue({
-      data: mockProjects,
+  it('renders team list correctly', () => {
+    mockUseTeam.mockReturnValue({
+      teams: [
+        { id: 1, name: 'Delispice', owner_id: 1, members: [{}, {}] },
+        { id: 2, name: 'Maroon 5', owner_id: 2, members: [{}] },
+      ],
+      setSelectedTeamId: jest.fn(),
       isLoading: false,
     });
 
-    render(<DashboardPage />);
+    render(<TeamSelectionPage />);
 
-    expect(screen.getByText('Test Song 1')).toBeInTheDocument();
-    expect(screen.getByText('Test Song 2')).toBeInTheDocument();
-    expect(screen.getByText('완료됨')).toBeInTheDocument();
-    expect(screen.getByText('분리 중...')).toBeInTheDocument();
+    expect(screen.getByText('Delispice')).toBeInTheDocument();
+    expect(screen.getByText('Maroon 5')).toBeInTheDocument();
+    expect(screen.getByText('멤버 2명')).toBeInTheDocument();
+    expect(screen.getByText('멤버 1명')).toBeInTheDocument();
   });
 
-  it('shows stats correctly', () => {
-    (useQuery as jest.Mock).mockReturnValue({
-      data: mockProjects,
+  it('shows empty state when no teams exist', () => {
+    mockUseTeam.mockReturnValue({
+      teams: [],
+      setSelectedTeamId: jest.fn(),
       isLoading: false,
     });
 
-    render(<DashboardPage />);
+    render(<TeamSelectionPage />);
 
-    // Completed projects: 1 (Song 1 is completed. Song 2 is processing).
-
-    // Check "보유 중" for Songs (completedProjects)
-    const completedLabels = screen.getAllByText('보유 중');
-    expect(completedLabels.length).toBe(1); // One for tracks category
+    expect(screen.getByText('첫 번째 밴드를 만들어보세요')).toBeInTheDocument();
+    expect(screen.getByText('새 밴드 만들기')).toBeInTheDocument();
   });
 });

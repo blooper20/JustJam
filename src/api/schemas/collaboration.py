@@ -120,6 +120,22 @@ class PracticeLogCreate(BaseModel):
     logged_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", example="2026-05-28")
 
 
+class PracticeLogCommentResponse(BaseModel):
+    id: int
+    practice_log_id: int
+    user_id: int
+    content: str
+    created_at: datetime
+    user: UserResponse
+
+    class Config:
+        from_attributes = True
+
+
+class PracticeLogCommentCreate(BaseModel):
+    content: str
+
+
 class PracticeLogResponse(BaseModel):
     id: int
     project_id: str
@@ -132,6 +148,7 @@ class PracticeLogResponse(BaseModel):
     logged_date: str
     created_at: datetime
     user: UserResponse
+    comments: List[PracticeLogCommentResponse] = []
 
     class Config:
         from_attributes = True

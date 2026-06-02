@@ -164,6 +164,35 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         assert updated_json["start_time"] == 5.0
         assert updated_json["overlay_text"] == "Updated overlay text"
 
+        # 10.4 Add Comment to Practice Vlog
+        comment_response = client.post(
+            f"/projects/{project_id}/practice-logs/{vlog_id}/comments",
+            json={"content": "Nice practice video!"},
+            headers=auth_headers,
+        )
+        assert comment_response.status_code == status.HTTP_200_OK
+        comment_json = comment_response.json()
+        assert comment_json["content"] == "Nice practice video!"
+        practice_comment_id = comment_json["id"]
+
+        # List Practice Logs and verify comment is included
+        list_response = client.get(
+            f"/projects/{project_id}/practice-logs",
+            headers=auth_headers,
+        )
+        assert list_response.status_code == status.HTTP_200_OK
+        logs_list = list_response.json()
+        assert len(logs_list) >= 1
+        assert len(logs_list[0]["comments"]) >= 1
+        assert logs_list[0]["comments"][0]["content"] == "Nice practice video!"
+
+        # Delete Practice Vlog Comment
+        del_comment_response = client.delete(
+            f"/projects/{project_id}/practice-logs/{vlog_id}/comments/{practice_comment_id}",
+            headers=auth_headers,
+        )
+        assert del_comment_response.status_code == status.HTTP_200_OK
+
         # 10.5 Delete Practice Vlog
         del_url = f"/projects/{project_id}/practice-logs/{vlog_id}"
         del_response = client.delete(del_url, headers=auth_headers)

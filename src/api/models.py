@@ -42,7 +42,12 @@ class User(Base):
     availabilities = relationship(
         "UserAvailability", back_populates="user", cascade="all, delete-orphan"
     )
-    practice_logs = relationship("PracticeLog", back_populates="user", cascade="all, delete-orphan")
+    practice_logs = relationship(
+        "PracticeLog", back_populates="user", cascade="all, delete-orphan"
+    )
+    practice_log_comments = relationship(
+        "PracticeLogComment", back_populates="user", cascade="all, delete-orphan"
+    )
 
     # 복합 인덱스: provider와 provider_id 조합으로 빠른 조회
     __table_args__ = (Index("idx_provider_id", "provider", "provider_id"),)
@@ -287,3 +292,29 @@ class PracticeLog(Base):
     # Relationships
     project = relationship("ProjectModel", back_populates="practice_logs")
     user = relationship("User", back_populates="practice_logs")
+    comments = relationship(
+        "PracticeLogComment",
+        back_populates="practice_log",
+        cascade="all, delete-orphan",
+        order_by="PracticeLogComment.created_at.asc()",
+    )
+
+
+class PracticeLogComment(Base):
+    """연습 일지(Vlog) 영상에 대한 댓글 모델"""
+
+    __tablename__ = "practice_log_comments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    practice_log_id = Column(
+        Integer, ForeignKey("practice_logs.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    content = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    practice_log = relationship("PracticeLog", back_populates="comments")
+    user = relationship("User", back_populates="practice_log_comments")

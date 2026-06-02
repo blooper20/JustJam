@@ -29,6 +29,15 @@ interface PracticeCalendarProps {
   teamId: number;
 }
 
+export interface PracticeLogCommentResponse {
+  id: number;
+  practice_log_id: number;
+  user_id: number;
+  content: string;
+  created_at: string;
+  user: UserResponse;
+}
+
 export interface PracticeLogResponse {
   id: number;
   project_id: string;
@@ -41,6 +50,7 @@ export interface PracticeLogResponse {
   logged_date: string;
   created_at: string;
   user: UserResponse;
+  comments?: PracticeLogCommentResponse[];
 }
 
 import { TeamMember } from '@/lib/api';
@@ -157,6 +167,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const [description, setDescription] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [activeVlogUrl, setActiveVlogUrl] = useState<string | null>(null);
+  const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
 
   // ── 크롭 및 중앙 텍스트 상태 ──
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
@@ -381,6 +392,47 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     },
   });
 
+  // 5. Create Comment Mutation
+  const createCommentMutation = useMutation({
+    mutationFn: async ({ logId, content }: { logId: number; content: string }) => {
+      const res = await apiClient.post(`/projects/${projectId}/practice-logs/${logId}/comments`, {
+        content,
+      });
+      return res.data;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['practice-logs', projectId] });
+      setCommentInputs((prev) => ({ ...prev, [vars.logId]: '' }));
+      toast.success('댓글이 등록되었습니다.');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || '댓글 등록에 실패했습니다.');
+    },
+  });
+
+  // 6. Delete Comment Mutation
+  const deleteCommentMutation = useMutation({
+    mutationFn: async ({ logId, commentId }: { logId: number; commentId: number }) => {
+      const res = await apiClient.delete(
+        `/projects/${projectId}/practice-logs/${logId}/comments/${commentId}`,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['practice-logs', projectId] });
+      toast.success('댓글이 삭제되었습니다.');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || '댓글 삭제에 실패했습니다.');
+    },
+  });
+
+  const handleCommentSubmit = (logId: number) => {
+    const content = commentInputs[logId];
+    if (!content || !content.trim()) return;
+    createCommentMutation.mutate({ logId, content: content.trim() });
+  };
+
   // ── 파일 선택 핸들러 ──
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -597,63 +649,124 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               {getLogsForDate(selectedDate).map((log) => (
                 <div
                   key={log.id}
-                  className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-850"
+                  className="flex flex-col p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-850 space-y-2.5"
                 >
-                  <div className="space-y-1 min-w-0">
-                    <p className="text-xs font-bold text-zinc-300 truncate">{log.user.nickname}</p>
-                    <p className="text-[10px] text-zinc-400 truncate">
-                      {log.description || '연습 완료'}
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-xs font-bold text-zinc-300 truncate">
+                        {log.user.nickname}
+                      </p>
+                      <p className="text-[10px] text-zinc-400 truncate">
+                        {log.description || '연습 완료'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const videoFullUrl = `${API_BASE_URL.replace('/api/v1', '')}${log.video_url}`;
+                          setActiveVlogUrl(videoFullUrl);
+                        }}
+                        className="gap-1 text-pink-400 hover:text-pink-300"
+                      >
+                        <Play size={10} className="fill-current" /> 재생
+                      </Button>
+                      {log.user_id === currentUserId && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingLog(log);
+                              setEditDescription(log.description || '');
+                              setEditStartTime(log.start_time || 0);
+                              setEditOverlayText(log.overlay_text || '');
+                              setEditPreviewCurrentTime(log.start_time || 0);
+                              setEditVideoDuration(null);
+                              setIsEditModalOpen(true);
+                            }}
+                            className="text-zinc-500 hover:text-pink-500 h-8 w-8 p-0"
+                          >
+                            <Edit2 size={12} />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={deleteVlogMutation.isPending}
+                            onClick={() => {
+                              if (confirm('이 연습 영상을 삭제하시겠습니까?')) {
+                                deleteVlogMutation.mutate(log.id);
+                              }
+                            }}
+                            className="text-zinc-500 hover:text-red-500 h-8 w-8 p-0"
+                          >
+                            {deleteVlogMutation.isPending ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 size={12} />
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        const videoFullUrl = `${API_BASE_URL.replace('/api/v1', '')}${log.video_url}`;
-                        setActiveVlogUrl(videoFullUrl);
-                      }}
-                      className="gap-1 text-pink-400 hover:text-pink-300"
-                    >
-                      <Play size={10} className="fill-current" /> 재생
-                    </Button>
-                    {log.user_id === currentUserId && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditingLog(log);
-                            setEditDescription(log.description || '');
-                            setEditStartTime(log.start_time || 0);
-                            setEditOverlayText(log.overlay_text || '');
-                            setEditPreviewCurrentTime(log.start_time || 0);
-                            setEditVideoDuration(null);
-                            setIsEditModalOpen(true);
-                          }}
-                          className="text-zinc-500 hover:text-pink-500 h-8 w-8 p-0"
-                        >
-                          <Edit2 size={12} />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={deleteVlogMutation.isPending}
-                          onClick={() => {
-                            if (confirm('이 연습 영상을 삭제하시겠습니까?')) {
-                              deleteVlogMutation.mutate(log.id);
-                            }
-                          }}
-                          className="text-zinc-500 hover:text-red-500 h-8 w-8 p-0"
-                        >
-                          {deleteVlogMutation.isPending ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Trash2 size={12} />
-                          )}
-                        </Button>
-                      </>
+
+                  {/* 댓글 섹션 (Comments Section) */}
+                  <div className="pt-2 border-t border-zinc-800/60 space-y-2">
+                    {log.comments && log.comments.length > 0 && (
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                        {log.comments.map((comment) => (
+                          <div
+                            key={comment.id}
+                            className="text-[10px] flex items-start justify-between gap-2 group"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="font-bold text-zinc-300 mr-1.5">
+                                {comment.user?.nickname || 'Unknown'}:
+                              </span>
+                              <span className="text-zinc-450 break-all">{comment.content}</span>
+                            </div>
+                            {comment.user_id === currentUserId && (
+                              <button
+                                onClick={() =>
+                                  deleteCommentMutation.mutate({
+                                    logId: log.id,
+                                    commentId: comment.id,
+                                  })
+                                }
+                                className="text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
+
+                    {/* 댓글 입력 창 */}
+                    <div className="flex gap-1.5 items-center">
+                      <Input
+                        placeholder="댓글 입력..."
+                        value={commentInputs[log.id] || ''}
+                        onChange={(e) =>
+                          setCommentInputs((prev) => ({ ...prev, [log.id]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleCommentSubmit(log.id);
+                        }}
+                        className="bg-zinc-950 border-zinc-850 text-zinc-300 h-7 text-[10px] flex-1 px-2 focus-visible:ring-pink-500/30"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleCommentSubmit(log.id)}
+                        disabled={createCommentMutation.isPending || !commentInputs[log.id]?.trim()}
+                        className="h-7 px-2.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                      >
+                        등록
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -671,12 +784,6 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
               className="pt-3 border-t border-zinc-800/80 space-y-3"
             >
               <p className="text-xs font-bold text-zinc-300">{t('uploadVlog')}</p>
-              <Input
-                placeholder="연습 코멘트 입력..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="bg-zinc-900 border-zinc-800 text-zinc-200 h-8 text-xs"
-              />
 
               {/* 선택된 파일 표시 및 편집 오버레이 */}
               {videoFile && (

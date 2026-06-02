@@ -14,6 +14,7 @@ from src.api.models import (
     PostOption,
     PostScheduleTime,
     PracticeLog,
+    PracticeLogComment,
     ProjectMember,
     ProjectModel,
     User,
@@ -29,6 +30,8 @@ from src.api.schemas.collaboration import (
     PostOptionCreate,
     PostOptionResponse,
     PracticeLogResponse,
+    PracticeLogCommentCreate,
+    PracticeLogCommentResponse,
 )
 from src.api.schemas.user import UserResponse
 
@@ -537,7 +540,10 @@ async def list_practice_logs(
     logs = (
         db.query(PracticeLog)
         .filter(PracticeLog.project_id == project_id)
-        .options(joinedload(PracticeLog.user))
+        .options(
+            joinedload(PracticeLog.user),
+            joinedload(PracticeLog.comments).joinedload(PracticeLogComment.user),
+        )
         .order_by(PracticeLog.logged_date.desc(), PracticeLog.created_at.desc())
         .all()
     )
@@ -657,7 +663,10 @@ async def create_practice_log(
     log_entry = (
         db.query(PracticeLog)
         .filter(PracticeLog.id == log_entry.id)
-        .options(joinedload(PracticeLog.user))
+        .options(
+            joinedload(PracticeLog.user),
+            joinedload(PracticeLog.comments).joinedload(PracticeLogComment.user),
+        )
         .first()
     )
     return log_entry
@@ -851,7 +860,10 @@ async def update_practice_log(
     log = (
         db.query(PracticeLog)
         .filter(PracticeLog.id == log.id)
-        .options(joinedload(PracticeLog.user))
+        .options(
+            joinedload(PracticeLog.user),
+            joinedload(PracticeLog.comments).joinedload(PracticeLogComment.user),
+        )
         .first()
     )
     return log
@@ -893,3 +905,86 @@ async def search_users(
         .all()
     )
     return users
+
+
+# ============= Practice Log Comments Routes =============
+
+
+@router.post(
+    "/projects/{project_id}/practice-logs/{log_id}/comments",
+    response_model=PracticeLogCommentResponse,
+    summary="연습 일지 댓글 등록",
+)
+async def create_practice_log_comment(
+    project_id: str,
+    log_id: int,
+    comment_in: PracticeLogCommentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or project.team_id is None:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, int(project.team_id), current_user)
+
+    log = (
+        db.query(PracticeLog)
+        .filter(PracticeLog.id == log_id, PracticeLog.project_id == project_id)
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="Practice log not found")
+
+    new_comment = PracticeLogComment(
+        practice_log_id=log_id,
+        user_id=current_user.id,
+        content=comment_in.content,
+    )
+    db.add(new_comment)
+    db.commit()
+    db.refresh(new_comment)
+
+    comment_db = (
+        db.query(PracticeLogComment)
+        .filter(PracticeLogComment.id == new_comment.id)
+        .options(joinedload(PracticeLogComment.user))
+        .first()
+    )
+    if not comment_db:
+        raise HTTPException(status_code=404, detail="Comment registration failed")
+    return comment_db
+
+
+@router.delete(
+    "/projects/{project_id}/practice-logs/{log_id}/comments/{comment_id}",
+    summary="연습 일지 댓글 삭제",
+)
+async def delete_practice_log_comment(
+    project_id: str,
+    log_id: int,
+    comment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or project.team_id is None:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, int(project.team_id), current_user)
+
+    comment = (
+        db.query(PracticeLogComment)
+        .filter(
+            PracticeLogComment.id == comment_id,
+            PracticeLogComment.practice_log_id == log_id,
+        )
+        .first()
+    )
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="자신의 댓글만 삭제할 수 있습니다.")
+
+    db.delete(comment)
+    db.commit()
+    return {"message": "Comment deleted successfully"}

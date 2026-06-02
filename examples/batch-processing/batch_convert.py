@@ -21,8 +21,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.transcriber import transcribe_audio
 from src.tab_generator import create_tab
+from src.transcriber import transcribe_audio
 
 
 def batch_convert(directory: str = "resource/"):
@@ -55,17 +55,17 @@ def batch_convert(directory: str = "resource/"):
 
         try:
             # Transcribe audio
-            print(f"  → Analyzing audio...")
+            print("  → Analyzing audio...")
             notes, bpm = transcribe_audio(audio_file)
             print(f"  → Detected {len(notes)} notes, BPM: {bpm:.2f}")
 
             # Generate tab
-            print(f"  → Generating tablature...")
+            print("  → Generating tablature...")
             tab = create_tab(notes, bpm=bpm)
 
             # Save to file
-            output_file = audio_file.rsplit('.', 1)[0] + '_tab.txt'
-            with open(output_file, 'w', encoding='utf-8') as f:
+            output_file = audio_file.rsplit(".", 1)[0] + "_tab.txt"
+            with open(output_file, "w", encoding="utf-8") as f:
                 f.write(f"# Generated from: {filename}\n")
                 f.write(f"# BPM: {bpm:.2f}\n")
                 f.write(f"# Notes detected: {len(notes)}\n\n")
@@ -83,18 +83,18 @@ def batch_convert(directory: str = "resource/"):
     print(f"✅ Successfully processed: {success_count}/{len(audio_files)}")
 
     if failed_files:
-        print(f"\n❌ Failed files:")
+        print("\n❌ Failed files:")
         for filename, error in failed_files:
             print(f"  - {filename}: {error}")
     else:
-        print(f"🎉 All files processed successfully!")
+        print("🎉 All files processed successfully!")
 
 
 if __name__ == "__main__":
     # Get directory from command line or use default
     directory = sys.argv[1] if len(sys.argv) > 1 else "resource/"
 
-    print(f"🎸 Batch Audio to Tab Converter")
+    print("🎸 Batch Audio to Tab Converter")
     print(f"📁 Directory: {directory}\n")
 
     batch_convert(directory)

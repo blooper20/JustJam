@@ -122,7 +122,7 @@ const TRANSLATIONS = {
 };
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const currentLocale = useLocale() as 'ko' | 'en';
   const t = TRANSLATIONS[currentLocale] || TRANSLATIONS.ko;
   const router = useRouter();
@@ -159,11 +159,15 @@ export default function SettingsPage() {
     if (!nickname.trim()) return;
     setIsUpdating(true);
     try {
-      await apiClient.patch('/users/me', { nickname });
+      const res = await apiClient.patch('/users/me', { nickname: nickname.trim() });
       toast.success(t.profileUpdateSuccess);
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          name: res.data.nickname,
+        },
+      });
     } catch (error) {
       console.error(error);
       toast.error(t.profileUpdateFail);
@@ -178,14 +182,33 @@ export default function SettingsPage() {
 
     setIsUploading(true);
     try {
-      await uploadProfileImage(file);
+      const res = await uploadProfileImage(file);
       toast.success(t.profileImageSuccess);
-      window.location.reload();
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          image: res.profile_image,
+        },
+      });
     } catch (error) {
       console.error(error);
       toast.error(t.profileUpdateFail);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const applyTheme = (themeMode: string) => {
+    if (typeof window === 'undefined') return;
+
+    if (themeMode === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else if (themeMode === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (themeMode === 'system') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', isDark);
     }
   };
 
@@ -196,6 +219,7 @@ export default function SettingsPage() {
       localStorage.setItem('notif-notice', String(notifNotice));
       localStorage.setItem('notif-vote', String(notifVote));
       localStorage.setItem('notif-comment', String(notifComment));
+      applyTheme(theme);
       setIsSavingPref(false);
       toast.success(t.preferencesSaved);
     }, 500);
@@ -351,10 +375,10 @@ export default function SettingsPage() {
                         <SelectItem value="dark" className="text-xs text-zinc-300">
                           {t.themeDark}
                         </SelectItem>
-                        <SelectItem value="light" className="text-xs text-zinc-500" disabled>
+                        <SelectItem value="light" className="text-xs text-zinc-300">
                           {t.themeLight}
                         </SelectItem>
-                        <SelectItem value="system" className="text-xs text-zinc-500" disabled>
+                        <SelectItem value="system" className="text-xs text-zinc-300">
                           {t.themeSystem}
                         </SelectItem>
                       </SelectContent>

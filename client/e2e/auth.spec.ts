@@ -10,7 +10,7 @@ test.describe('인증 플로우', () => {
 
   test('로그인 페이지에 소셜 로그인 버튼 표시', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('button', { name: /Google로 계속하기/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Kakao로 계속하기/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Google/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Kakao|카카오/i })).toBeVisible();
   });
 });

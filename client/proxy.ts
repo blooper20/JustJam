@@ -22,14 +22,20 @@ const authMiddleware = withAuth(
 );
 
 export default function middleware(req: NextRequest) {
-  const publicPathnameRegex = RegExp(`^(/(${['ko', 'en'].join('|')}))?(/($|login|register))`, 'i');
-  const isPublicPage = publicPathnameRegex.test(req.nextUrl.pathname);
+  const pathname = req.nextUrl.pathname;
+  
+  // Explicit private paths that require authorization (with optional locale prefixes)
+  const privatePathnameRegex = RegExp(
+    `^(/(${['ko', 'en'].join('|')}))?/(dashboard|projects|settings)`,
+    'i'
+  );
+  const isPrivatePage = privatePathnameRegex.test(pathname);
 
-  if (isPublicPage) {
-    return intlMiddleware(req);
-  } else {
+  if (isPrivatePage) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (authMiddleware as any)(req);
+  } else {
+    return intlMiddleware(req);
   }
 }
 

@@ -2,8 +2,19 @@ import { test, expect } from '@playwright/test';
 
 test.describe('멀티트랙 플레이어 인터페이스', () => {
   test.beforeEach(async ({ page }) => {
-    // 특정 프로젝트 상세 페이지로 바로 접근 (실제 ID가 필요하나, 여기선 UI 구조 위주로 테스트)
+    // 1. 메인 페이지 방문 후 로그인 여부 파악
+    await page.goto('/');
+    const avatar = page.locator('button.relative.h-8.w-8.rounded-full');
+    if (!(await avatar.isVisible())) {
+      // 2. 비로그인 상태일 때만 로그인 절차 수행
+      await page.goto('/login');
+      await page.getByRole('button', { name: /테스트 계정/i }).click();
+      await avatar.waitFor({ state: 'visible', timeout: 15000 });
+    }
+    await page.waitForTimeout(1000);
+    // 3. 특정 프로젝트 상세 페이지로 바로 접근 (실제 ID가 필요하나, 여기선 UI 구조 위주로 테스트)
     await page.goto('/projects/test-project');
+    await page.waitForLoadState('networkidle');
   });
 
   test('플레이어 컨트롤 바가 화면 하단에 표시된다', async ({ page }) => {

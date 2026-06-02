@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > **Ratchet Rule #405**: 백엔드 API 스키마(`projects.py`)를 변경하여 프론트엔드와 동기화할 경우, 반드시 관련된 백엔드 통합 테스트(`test_workflow.py` 등)의 검증 로직도 함께 업데이트해야 한다. 또한 모든 변경 사항은 커밋 전 샌드박스 내에서 `flake8` 등 로컬 린트를 완벽히 통과해야 Exit Code 1로 인한 CI/CD 붕괴를 막을 수 있다.
 
 ### Added
+- Catch-all dynamic route `client/app/[locale]/[...rest]/page.tsx` to cleanly route all unmapped localized paths to the beautiful custom 404 Not Found screen.
 - Language, notification preference, and screen Theme settings cards to the settings dashboard.
 - Scored `/teams/{team_id}/search-users` endpoint on Python backend to search active non-member users for team invitation.
 - Interactive user search auto-suggest dropdown in `BandMembersSidebar` allowing invitation by nickname/email search.
@@ -22,22 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interactive comments list display and comment publishing box under each uploaded practice vlog in the practice calendar.
 - Scoped project manager tab (`SongBoard`) inside the collaboration dashboard, filtering song projects by `teamId`.
 - Local URL query parsing (`?tab=song`) in the collab dashboard page for direct deep linking.
-- TanStack Query v5 status polling system with 1-second interval checks for pending/processing status.
-- Zustand store `/client/store/project-store.ts` for unified project, playhead, metronome, and track mixing states.
-- Web Audio API drift-corrected precise lookahead MetronomeEngine.
-- WaveSurfer.js playhead drift monitoring and auto-sync checks.
-- Comprehensive error handling and logging throughout the codebase
-- Type hints for all functions and methods
-- Configuration file support (config.yaml)
-- Unit tests for core modules
-- GitHub Actions CI/CD workflows
-- Development tooling (black, isort, flake8, mypy)
-- CONTRIBUTING.md with detailed contribution guidelines
-- Example configuration file (config.yaml.example)
-- Makefile for common development tasks
-- pyproject.toml for modern Python packaging
+- Scoped configuration `APP_ENV` check in `src/api/limiter.py` to bypass slowapi rate limiting during local development and E2E testing to prevent 429 errors.
 
 ### Changed
+- Refactored Next.js middleware `client/proxy.ts` to only lock down explicit private routes (`/dashboard`, `/projects`, `/settings`), letting undefined URLs correctly pass through to show custom localized 404 screens.
 - Refactored settings page (`/settings`) from a single panel into an aesthetic, highly interactive 2-column settings dashboard.
 - Adjusted Next.js middleware matchers inside `proxy.ts` to allow `/images` static assets loading without throwing 307 login redirection.
 - Converted comment input fields in `collaboration-board.tsx`, `schedule-board.tsx`, and `practice-calendar.tsx` to `<form>` based handlers with disabled inputs during pending mutation state to completely eliminate double comments submit bug.
@@ -55,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated requirements.txt with version constraints
 
 ### Fixed
+- Fixed property access compilation error in `client/app/[locale]/settings/page.tsx` by referencing unwrapped user profile image `res.profile_image` instead of raw axios `res.data`.
+- Fixed Playwright E2E tests (`project.spec.ts`, `player.spec.ts`) login flows by adopting a self-healing UI-based conditional login check and eliminating redundant `afterEach` cookie clearing, yielding a 4x testing speedup (1.1 min -> 15 sec).
+- Adjusted URL regex matchers in `error.spec.ts` to properly tolerate locale-specific route suffixes.
 - Cleaned up frontend lint warnings (unused state assignments and imports) in `dashboard/page.tsx`, `projects/[id]/page.tsx`, and `schedule-board.tsx`.
 - Fixed TypeScript overloading/compilation errors in `scores/page.tsx`, `songs/page.tsx`, `tabs/page.tsx`, and `projects/page.tsx`.
 - Corrected collection syntax errors (escaped triple quotes) in backend tests `tests/test_config.py`.

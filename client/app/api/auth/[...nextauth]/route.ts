@@ -31,7 +31,12 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
+      if (trigger === 'update' && session?.user) {
+        if (session.user.name) token.name = session.user.name;
+        if (session.user.image) token.picture = session.user.image;
+      }
+
       // Initial sign in
       if (account && user) {
         try {
@@ -61,6 +66,8 @@ export const authOptions: NextAuthOptions = {
             token.accessToken = data.access_token;
             token.refreshToken = data.refresh_token;
             token.userId = data.user.id;
+            token.name = data.user.nickname;
+            token.picture = data.user.profile_image;
           } else {
             console.error('Backend login failed:', await response.text());
           }
@@ -77,6 +84,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (session.user as any).id = token.userId;
+        if (token.name) session.user.name = token.name;
+        if (token.picture) session.user.image = token.picture;
       }
       return session;
     },

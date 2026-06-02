@@ -21,14 +21,10 @@ export function DashboardLayoutWrapper({
   const { selectedTeam } = useTeam();
 
   const handleTabClick = (tab: Tab) => {
-    if (tab === 'song') {
-      router.push('/projects');
+    if (onTabChange) {
+      onTabChange(tab);
     } else {
-      if (activeTab === 'song') {
-        router.push('/dashboard/collab');
-      } else {
-        onTabChange?.(tab);
-      }
+      router.push(`/dashboard/collab?tab=${tab}`);
     }
   };
 

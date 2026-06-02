@@ -513,6 +513,10 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const getLogsForDate = (dateStr: string) =>
     logs?.filter((log) => log.logged_date === dateStr) || [];
 
+  const hasUploadedToday = logs?.some(
+    (log) => log.logged_date === selectedDate && log.user_id === currentUserId,
+  );
+
   return (
     <div className="space-y-6">
       {/* Practice Calendar Grid */}
@@ -657,235 +661,241 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
           )}
 
           {/* Upload Form */}
-          <form
-            onSubmit={handleUploadSubmit}
-            className="pt-3 border-t border-zinc-800/80 space-y-3"
-          >
-            <p className="text-xs font-bold text-zinc-300">{t('uploadVlog')}</p>
-            <Input
-              placeholder="연습 코멘트 입력..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="bg-zinc-900 border-zinc-800 text-zinc-200 h-8 text-xs"
-            />
+          {hasUploadedToday ? (
+            <div className="pt-4 border-t border-zinc-800/80 text-center py-6 text-xs text-zinc-500 italic bg-zinc-950/20 rounded-lg">
+              해당 날짜의 연습 영상 업로드가 완료되었습니다.
+            </div>
+          ) : (
+            <form
+              onSubmit={handleUploadSubmit}
+              className="pt-3 border-t border-zinc-800/80 space-y-3"
+            >
+              <p className="text-xs font-bold text-zinc-300">{t('uploadVlog')}</p>
+              <Input
+                placeholder="연습 코멘트 입력..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="bg-zinc-900 border-zinc-800 text-zinc-200 h-8 text-xs"
+              />
 
-            {/* 선택된 파일 표시 및 편집 오버레이 */}
-            {videoFile && (
-              <div className="space-y-4 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-md shadow-inner">
-                <div className="flex items-center justify-between text-xs text-zinc-300">
-                  <div className="flex items-center gap-2">
-                    <Video size={14} className="text-pink-500 animate-pulse" />
-                    <span className="font-semibold truncate max-w-[200px]">{videoFile.name}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateVideoFile(null);
-                      setOverlayText('');
-                      setStartTime(0);
-                    }}
-                    className="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-
-                {/* 미리보기 동영상 플레이어 */}
-                {previewObjectUrl && (
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-zinc-800">
-                    <video
-                      ref={previewVideoRef}
-                      src={previewObjectUrl}
-                      className="w-full h-full object-contain"
-                      controls
-                      playsInline
-                      onTimeUpdate={() => {
-                        if (previewVideoRef.current) {
-                          setPreviewCurrentTime(previewVideoRef.current.currentTime);
-                        }
+              {/* 선택된 파일 표시 및 편집 오버레이 */}
+              {videoFile && (
+                <div className="space-y-4 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-md shadow-inner">
+                  <div className="flex items-center justify-between text-xs text-zinc-300">
+                    <div className="flex items-center gap-2">
+                      <Video size={14} className="text-pink-500 animate-pulse" />
+                      <span className="font-semibold truncate max-w-[200px]">{videoFile.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateVideoFile(null);
+                        setOverlayText('');
+                        setStartTime(0);
                       }}
-                    />
-                    {/* 실시간 텍스트 오버레이 미리보기 */}
-                    {overlayText && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="bg-black/60 text-white px-3.5 py-1.5 rounded-lg text-sm md:text-base font-bold border border-white/20 shadow-2xl text-center max-w-[80%] break-all backdrop-blur-sm">
-                          {overlayText}
+                      className="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  {/* 미리보기 동영상 플레이어 */}
+                  {previewObjectUrl && (
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-zinc-800">
+                      <video
+                        ref={previewVideoRef}
+                        src={previewObjectUrl}
+                        className="w-full h-full object-contain"
+                        controls
+                        playsInline
+                        onTimeUpdate={() => {
+                          if (previewVideoRef.current) {
+                            setPreviewCurrentTime(previewVideoRef.current.currentTime);
+                          }
+                        }}
+                      />
+                      {/* 실시간 텍스트 오버레이 미리보기 */}
+                      {overlayText && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="bg-black/60 text-white px-3.5 py-1.5 rounded-lg text-sm md:text-base font-bold border border-white/20 shadow-2xl text-center max-w-[80%] break-all backdrop-blur-sm">
+                            {overlayText}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-zinc-300 font-mono pointer-events-none">
+                        미리보기
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 비주얼 타임라인 범위 표시기 및 시작 구간 선택 슬라이더 (합쳐진 버전) */}
+                  {videoDuration && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs font-bold text-zinc-400">
+                        <span>저장 구간 설정 (5초 고정)</span>
+                        <span className="text-pink-400 font-mono">
+                          {videoDuration > 5
+                            ? `${startTime.toFixed(1)}s ~ ${(startTime + 5 > videoDuration ? videoDuration : startTime + 5).toFixed(1)}s`
+                            : '전체 구간 저장'}
                         </span>
                       </div>
-                    )}
-                    <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-zinc-300 font-mono pointer-events-none">
-                      미리보기
-                    </div>
-                  </div>
-                )}
 
-                {/* 비주얼 타임라인 범위 표시기 및 시작 구간 선택 슬라이더 (합쳐진 버전) */}
-                {videoDuration && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs font-bold text-zinc-400">
-                      <span>저장 구간 설정 (5초 고정)</span>
-                      <span className="text-pink-400 font-mono">
-                        {videoDuration > 5
-                          ? `${startTime.toFixed(1)}s ~ ${(startTime + 5 > videoDuration ? videoDuration : startTime + 5).toFixed(1)}s`
-                          : '전체 구간 저장'}
-                      </span>
-                    </div>
-
-                    {videoDuration > 5 ? (
-                      <div className="space-y-1">
-                        <div
-                          className="relative w-full h-14 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex items-center cursor-pointer select-none"
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const clickX = e.clientX - rect.left;
-                            const percentage = clickX / rect.width;
-                            const clickedTime = percentage * videoDuration;
-
-                            let newStart = clickedTime - 2.5;
-                            if (newStart < 0) newStart = 0;
-                            if (newStart > videoDuration - 5) newStart = videoDuration - 5;
-
-                            setStartTime(newStart);
-                            setPreviewCurrentTime(newStart);
-                            if (previewVideoRef.current) {
-                              previewVideoRef.current.currentTime = newStart;
-                            }
-                          }}
-                        >
-                          {/* Filmstrip Thumbnails Backdrop */}
-                          <div className="absolute inset-0 grid grid-cols-10 gap-0.5 pointer-events-none opacity-50 z-0">
-                            {thumbnails.length > 0 ? (
-                              thumbnails.map((img, idx) => (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  key={idx}
-                                  src={img}
-                                  alt={`frame-${idx}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              ))
-                            ) : (
-                              <div className="col-span-10 w-full h-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 animate-pulse" />
-                            )}
-                          </div>
-
-                          {/* 5초 선택 영역 하이라이트 (iPhone Trimmer 스타일 노란색 박스) */}
+                      {videoDuration > 5 ? (
+                        <div className="space-y-1">
                           <div
-                            className="absolute h-full border-2 border-yellow-400 bg-yellow-400/10 pointer-events-none rounded-md z-10 transition-all duration-75"
-                            style={{
-                              left: `${(startTime / videoDuration) * 100}%`,
-                              width: `${(5 / videoDuration) * 100}%`,
-                            }}
-                          >
-                            {/* Left/Right handles */}
-                            <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-yellow-400 flex items-center justify-center">
-                              <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
-                            </div>
-                            <div className="absolute top-0 bottom-0 right-0 w-1.5 bg-yellow-400 flex items-center justify-center">
-                              <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
-                            </div>
-                          </div>
+                            className="relative w-full h-14 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex items-center cursor-pointer select-none"
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const clickX = e.clientX - rect.left;
+                              const percentage = clickX / rect.width;
+                              const clickedTime = percentage * videoDuration;
 
-                          {/* 재생 헤드 (현재 재생 위치) */}
-                          {previewCurrentTime !== undefined && (
-                            <div
-                              className="absolute top-0 bottom-0 w-0.5 bg-white z-15 pointer-events-none shadow-[0_0_8px_rgba(255,255,255,0.8)]"
-                              style={{
-                                left: `${(previewCurrentTime / videoDuration) * 100}%`,
-                              }}
-                            >
-                              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
-                            </div>
-                          )}
+                              let newStart = clickedTime - 2.5;
+                              if (newStart < 0) newStart = 0;
+                              if (newStart > videoDuration - 5) newStart = videoDuration - 5;
 
-                          {/* 슬라이더 인풋 (드래그 조작용, 전체 너비) */}
-                          <input
-                            type="range"
-                            min={0}
-                            max={videoDuration - 5}
-                            step={0.05}
-                            value={startTime}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              setStartTime(val);
-                              setPreviewCurrentTime(val);
+                              setStartTime(newStart);
+                              setPreviewCurrentTime(newStart);
                               if (previewVideoRef.current) {
-                                previewVideoRef.current.currentTime = val;
+                                previewVideoRef.current.currentTime = newStart;
                               }
                             }}
-                            onClick={(e) => e.stopPropagation()} // 컨테이너 클릭 이벤트 버블링 방지
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
-                          />
+                          >
+                            {/* Filmstrip Thumbnails Backdrop */}
+                            <div className="absolute inset-0 grid grid-cols-10 gap-0.5 pointer-events-none opacity-50 z-0">
+                              {thumbnails.length > 0 ? (
+                                thumbnails.map((img, idx) => (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    key={idx}
+                                    src={img}
+                                    alt={`frame-${idx}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ))
+                              ) : (
+                                <div className="col-span-10 w-full h-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 animate-pulse" />
+                              )}
+                            </div>
 
-                          {/* 좌우 시간 텍스트 오버레이 */}
-                          <div className="absolute bottom-1 inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-300 font-mono font-bold select-none z-10 bg-black/40 px-1 rounded">
-                            <span>0.0s</span>
-                            <span>{videoDuration.toFixed(1)}s</span>
+                            {/* 5초 선택 영역 하이라이트 (iPhone Trimmer 스타일 노란색 박스) */}
+                            <div
+                              className="absolute h-full border-2 border-yellow-400 bg-yellow-400/10 pointer-events-none rounded-md z-10 transition-all duration-75"
+                              style={{
+                                left: `${(startTime / videoDuration) * 100}%`,
+                                width: `${(5 / videoDuration) * 100}%`,
+                              }}
+                            >
+                              {/* Left/Right handles */}
+                              <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-yellow-400 flex items-center justify-center">
+                                <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
+                              </div>
+                              <div className="absolute top-0 bottom-0 right-0 w-1.5 bg-yellow-400 flex items-center justify-center">
+                                <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
+                              </div>
+                            </div>
+
+                            {/* 재생 헤드 (현재 재생 위치) */}
+                            {previewCurrentTime !== undefined && (
+                              <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-white z-15 pointer-events-none shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                                style={{
+                                  left: `${(previewCurrentTime / videoDuration) * 100}%`,
+                                }}
+                              >
+                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
+                              </div>
+                            )}
+
+                            {/* 슬라이더 인풋 (드래그 조작용, 전체 너비) */}
+                            <input
+                              type="range"
+                              min={0}
+                              max={videoDuration - 5}
+                              step={0.05}
+                              value={startTime}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setStartTime(val);
+                                setPreviewCurrentTime(val);
+                                if (previewVideoRef.current) {
+                                  previewVideoRef.current.currentTime = val;
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()} // 컨테이너 클릭 이벤트 버블링 방지
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
+                            />
+
+                            {/* 좌우 시간 텍스트 오버레이 */}
+                            <div className="absolute bottom-1 inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-300 font-mono font-bold select-none z-10 bg-black/40 px-1 rounded">
+                              <span>0.0s</span>
+                              <span>{videoDuration.toFixed(1)}s</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-zinc-500 italic">
-                        5초 이하의 영상은 전체 구간이 저장됩니다.
-                      </p>
-                    )}
+                      ) : (
+                        <p className="text-[10px] text-zinc-500 italic">
+                          5초 이하의 영상은 전체 구간이 저장됩니다.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 중앙 텍스트 입력 상자 */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-400">
+                      화면 중앙 텍스트 오버레이 (최대 20자)
+                    </label>
+                    <Input
+                      placeholder="영상 중앙에 표시할 짧은 문구 입력..."
+                      value={overlayText}
+                      onChange={(e) => setOverlayText(e.target.value)}
+                      maxLength={20}
+                      className="bg-zinc-950 border-zinc-850 text-zinc-200 h-8 text-xs focus-visible:ring-pink-500/50"
+                    />
                   </div>
-                )}
-
-                {/* 중앙 텍스트 입력 상자 */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-400">
-                    화면 중앙 텍스트 오버레이 (최대 20자)
-                  </label>
-                  <Input
-                    placeholder="영상 중앙에 표시할 짧은 문구 입력..."
-                    value={overlayText}
-                    onChange={(e) => setOverlayText(e.target.value)}
-                    maxLength={20}
-                    className="bg-zinc-950 border-zinc-850 text-zinc-200 h-8 text-xs focus-visible:ring-pink-500/50"
-                  />
                 </div>
+              )}
+
+              <div className="flex gap-2">
+                {/* 파일 업로드 버튼 */}
+                <label className="flex-1 flex items-center justify-center border border-dashed border-zinc-700 rounded-lg h-9 bg-zinc-900/30 hover:bg-zinc-800/50 cursor-pointer transition-colors text-zinc-400 text-xs gap-1.5">
+                  <Upload size={12} />
+                  보관함에서 선택
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* 카메라 촬영 버튼 */}
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  className="flex-1 flex items-center justify-center border border-dashed border-purple-700/50 rounded-lg h-9 bg-purple-900/10 hover:bg-purple-900/20 cursor-pointer transition-colors text-purple-400 text-xs gap-1.5"
+                >
+                  <Camera size={12} />
+                  직접 촬영하기
+                </button>
+
+                {/* 제출 버튼 */}
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={uploadVlogMutation.isPending || !videoFile}
+                  className="h-9 px-4 bg-pink-600 hover:bg-pink-700 text-white font-medium"
+                >
+                  {uploadVlogMutation.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    '제출'
+                  )}
+                </Button>
               </div>
-            )}
-
-            <div className="flex gap-2">
-              {/* 파일 업로드 버튼 */}
-              <label className="flex-1 flex items-center justify-center border border-dashed border-zinc-700 rounded-lg h-9 bg-zinc-900/30 hover:bg-zinc-800/50 cursor-pointer transition-colors text-zinc-400 text-xs gap-1.5">
-                <Upload size={12} />
-                보관함에서 선택
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-
-              {/* 카메라 촬영 버튼 */}
-              <button
-                type="button"
-                onClick={openCamera}
-                className="flex-1 flex items-center justify-center border border-dashed border-purple-700/50 rounded-lg h-9 bg-purple-900/10 hover:bg-purple-900/20 cursor-pointer transition-colors text-purple-400 text-xs gap-1.5"
-              >
-                <Camera size={12} />
-                직접 촬영하기
-              </button>
-
-              {/* 제출 버튼 */}
-              <Button
-                type="submit"
-                size="sm"
-                disabled={uploadVlogMutation.isPending || !videoFile}
-                className="h-9 px-4 bg-pink-600 hover:bg-pink-700 text-white font-medium"
-              >
-                {uploadVlogMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  '제출'
-                )}
-              </Button>
-            </div>
-          </form>
+            </form>
+          )}
         </CardContent>
       </Card>
 

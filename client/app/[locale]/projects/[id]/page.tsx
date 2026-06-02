@@ -60,7 +60,7 @@ export default function ProjectPage() {
     <div className="container mx-auto p-4 md:p-8 max-w-6xl">
       <div className="mb-6">
         <Link
-          href="/"
+          href="/dashboard/collab?tab=song"
           className="text-muted-foreground hover:text-primary flex items-center gap-2 mb-4"
         >
           <ArrowLeft size={16} /> 프로젝트 목록으로 돌아가기

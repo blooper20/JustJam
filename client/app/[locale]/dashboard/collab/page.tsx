@@ -8,7 +8,8 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchProjects } from '@/lib/api';
 import { PracticeCalendar } from '@/components/practice-calendar';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { SongBoard } from '@/components/song-board';
 import { DashboardLayoutWrapper } from '@/components/dashboard-layout-wrapper';
 import {
   Select,
@@ -22,9 +23,22 @@ type Tab = 'notice' | 'schedule' | 'song' | 'practice';
 
 export default function CollabDashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { selectedTeam, isLoading: teamLoading } = useTeam();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('notice');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const p = searchParams.get('tab') as Tab | null;
+    return p && ['notice', 'schedule', 'song', 'practice'].includes(p) ? p : 'notice';
+  });
+
+  const tabParam = searchParams.get('tab') as Tab | null;
+
+  useEffect(() => {
+    if (tabParam && ['notice', 'schedule', 'song', 'practice'].includes(tabParam)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   useEffect(() => {
     if (!teamLoading && !selectedTeam) {
@@ -76,6 +90,8 @@ export default function CollabDashboardPage() {
           </div>
         </div>
       )}
+
+      {activeTab === 'song' && <SongBoard teamId={selectedTeam.id} />}
 
       {activeTab === 'practice' && (
         <div className="space-y-4 h-full">

@@ -144,6 +144,7 @@ class CollaborationPost(Base):
     content = Column(String, nullable=False)
     post_type = Column(String, default="general")  # 'general', 'vote', 'schedule'
     youtube_url = Column(String, nullable=True)
+    confirmed_time = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

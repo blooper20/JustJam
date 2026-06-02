@@ -4,6 +4,7 @@ from datetime import datetime
 import redis.asyncio as redis
 import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -120,6 +121,31 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "detail": exc.detail,
             "instance": str(request.url),
             "code": f"HTTP_{exc.status_code}",
+            "extensions": {"timestamp": datetime.utcnow().isoformat() + "Z"},
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    error_messages = []
+    for err in errors:
+        loc = " -> ".join(str(path_item) for path_item in err.get("loc", []))
+        msg = err.get("msg", "Unknown error")
+        error_messages.append(f"{loc}: {msg}")
+
+    clean_message = ", ".join(error_messages)
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "type": "https://justjam.ai/errors/validation-error",
+            "title": "Validation Error",
+            "status": 422,
+            "detail": clean_message,
+            "instance": str(request.url),
+            "code": "VALIDATION_ERROR",
             "extensions": {"timestamp": datetime.utcnow().isoformat() + "Z"},
         },
     )

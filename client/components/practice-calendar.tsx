@@ -74,6 +74,78 @@ function getSupportedMimeType() {
   return '';
 }
 
+async function extractVideoThumbnails(videoUrl: string, count: number): Promise<string[]> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve([]);
+      return;
+    }
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+
+    const timeoutId = setTimeout(() => {
+      video.src = '';
+      resolve([]);
+    }, 15000); // 15 seconds timeout
+
+    video.addEventListener('loadedmetadata', async () => {
+      try {
+        const duration = video.duration;
+        const thumbnails: string[] = [];
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          clearTimeout(timeoutId);
+          resolve([]);
+          return;
+        }
+
+        canvas.width = 120;
+        canvas.height = 68;
+
+        const interval = duration / (count + 1);
+
+        for (let i = 1; i <= count; i++) {
+          const time = i * interval;
+          await new Promise<void>((r) => {
+            video.currentTime = time;
+            const onSeeked = () => {
+              video.removeEventListener('seeked', onSeeked);
+              try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                thumbnails.push(canvas.toDataURL('image/jpeg', 0.6));
+              } catch (e) {
+                console.error('Frame capture error:', e);
+              }
+              r();
+            };
+            video.addEventListener('seeked', onSeeked);
+          });
+        }
+
+        clearTimeout(timeoutId);
+        video.src = '';
+        resolve(thumbnails);
+      } catch (err) {
+        console.error('Metadata load callback error:', err);
+        clearTimeout(timeoutId);
+        video.src = '';
+        resolve([]);
+      }
+    });
+
+    video.addEventListener('error', () => {
+      clearTimeout(timeoutId);
+      video.src = '';
+      resolve([]);
+    });
+  });
+}
+
 export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const queryClient = useQueryClient();
   const t = useTranslations('Collab');
@@ -103,6 +175,34 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const [editVideoDuration, setEditVideoDuration] = useState<number | null>(null);
   const [editPreviewCurrentTime, setEditPreviewCurrentTime] = useState<number>(0);
   const editVideoRef = useRef<HTMLVideoElement>(null);
+
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const [editThumbnails, setEditThumbnails] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (previewObjectUrl) {
+      extractVideoThumbnails(previewObjectUrl, 10).then((imgs) => {
+        setThumbnails(imgs);
+      });
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setThumbnails([]);
+    }
+  }, [previewObjectUrl]);
+
+  useEffect(() => {
+    if (editingLog) {
+      const srcUrl = `${API_BASE_URL.replace('/api/v1', '')}${
+        editingLog.raw_video_url || editingLog.video_url
+      }`;
+      extractVideoThumbnails(srcUrl, 10).then((imgs) => {
+        setEditThumbnails(imgs);
+      });
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditThumbnails([]);
+    }
+  }, [editingLog]);
 
   // ── 카메라 촬영 상태 ──
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -165,15 +265,6 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
       if (recordedObjectUrl) URL.revokeObjectURL(recordedObjectUrl);
     };
   }, [previewObjectUrl, recordedObjectUrl]);
-
-  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setStartTime(val);
-    setPreviewCurrentTime(val);
-    if (previewVideoRef.current) {
-      previewVideoRef.current.currentTime = val;
-    }
-  };
 
   // 카메라 모달이 열리면 스트림을 video 요소에 연결
   useEffect(() => {
@@ -643,15 +734,13 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                     {videoDuration > 5 ? (
                       <div className="space-y-1">
                         <div
-                          className="relative w-full h-8 bg-zinc-950 border border-zinc-800/85 rounded-md overflow-hidden flex items-center cursor-pointer select-none"
+                          className="relative w-full h-14 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex items-center cursor-pointer select-none"
                           onClick={(e) => {
-                            // 전체 타임라인 클릭 시 클릭한 지점으로 시작 구간 이동
                             const rect = e.currentTarget.getBoundingClientRect();
                             const clickX = e.clientX - rect.left;
                             const percentage = clickX / rect.width;
                             const clickedTime = percentage * videoDuration;
 
-                            // 클릭한 지점을 5초 선택 영역의 중심으로 설정
                             let newStart = clickedTime - 2.5;
                             if (newStart < 0) newStart = 0;
                             if (newStart > videoDuration - 5) newStart = videoDuration - 5;
@@ -663,52 +752,73 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                             }
                           }}
                         >
-                          {/* 5초 선택 영역 하이라이트 */}
+                          {/* Filmstrip Thumbnails Backdrop */}
+                          <div className="absolute inset-0 grid grid-cols-10 gap-0.5 pointer-events-none opacity-50 z-0">
+                            {thumbnails.length > 0 ? (
+                              thumbnails.map((img, idx) => (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  key={idx}
+                                  src={img}
+                                  alt={`frame-${idx}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ))
+                            ) : (
+                              <div className="col-span-10 w-full h-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 animate-pulse" />
+                            )}
+                          </div>
+
+                          {/* 5초 선택 영역 하이라이트 (iPhone Trimmer 스타일 노란색 박스) */}
                           <div
-                            className="absolute h-full bg-pink-500/20 border-l border-r border-pink-500 transition-all duration-75 pointer-events-none"
+                            className="absolute h-full border-2 border-yellow-400 bg-yellow-400/10 pointer-events-none rounded-md z-10 transition-all duration-75"
                             style={{
                               left: `${(startTime / videoDuration) * 100}%`,
                               width: `${(5 / videoDuration) * 100}%`,
                             }}
-                          />
+                          >
+                            {/* Left/Right handles */}
+                            <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-yellow-400 flex items-center justify-center">
+                              <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
+                            </div>
+                            <div className="absolute top-0 bottom-0 right-0 w-1.5 bg-yellow-400 flex items-center justify-center">
+                              <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
+                            </div>
+                          </div>
 
                           {/* 재생 헤드 (현재 재생 위치) */}
                           {previewCurrentTime !== undefined && (
                             <div
-                              className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 pointer-events-none shadow-[0_0_8px_rgba(250,204,21,0.8)]"
+                              className="absolute top-0 bottom-0 w-0.5 bg-white z-15 pointer-events-none shadow-[0_0_8px_rgba(255,255,255,0.8)]"
                               style={{
                                 left: `${(previewCurrentTime / videoDuration) * 100}%`,
                               }}
-                            />
+                            >
+                              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
+                            </div>
                           )}
 
-                          {/* 슬라이더 인풋 (드래그 조작용, 5초 제외 영역까지만 너비 설정) */}
+                          {/* 슬라이더 인풋 (드래그 조작용, 전체 너비) */}
                           <input
                             type="range"
                             min={0}
                             max={videoDuration - 5}
-                            step={0.1}
+                            step={0.05}
                             value={startTime}
-                            onChange={handleStartTimeChange}
-                            onClick={(e) => e.stopPropagation()} // 컨테이너 클릭 이벤트 버블링 방지
-                            className="absolute top-0 bottom-0 left-0 h-full opacity-0 cursor-ew-resize z-20"
-                            style={{
-                              width: `${((videoDuration - 5) / videoDuration) * 100}%`,
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setStartTime(val);
+                              setPreviewCurrentTime(val);
+                              if (previewVideoRef.current) {
+                                previewVideoRef.current.currentTime = val;
+                              }
                             }}
+                            onClick={(e) => e.stopPropagation()} // 컨테이너 클릭 이벤트 버블링 방지
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
                           />
 
-                          {/* 조작용 핸들 비주얼 (시작 위치 표시) */}
-                          <div
-                            className="absolute top-0 bottom-0 w-1 bg-pink-500 z-10 pointer-events-none flex items-center justify-center"
-                            style={{
-                              left: `${(startTime / videoDuration) * 100}%`,
-                            }}
-                          >
-                            <div className="w-3.5 h-3.5 rounded-full bg-pink-400 shadow-[0_0_6px_rgba(244,63,94,0.6)] transform -translate-x-1/2" />
-                          </div>
-
                           {/* 좌우 시간 텍스트 오버레이 */}
-                          <div className="absolute inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-500 font-mono font-bold select-none">
+                          <div className="absolute bottom-1 inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-300 font-mono font-bold select-none z-10 bg-black/40 px-1 rounded">
                             <span>0.0s</span>
                             <span>{videoDuration.toFixed(1)}s</span>
                           </div>
@@ -973,7 +1083,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                   {editVideoDuration > 5 ? (
                     <div className="space-y-1">
                       <div
-                        className="relative w-full h-8 bg-zinc-950 border border-zinc-800/85 rounded-md overflow-hidden flex items-center cursor-pointer select-none"
+                        className="relative w-full h-14 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex items-center cursor-pointer select-none"
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const clickX = e.clientX - rect.left;
@@ -991,23 +1101,50 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                           }
                         }}
                       >
-                        {/* 5초 선택 영역 하이라이트 */}
+                        {/* Filmstrip Thumbnails Backdrop */}
+                        <div className="absolute inset-0 grid grid-cols-10 gap-0.5 pointer-events-none opacity-50 z-0">
+                          {editThumbnails.length > 0 ? (
+                            editThumbnails.map((img, idx) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={idx}
+                                src={img}
+                                alt={`frame-${idx}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ))
+                          ) : (
+                            <div className="col-span-10 w-full h-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 animate-pulse" />
+                          )}
+                        </div>
+
+                        {/* 5초 선택 영역 하이라이트 (iPhone Trimmer 스타일 노란색 박스) */}
                         <div
-                          className="absolute h-full bg-pink-500/20 border-l border-r border-pink-500 transition-all duration-75 pointer-events-none"
+                          className="absolute h-full border-2 border-yellow-400 bg-yellow-400/10 pointer-events-none rounded-md z-10 transition-all duration-75"
                           style={{
                             left: `${(editStartTime / editVideoDuration) * 100}%`,
                             width: `${(5 / editVideoDuration) * 100}%`,
                           }}
-                        />
+                        >
+                          {/* Left/Right handles */}
+                          <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-yellow-400 flex items-center justify-center">
+                            <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
+                          </div>
+                          <div className="absolute top-0 bottom-0 right-0 w-1.5 bg-yellow-400 flex items-center justify-center">
+                            <div className="w-0.5 h-3.5 bg-zinc-950 rounded-full" />
+                          </div>
+                        </div>
 
                         {/* 재생 헤드 */}
                         {editPreviewCurrentTime !== undefined && (
                           <div
-                            className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 pointer-events-none shadow-[0_0_8px_rgba(250,204,21,0.8)]"
+                            className="absolute top-0 bottom-0 w-0.5 bg-white z-15 pointer-events-none shadow-[0_0_8px_rgba(255,255,255,0.8)]"
                             style={{
                               left: `${(editPreviewCurrentTime / editVideoDuration) * 100}%`,
                             }}
-                          />
+                          >
+                            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
+                          </div>
                         )}
 
                         {/* 슬라이더 인풋 */}
@@ -1015,7 +1152,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                           type="range"
                           min={0}
                           max={editVideoDuration - 5}
-                          step={0.1}
+                          step={0.05}
                           value={editStartTime}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value);
@@ -1026,24 +1163,11 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                             }
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute top-0 bottom-0 left-0 h-full opacity-0 cursor-ew-resize z-20"
-                          style={{
-                            width: `${((editVideoDuration - 5) / editVideoDuration) * 100}%`,
-                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
                         />
 
-                        {/* 조작용 핸들 */}
-                        <div
-                          className="absolute top-0 bottom-0 w-1 bg-pink-500 z-10 pointer-events-none flex items-center justify-center"
-                          style={{
-                            left: `${(editStartTime / editVideoDuration) * 100}%`,
-                          }}
-                        >
-                          <div className="w-3.5 h-3.5 rounded-full bg-pink-400 shadow-[0_0_6px_rgba(244,63,94,0.6)] transform -translate-x-1/2" />
-                        </div>
-
                         {/* 좌우 시간 오버레이 */}
-                        <div className="absolute inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-500 font-mono font-bold select-none">
+                        <div className="absolute bottom-1 inset-x-2 flex justify-between items-center pointer-events-none text-[8px] text-zinc-300 font-mono font-bold select-none z-10 bg-black/40 px-1 rounded">
                           <span>0.0s</span>
                           <span>{editVideoDuration.toFixed(1)}s</span>
                         </div>

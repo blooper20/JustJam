@@ -110,6 +110,17 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
     assert updated_sched_post["schedule_times"][0]["availabilities_count"] == 1
     assert test_user.id in updated_sched_post["schedule_times"][0]["available_user_ids"]
 
+    # 9.5 Confirm schedule time
+    confirm_data = {"confirmed_time": "2026-06-02 18:00"}
+    response = client.post(
+        f"/teams/{team.id}/posts/{sched_post_id}/confirm-time",
+        json=confirm_data,
+        headers=auth_headers,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    confirmed_post = response.json()
+    assert confirmed_post["confirmed_time"] == "2026-06-02 18:00"
+
     # 10. Practice Vlog Upload
     with open("test_vlog.mp4", "wb") as f:
         f.write(b"fake video mp4 data")

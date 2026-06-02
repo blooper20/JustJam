@@ -56,6 +56,7 @@ export interface CollaborationPostResponse {
   content: string;
   post_type: 'general' | 'vote' | 'schedule';
   youtube_url?: string;
+  confirmed_time?: string;
   created_at: string;
   user: UserResponse;
   comments: CollaborationCommentResponse[];
@@ -98,6 +99,7 @@ export function CollaborationBoard({ teamId }: { teamId: number }) {
       return res.data;
     },
     select: (data) => data.filter((p) => p.post_type !== 'schedule'),
+    refetchInterval: 5000,
   });
 
   const { data: currentUser } = useQuery<UserResponse>({

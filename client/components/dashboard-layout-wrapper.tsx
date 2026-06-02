@@ -95,16 +95,9 @@ export function DashboardLayoutWrapper({
         </p>
       </div>
 
-      <div className="flex gap-0 items-start">
-        {/* Main Content */}
-        <div className="flex-1 min-w-0">
-          <Card className="bg-zinc-900 border-zinc-800 rounded-r-none shadow-2xl relative z-20 min-h-[600px] p-6">
-            {children}
-          </Card>
-        </div>
-
-        {/* Vertical Index Sticker Tabs */}
-        <div className="flex flex-col gap-1 pt-12 -ml-[1px] z-10 shrink-0">
+      <div className="flex flex-col md:flex-row gap-0 items-stretch md:items-start">
+        {/* Index Sticker Tabs (displayed above Main Content on mobile) */}
+        <div className="flex flex-row md:flex-col gap-1 z-10 shrink-0 overflow-x-auto md:overflow-visible -mb-[1px] md:mb-0 md:-ml-[1px] md:pt-12 order-first md:order-last">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -112,14 +105,21 @@ export function DashboardLayoutWrapper({
                 key={tab.id}
                 onClick={() => handleTabClick(tab.id)}
                 className={cn(
-                  'w-12 h-32 rounded-r-2xl font-black text-[10px] [writing-mode:vertical-lr] transition-all duration-300 flex items-center justify-center gap-3 border-y border-r tracking-[0.2em] relative',
+                  'font-black text-[10px] tracking-[0.2em] transition-all duration-300 flex items-center justify-center gap-3 relative shrink-0',
+                  // Mobile style (horizontal top stickers)
+                  'w-auto flex-1 px-4 h-11 rounded-t-xl border-t border-x border-b border-b-zinc-800/60 [writing-mode:horizontal-tb]',
+                  // Desktop style (vertical right stickers)
+                  'md:w-12 md:h-32 md:flex-initial md:px-0 md:rounded-t-none md:rounded-r-2xl md:border-y md:border-r md:border-l-0 md:[writing-mode:vertical-lr]',
                   isActive
-                    ? `bg-zinc-900 border-zinc-800 ${tab.color} translate-x-0 z-30 border-l-zinc-900 shadow-[15px_5px_30px_rgba(0,0,0,0.5)]`
-                    : 'bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 -translate-x-1 z-0 shadow-inner',
+                    ? `bg-zinc-900 border-zinc-800 ${tab.color} z-30 shadow-[0_4px_15px_rgba(0,0,0,0.3)] border-b-zinc-900 md:border-b-zinc-800 md:border-l-zinc-900 md:translate-x-0`
+                    : 'bg-zinc-950 border-zinc-800/60 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 translate-y-[2px] md:translate-y-0 md:-translate-x-1 z-0 shadow-inner',
                 )}
                 style={
                   isActive
-                    ? { marginLeft: '-1px', borderLeftWidth: '2px', borderLeftColor: '#18181b' }
+                    ? {
+                        // Blend top border of Card on desktop, bottom border on mobile
+                        borderBottomColor: '#18181b',
+                      }
                     : {}
                 }
               >
@@ -133,6 +133,13 @@ export function DashboardLayoutWrapper({
               </button>
             );
           })}
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          <Card className="bg-zinc-900 border-zinc-800 rounded-t-none md:rounded-t-lg md:rounded-r-none shadow-2xl relative z-20 min-h-[600px] p-6">
+            {children}
+          </Card>
         </div>
       </div>
     </div>

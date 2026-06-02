@@ -25,6 +25,7 @@ from src.api.schemas.collaboration import (
     CollaborationCommentResponse,
     CollaborationPostCreate,
     CollaborationPostResponse,
+    ConfirmTimeRequest,
     PostOptionCreate,
     PostOptionResponse,
     PracticeLogResponse,
@@ -437,6 +438,60 @@ async def toggle_availability(
     db.commit()
 
     # Reload updated post
+    updated_post = (
+        db.query(CollaborationPost)
+        .filter(CollaborationPost.id == post_id)
+        .options(
+            joinedload(CollaborationPost.user),
+            joinedload(CollaborationPost.comments).joinedload(CollaborationComment.user),
+            joinedload(CollaborationPost.options).joinedload(PostOption.votes),
+            joinedload(CollaborationPost.schedule_times).joinedload(
+                PostScheduleTime.availabilities
+            ),
+        )
+        .first()
+    )
+
+    for opt in updated_post.options:
+        opt.votes_count = len(opt.votes)
+        opt.voted_user_ids = [v.user_id for v in opt.votes]
+    for st in updated_post.schedule_times:
+        st.availabilities_count = len(st.availabilities)
+        st.available_user_ids = [a.user_id for a in st.availabilities]
+
+    return updated_post
+
+
+@router.post(
+    "/teams/{team_id}/posts/{post_id}/confirm-time",
+    response_model=CollaborationPostResponse,
+    summary="일정 확정",
+)
+async def confirm_schedule_time(
+    team_id: int,
+    post_id: int,
+    req: ConfirmTimeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    team = check_team_access(db, team_id, current_user)
+
+    post = (
+        db.query(CollaborationPost)
+        .filter(CollaborationPost.id == post_id, CollaborationPost.team_id == team_id)
+        .first()
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    is_team_owner = team.owner_id == current_user.id
+    is_post_owner = post.user_id == current_user.id
+    if not is_team_owner and not is_post_owner:
+        raise HTTPException(status_code=403, detail="일정을 확정할 권한이 없습니다.")
+
+    post.confirmed_time = req.confirmed_time
+    db.commit()
+
     updated_post = (
         db.query(CollaborationPost)
         .filter(CollaborationPost.id == post_id)

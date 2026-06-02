@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api-client';
+import { cn } from '@/lib/utils';
+import { useTeam } from '@/components/team-provider';
 import type {
   CollaborationPostResponse,
   PostScheduleTimeResponse,
@@ -155,10 +157,16 @@ function ScheduleCalendar({
   scheduleTimes,
   currentUserId,
   onToggle,
+  confirmedTime,
+  canConfirm,
+  onConfirm,
 }: {
   scheduleTimes: PostScheduleTimeResponse[];
   currentUserId?: number;
   onToggle: (scheduleTimeId: number) => void;
+  confirmedTime?: string | null;
+  canConfirm: boolean;
+  onConfirm: (timeSlot: string) => void;
 }) {
   const markedDates = scheduleTimes.map((st) => st.time_slot);
   const today = new Date();
@@ -202,10 +210,11 @@ function ScheduleCalendar({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 select-none">
         <div className="flex items-center justify-between mb-4">
           <button
+            type="button"
             onClick={prevMonth}
             className="p-1 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
           >
@@ -215,6 +224,7 @@ function ScheduleCalendar({
             {viewYear}년 {monthNames[viewMonth]}
           </span>
           <button
+            type="button"
             onClick={nextMonth}
             className="p-1 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
           >
@@ -241,6 +251,7 @@ function ScheduleCalendar({
             const isCandidate = markedDates.includes(dateStr);
             const myAvailable =
               currentUserId && stForDay?.available_user_ids?.includes(currentUserId);
+            const isThisConfirmed = confirmedTime === dateStr;
             const dayOfWeek = (firstDay + day - 1) % 7;
 
             return (
@@ -252,11 +263,13 @@ function ScheduleCalendar({
                 className={`
                   relative h-9 w-full rounded-lg text-xs font-medium transition-all flex flex-col items-center justify-center
                   ${
-                    myAvailable
-                      ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(147,51,234,0.4)]'
-                      : isCandidate
-                        ? 'bg-zinc-800/80 border border-purple-500/30 text-purple-300 hover:bg-purple-900/30'
-                        : 'text-zinc-600 cursor-default'
+                    isThisConfirmed
+                      ? 'bg-yellow-500 text-zinc-950 font-bold shadow-[0_0_10px_rgba(234,179,8,0.6)] border border-yellow-400'
+                      : myAvailable
+                        ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(147,51,234,0.4)]'
+                        : isCandidate
+                          ? 'bg-zinc-800/80 border border-purple-500/30 text-purple-300 hover:bg-purple-900/30'
+                          : 'text-zinc-600 cursor-default'
                   }
                   ${!isCandidate && dayOfWeek === 0 ? 'text-red-900' : ''}
                   ${!isCandidate && dayOfWeek === 6 ? 'text-blue-900' : ''}
@@ -265,7 +278,13 @@ function ScheduleCalendar({
                 <span>{day}</span>
                 {isCandidate && (
                   <span
-                    className={`text-[8px] mt-0.5 ${myAvailable ? 'text-purple-200' : 'text-purple-400'}`}
+                    className={`text-[8px] mt-0.5 ${
+                      isThisConfirmed
+                        ? 'text-zinc-900 font-bold'
+                        : myAvailable
+                          ? 'text-purple-200'
+                          : 'text-purple-400'
+                    }`}
                   >
                     {stForDay?.availabilities_count ?? 0}명
                   </span>
@@ -276,7 +295,7 @@ function ScheduleCalendar({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-[10px] text-zinc-500 px-1">
+      <div className="flex flex-wrap items-center gap-4 text-[10px] text-zinc-500 px-1">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-zinc-800 border border-purple-500/30" />
           <span>후보 날짜</span>
@@ -285,7 +304,59 @@ function ScheduleCalendar({
           <div className="w-3 h-3 rounded bg-purple-600" />
           <span>내가 가능 (클릭해서 토글)</span>
         </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-yellow-500 border border-yellow-400" />
+          <span>확정된 날짜</span>
+        </div>
       </div>
+
+      {scheduleTimes.length > 0 && (
+        <div className="mt-3 space-y-2 border-t border-zinc-800/60 pt-3">
+          <p className="text-xs font-bold text-zinc-400">일정 후보 투표 목록</p>
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+            {scheduleTimes
+              .slice()
+              .sort((a, b) => a.time_slot.localeCompare(b.time_slot))
+              .map((st) => {
+                const isThisConfirmed = confirmedTime === st.time_slot;
+                return (
+                  <div
+                    key={st.id}
+                    className={cn(
+                      'flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all',
+                      isThisConfirmed
+                        ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                        : 'bg-zinc-900/40 border-zinc-800 text-zinc-300',
+                    )}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-bold text-zinc-200">{st.time_slot}</span>
+                      <span className="text-[10px] text-zinc-500 font-medium">
+                        득표수:{' '}
+                        <strong className="text-purple-400">{st.availabilities_count}</strong>표
+                      </span>
+                    </div>
+                    {canConfirm && (
+                      <Button
+                        size="sm"
+                        variant={isThisConfirmed ? 'secondary' : 'outline'}
+                        onClick={() => onConfirm(isThisConfirmed ? '' : st.time_slot)}
+                        className={cn(
+                          'h-7 px-2.5 rounded-lg text-[10px] font-bold transition-all',
+                          isThisConfirmed
+                            ? 'bg-yellow-600 hover:bg-yellow-700 text-white border-none'
+                            : 'hover:bg-yellow-500/20 hover:text-yellow-400 border-zinc-700/60',
+                        )}
+                      >
+                        {isThisConfirmed ? '확정 취소' : '일정 확정'}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -293,6 +364,7 @@ function ScheduleCalendar({
 // ─── ScheduleBoard ───────────────────────────────────────────────────────────
 export function ScheduleBoard({ teamId }: { teamId: number }) {
   const queryClient = useQueryClient();
+  const { selectedTeam } = useTeam();
 
   const [scheduleTitle, setScheduleTitle] = useState('');
   const [scheduleDates, setScheduleDates] = useState<string[]>([]);
@@ -306,6 +378,7 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
       return res.data;
     },
     select: (data) => data.filter((p) => p.post_type === 'schedule'),
+    refetchInterval: 5000,
   });
 
   const { data: currentUser } = useQuery<UserResponse>({
@@ -313,6 +386,22 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
     queryFn: async () => {
       const res = await apiClient.get('/users/me');
       return res.data;
+    },
+  });
+
+  const confirmTimeMutation = useMutation({
+    mutationFn: async ({ postId, confirmedTime }: { postId: number; confirmedTime: string }) => {
+      const res = await apiClient.post(`/teams/${teamId}/posts/${postId}/confirm-time`, {
+        confirmed_time: confirmedTime || null,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
+      toast.success('일정이 확정되었습니다.');
+    },
+    onError: (err: unknown) => {
+      toast.error('일정 확정에 실패했습니다.');
     },
   });
 
@@ -516,13 +605,27 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <h3 className="text-md font-bold text-zinc-200">{post.title}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-md font-bold text-zinc-200">{post.title}</h3>
+                  {post.confirmed_time && (
+                    <span className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-[9px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-[0_0_8px_rgba(234,179,8,0.2)]">
+                      ✨ 확정: {post.confirmed_time}
+                    </span>
+                  )}
+                </div>
 
                 <ScheduleCalendar
                   scheduleTimes={post.schedule_times}
                   currentUserId={currentUser?.id}
                   onToggle={(scheduleTimeId) =>
                     toggleAvailabilityMutation.mutate({ postId: post.id, scheduleTimeId })
+                  }
+                  confirmedTime={post.confirmed_time}
+                  canConfirm={
+                    selectedTeam?.owner_id === currentUser?.id || post.user_id === currentUser?.id
+                  }
+                  onConfirm={(timeSlot) =>
+                    confirmTimeMutation.mutate({ postId: post.id, confirmedTime: timeSlot })
                   }
                 />
 

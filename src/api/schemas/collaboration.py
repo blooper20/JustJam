@@ -101,6 +101,7 @@ class CollaborationPostResponse(BaseModel):
     content: str
     post_type: str
     youtube_url: Optional[str] = None
+    confirmed_time: Optional[str] = None
     created_at: datetime
     user: UserResponse
     comments: List[CollaborationCommentResponse] = []
@@ -134,3 +135,7 @@ class PracticeLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ConfirmTimeRequest(BaseModel):
+    confirmed_time: Optional[str] = None

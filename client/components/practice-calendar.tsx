@@ -428,6 +428,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   });
 
   const handleCommentSubmit = (logId: number) => {
+    if (createCommentMutation.isPending) return;
     const content = commentInputs[logId];
     if (!content || !content.trim()) return;
     createCommentMutation.mutate({ logId, content: content.trim() });
@@ -746,27 +747,37 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                     )}
 
                     {/* 댓글 입력 창 */}
-                    <div className="flex gap-1.5 items-center">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleCommentSubmit(log.id);
+                      }}
+                      className="flex gap-1.5 items-center w-full"
+                    >
                       <Input
                         placeholder="댓글 입력..."
                         value={commentInputs[log.id] || ''}
                         onChange={(e) =>
                           setCommentInputs((prev) => ({ ...prev, [log.id]: e.target.value }))
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleCommentSubmit(log.id);
-                        }}
                         className="bg-zinc-950 border-zinc-850 text-zinc-300 h-7 text-[10px] flex-1 px-2 focus-visible:ring-pink-500/30"
+                        disabled={createCommentMutation.isPending}
                       />
                       <Button
+                        type="submit"
                         size="sm"
-                        onClick={() => handleCommentSubmit(log.id)}
-                        disabled={createCommentMutation.isPending || !commentInputs[log.id]?.trim()}
+                        disabled={
+                          createCommentMutation.isPending || !(commentInputs[log.id] || '').trim()
+                        }
                         className="h-7 px-2.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
                       >
-                        등록
+                        {createCommentMutation.isPending ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+                        ) : (
+                          '등록'
+                        )}
                       </Button>
-                    </div>
+                    </form>
                   </div>
                 </div>
               ))}

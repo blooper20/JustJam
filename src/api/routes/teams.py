@@ -12,6 +12,7 @@ from src.api.schemas.team import (
     TeamMemberResponse,
     TeamResponse,
 )
+from src.api.schemas.user import UserResponse
 
 router = APIRouter()
 
@@ -212,3 +213,35 @@ async def invite_team_member(
         "email": invitee.email,
         "nickname": invitee.nickname,
     }
+
+
+@router.get("/{team_id}/search-users", response_model=List[UserResponse], summary="초대할 사용자 검색")
+async def search_team_users(
+    team_id: int,
+    q: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    if team.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only team owner can invite members")
+
+    # Exclude existing members
+    members = db.query(TeamMember).filter(TeamMember.team_id == team_id).all()
+    existing_user_ids = [m.user_id for m in members]
+
+    # Find matching active users
+    users = (
+        db.query(User)
+        .filter(
+            User.id.notin_(existing_user_ids),
+            User.is_active == True,  # noqa: E712
+            (User.email.ilike(f"%{q}%")) | (User.nickname.ilike(f"%{q}%")),
+        )
+        .limit(10)
+        .all()
+    )
+    return users

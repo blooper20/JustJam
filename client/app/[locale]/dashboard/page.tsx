@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Users, Music2, Crown, Loader2, Guitar, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 

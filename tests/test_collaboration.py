@@ -201,8 +201,14 @@ def test_collaboration_workflow(client, auth_headers, test_user, db):
         if os.path.exists("test_vlog.mp4"):
             os.remove("test_vlog.mp4")
 
-    # 11. Search Users to invite
+    # 11. Search Users to invite (Project level)
     response = client.get(f"/projects/{project_id}/search-users?q=jammer", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     users = response.json()
     assert isinstance(users, list)
+
+    # 12. Search Users to invite (Team level)
+    response = client.get(f"/teams/{team.id}/search-users?q=jammer", headers=auth_headers)
+    assert response.status_code == status.HTTP_200_OK
+    team_users = response.json()
+    assert isinstance(team_users, list)

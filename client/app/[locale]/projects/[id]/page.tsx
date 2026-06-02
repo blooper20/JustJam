@@ -9,9 +9,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { cn } from '@/lib/utils';
 import { ShareModal } from '@/components/share-modal';
-import { useTranslations } from 'next-intl';
 
 const MultiTrackPlayer = dynamic(
   () => import('@/components/multitrack-player').then((mod) => mod.MultiTrackPlayer),
@@ -30,13 +28,10 @@ export default function ProjectPage() {
   const searchParams = useSearchParams();
   const id = params.id as string;
 
-  const t = useTranslations('Collab');
   const [loadMixer, setLoadMixer] = useState(false);
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'mixer' | 'collab'>(
-    (searchParams.get('tab') as 'mixer' | 'collab') || 'mixer',
-  );
+  const activeTab = (searchParams.get('tab') as 'mixer' | 'collab') || 'mixer';
   // Removed local progress state
 
   const {

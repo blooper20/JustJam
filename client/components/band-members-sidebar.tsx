@@ -1,20 +1,8 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import {
-  Loader2,
-  Mic2,
-  Music,
-  Drum,
-  Guitar,
-  Keyboard,
-  Users,
-  Plus,
-  Trash2,
-  Edit2,
-  Settings,
-} from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Loader2, Mic2, Music, Drum, Guitar, Keyboard, Users, Plus, Trash2 } from 'lucide-react';
 import { TeamMember, inviteTeamMember, updateTeamMemberInstrument } from '@/lib/api';
 import apiClient from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -29,10 +17,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface BandMembersSidebarProps {
-  teamId: number;
-}
-
 const INSTRUMENTS = [
   { id: 'vocal', name: 'Vocal', icon: Mic2 },
   { id: 'guitar', name: 'Guitar', icon: Guitar },
@@ -46,6 +30,8 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
   const queryClient = useQueryClient();
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: members, isLoading } = useQuery<TeamMember[]>({
     queryKey: ['team-members', teamId],
@@ -56,6 +42,29 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
     enabled: !!teamId,
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: searchData, isFetching: isSearching } = useQuery<any[]>({
+    queryKey: ['team-search-users', teamId, inviteEmail],
+    queryFn: async () => {
+      if (!inviteEmail || inviteEmail.trim().length < 2) return [];
+      const res = await apiClient.get(
+        `/teams/${teamId}/search-users?q=${encodeURIComponent(inviteEmail.trim())}`,
+      );
+      return res.data;
+    },
+    enabled: !!teamId && inviteEmail.trim().length >= 2,
+  });
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const inviteMutation = useMutation({
     mutationFn: (email: string) => inviteTeamMember(teamId, email, 'editor'),
     onSuccess: () => {
@@ -64,7 +73,16 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
       setIsInviting(false);
       toast.success('Member invited successfully');
     },
-    onError: () => toast.error('Failed to invite member'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
+      setIsInviting(false);
+      const data = err?.response?.data;
+      let msg = 'Failed to invite member';
+      if (data?.detail) {
+        msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+      }
+      toast.error(msg);
+    },
   });
 
   const updateInstrumentMutation = useMutation({
@@ -111,26 +129,63 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <form onSubmit={handleInvite} className="flex gap-2">
-          <Input
-            placeholder="Invite via email..."
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            className="bg-zinc-900 border-zinc-800"
-          />
-          <Button
-            type="submit"
-            disabled={isInviting || inviteMutation.isPending}
-            size="icon"
-            variant="secondary"
-          >
-            {inviteMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4" />
-            )}
-          </Button>
-        </form>
+        <div className="relative" ref={dropdownRef}>
+          <form onSubmit={handleInvite} className="flex gap-2">
+            <Input
+              placeholder="Invite via email or nickname..."
+              value={inviteEmail}
+              onChange={(e) => {
+                setInviteEmail(e.target.value);
+                setShowDropdown(true);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              className="bg-zinc-900 border-zinc-800 text-xs"
+            />
+            <Button
+              type="submit"
+              disabled={isInviting || inviteMutation.isPending || !inviteEmail.trim()}
+              size="icon"
+              variant="secondary"
+              className="shrink-0"
+            >
+              {inviteMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+            </Button>
+          </form>
+
+          {showDropdown && inviteEmail.trim().length >= 2 && (
+            <div className="absolute z-50 w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+              {isSearching ? (
+                <div className="flex items-center justify-center py-3 text-zinc-500 text-xs">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  검색 중...
+                </div>
+              ) : searchData && searchData.length > 0 ? (
+                searchData.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => {
+                      setInviteEmail(user.email);
+                      setShowDropdown(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors flex flex-col gap-0.5 border-b border-zinc-900/60 last:border-0"
+                  >
+                    <span className="font-bold text-zinc-200">{user.nickname}</span>
+                    <span className="text-[10px] text-zinc-500">{user.email}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="py-3 px-3 text-center text-zinc-500 text-xs">
+                  검색된 가입 유저가 없습니다.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="space-y-4">
           {members?.map((member) => {

@@ -400,7 +400,7 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
       queryClient.invalidateQueries({ queryKey: ['collab-posts', teamId] });
       toast.success('일정이 확정되었습니다.');
     },
-    onError: (err: unknown) => {
+    onError: () => {
       toast.error('일정 확정에 실패했습니다.');
     },
   });
@@ -488,6 +488,7 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
   };
 
   const handleCommentSubmit = (postId: number) => {
+    if (createCommentMutation.isPending) return;
     const c = commentInputs[postId];
     if (!c?.trim()) return;
     createCommentMutation.mutate({ postId, content: c.trim() });
@@ -662,7 +663,13 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleCommentSubmit(post.id);
+                    }}
+                    className="flex gap-2 w-full"
+                  >
                     <Input
                       placeholder="댓글을 작성해 보세요..."
                       value={commentInputs[post.id] || ''}
@@ -670,18 +677,23 @@ export function ScheduleBoard({ teamId }: { teamId: number }) {
                         setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
                       }
                       className="bg-zinc-900 border-zinc-800 text-zinc-200 text-xs h-8"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleCommentSubmit(post.id);
-                      }}
+                      disabled={createCommentMutation.isPending}
                     />
                     <Button
+                      type="submit"
                       size="sm"
-                      onClick={() => handleCommentSubmit(post.id)}
+                      disabled={
+                        createCommentMutation.isPending || !(commentInputs[post.id] || '').trim()
+                      }
                       className="h-8 px-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800"
                     >
-                      <Send size={12} />
+                      {createCommentMutation.isPending ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+                      ) : (
+                        <Send size={12} />
+                      )}
                     </Button>
-                  </div>
+                  </form>
                 </div>
               </CardContent>
             </Card>

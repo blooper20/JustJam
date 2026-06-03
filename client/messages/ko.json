@@ -108,6 +108,7 @@
         "speed": "배속",
         "loop": "구간 반복",
         "currentChord": "현재 코드",
-        "bookmark": "북마크"
+        "bookmark": "북마크",
+        "metronomeStart": "메트로놈 시작 지점"
     }
 }

@@ -1166,6 +1166,16 @@ export function MultiTrackPlayer({
                       <path d="M12 21L21 9H3L12 21Z" />
                     </svg>
                   </div>
+                  {/* Tooltip on hover/drag to display metronome start info */}
+                  <div
+                    className={cn(
+                      'absolute -top-8 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg pointer-events-none transition-all',
+                      "before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-red-600",
+                      isDraggingStart ? 'block' : 'hidden group-hover:block',
+                    )}
+                  >
+                    {t('metronomeStart')}
+                  </div>
                 </div>
               )}
 

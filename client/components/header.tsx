@@ -4,7 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { UserNav } from '@/components/user-nav';
-import { LayoutDashboard, Disc3, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -14,43 +13,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, Languages, Check } from 'lucide-react';
+import { Languages, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import { useTranslations, useLocale } from 'next-intl';
-import { useTeam } from '@/components/team-provider';
+import { useLocale } from 'next-intl';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const t = useTranslations('Header');
   const currentLocale = useLocale();
-  const { selectedTeam } = useTeam();
-
-  const routes = [
-    {
-      href: `/${currentLocale}/dashboard`,
-      label: '내 밴드',
-      icon: <LayoutDashboard className="w-4 h-4 mr-2" />,
-      active: pathname === `/${currentLocale}/dashboard`,
-    },
-    ...(selectedTeam
-      ? [
-          {
-            href: `/${currentLocale}/dashboard/collab`,
-            label: selectedTeam.name,
-            icon: <Disc3 className="w-4 h-4 mr-2" />,
-            active: pathname.includes('/dashboard/collab'),
-          },
-        ]
-      : []),
-    {
-      href: `/${currentLocale}/projects`,
-      label: t('projects'),
-      icon: <Music className="w-4 h-4 mr-2" />,
-      active: pathname.includes('/projects') && !pathname.includes('/dashboard'),
-    },
-  ];
 
   const languages = [
     { code: 'ko', label: '한국어' },
@@ -78,27 +49,6 @@ export function Header() {
     >
       <div className="flex w-full h-16 md:h-20 items-center justify-between px-4 md:px-10">
         <div className="flex items-center gap-4 md:gap-8">
-          {/* Mobile Menu */}
-          <div className="md:hidden">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48 bg-zinc-950 border-zinc-800">
-                {routes.map((route) => (
-                  <Link key={route.href} href={route.href}>
-                    <DropdownMenuItem className={cn(route.active && 'bg-zinc-800')}>
-                      {route.icon}
-                      {route.label}
-                    </DropdownMenuItem>
-                  </Link>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
           <Link
             href="/"
             className="flex items-center gap-2 group transition-opacity hover:opacity-80"
@@ -114,22 +64,7 @@ export function Header() {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6">
-            {routes.map((route) => (
-              <Link
-                key={route.href}
-                href={route.href}
-                className={cn(
-                  'flex items-center text-sm font-medium transition-colors hover:text-primary',
-                  route.active ? 'text-foreground' : 'text-muted-foreground',
-                )}
-              >
-                {route.icon}
-                {route.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Desktop Navigation removed */}
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">

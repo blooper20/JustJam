@@ -572,6 +572,40 @@ async def list_practice_logs(
 
 
 @router.post(
+    "/projects/{project_id}/practice-logs/merge",
+    summary="연습 영상 수동 병합 및 재시도",
+)
+async def trigger_practice_logs_merge(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+    if not project or not project.team_id:
+        raise HTTPException(status_code=404, detail="Project or Team not found")
+    check_team_access(db, project.team_id, current_user)
+
+    log_count = db.query(PracticeLog).filter(PracticeLog.project_id == project_id).count()
+    if log_count == 0:
+        raise HTTPException(status_code=400, detail="병합할 연습 영상이 존재하지 않습니다.")
+
+    project.merged_vlog_status = "processing"
+    db.commit()
+
+    try:
+        from src.api.services.project_service import merge_practice_videos_task
+        merge_practice_videos_task.delay(project_id)
+    except Exception as e:
+        from src.api.logging_config import logger
+        logger.warning(f"Celery merge task trigger failed: {e}")
+        project.merged_vlog_status = "failed"
+        db.commit()
+        raise HTTPException(status_code=500, detail="병합 작업을 트리거하지 못했습니다.")
+
+    return {"status": "processing"}
+
+
+@router.post(
     "/projects/{project_id}/practice-logs",
     response_model=PracticeLogResponse,
     summary="연습 일지 등록 및 Vlog 비디오 업로드",

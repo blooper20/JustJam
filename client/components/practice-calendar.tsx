@@ -488,6 +488,22 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     },
   });
 
+  // Retry Merge Mutation
+  const retryMergeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post(`/projects/${projectId}/practice-logs/merge`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['practice-logs', projectId] });
+      toast.success('동영상 병합을 다시 요청했습니다.');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || '병합 요청에 실패했습니다.');
+    },
+  });
+
   const handleCommentSubmit = (logId: number) => {
     if (createCommentMutation.isPending) return;
     const content = commentInputs[logId];
@@ -665,6 +681,20 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                     마감일을 다시 연장하여 연습 영상을 추가 제출하거나 서버 환경을 점검해 주세요.
                   </p>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => retryMergeMutation.mutate()}
+                  disabled={retryMergeMutation.isPending}
+                  className="mt-2 text-xs border-zinc-800 hover:bg-zinc-900 gap-1 text-zinc-200"
+                >
+                  {retryMergeMutation.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  )}
+                  병합 재시도
+                </Button>
               </div>
             ) : project.merged_vlog_status === 'completed' && project.merged_vlog_url ? (
               <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-zinc-800/80 relative shadow-inner">

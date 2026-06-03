@@ -707,6 +707,13 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                 type="date"
                 value={project?.practice_deadline || ''}
                 onChange={(e) => updateDeadlineMutation.mutate(e.target.value)}
+                onClick={(e) => {
+                  try {
+                    e.currentTarget.showPicker();
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }}
                 className="bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800 focus:border-pink-500/80 rounded px-2.5 py-1 text-zinc-200 focus:outline-none text-xs w-36 cursor-pointer transition-colors shadow-inner"
               />
             </div>

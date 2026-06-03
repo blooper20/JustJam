@@ -163,7 +163,8 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const queryClient = useQueryClient();
   const t = useTranslations('Collab');
   const { data: session } = useSession();
-  const currentUserId = session?.user?.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentUserId = (session?.user as any)?.id;
 
   // ── 기존 상태 ──
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -297,12 +298,12 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
 
   // Fetch Project Details
   const { data: project } = useQuery({
-    queryKey: ['project-detail', projectId],
+    queryKey: ['project-detail', projectId, session?.accessToken],
     queryFn: async () => {
       const res = await apiClient.get(`/projects/${projectId}`);
       return res.data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && !!session?.accessToken,
     refetchInterval: (query) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = query.state.data as any;
@@ -330,12 +331,12 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
 
   // 1. Fetch Practice Logs
   const { data: logs, isLoading } = useQuery<PracticeLogResponse[]>({
-    queryKey: ['practice-logs', projectId],
+    queryKey: ['practice-logs', projectId, session?.accessToken],
     queryFn: async () => {
       const res = await apiClient.get(`/projects/${projectId}/practice-logs`);
       return res.data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && !!session?.accessToken,
     refetchInterval: () => {
       return project?.merged_vlog_status === 'processing' ? 3000 : false;
     },
@@ -343,12 +344,12 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
 
   // Fetch Team Members
   const { data: members } = useQuery<TeamMember[]>({
-    queryKey: ['team-members', teamId],
+    queryKey: ['team-members', teamId, session?.accessToken],
     queryFn: async () => {
       const res = await apiClient.get(`/teams/${teamId}/members`);
       return res.data;
     },
-    enabled: !!teamId,
+    enabled: !!teamId && !!session?.accessToken,
   });
 
   const currentUserEmail = session?.user?.email;

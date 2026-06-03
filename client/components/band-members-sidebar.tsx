@@ -129,7 +129,7 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
   // Find the current logged-in user in the band members list
   const currentMember = members?.find(
     (m) =>
-      (currentUserId && m.user_id === currentUserId) ||
+      (currentUserId && String(m.user_id) === String(currentUserId)) ||
       (currentUserEmail && m.email === currentUserEmail),
   );
 
@@ -227,7 +227,7 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
                 <div className="flex items-center gap-2">
                   {(() => {
                     const isOwnCard =
-                      (currentUserId && member.user_id === currentUserId) ||
+                      (currentUserId && String(member.user_id) === String(currentUserId)) ||
                       (currentUserEmail && member.email === currentUserEmail);
                     const canEditPosition = isManagerOrSubManager || isOwnCard;
 

@@ -357,7 +357,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
   const currentUserIdVal = currentUserId || (session?.user as any)?.id;
   const currentMember = members?.find(
     (m) =>
-      (currentUserIdVal && m.user_id === currentUserIdVal) ||
+      (currentUserIdVal && String(m.user_id) === String(currentUserIdVal)) ||
       (currentUserEmail && m.email === currentUserEmail),
   );
   const currentUserRole = currentMember?.role || 'viewer';
@@ -628,7 +628,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     logs?.filter((log) => log.logged_date === dateStr) || [];
 
   const hasUploadedToday = logs?.some(
-    (log) => log.logged_date === selectedDate && log.user_id === currentUserId,
+    (log) => log.logged_date === selectedDate && String(log.user_id) === String(currentUserId),
   );
 
   return (
@@ -803,7 +803,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                       >
                         <Play size={10} className="fill-current" /> 재생
                       </Button>
-                      {log.user_id === currentUserId && (
+                      {String(log.user_id) === String(currentUserId) && (
                         <>
                           <Button
                             size="sm"
@@ -858,7 +858,7 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
                               </span>
                               <span className="text-zinc-450 break-all">{comment.content}</span>
                             </div>
-                            {comment.user_id === currentUserId && (
+                            {String(comment.user_id) === String(currentUserId) && (
                               <button
                                 onClick={() =>
                                   deleteCommentMutation.mutate({

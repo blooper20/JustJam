@@ -768,38 +768,62 @@ def create_daily_vstack_video(video_paths: list, output_path: str):
     for p in video_paths:
         cmd.extend(["-i", p])
 
-    filter_complex = ""
-    for i in range(N):
-        filter_complex += (
-            f"[{i}:v]scale={target_width}:{individual_height}:force_original_aspect_ratio=decrease,"
-            f"pad={target_width}:{individual_height}:(ow-iw)/2:(oh-ih)/2[v{i}];"
+    if N == 1:
+        cmd.extend(
+            [
+                "-filter_complex",
+                f"[0:v]scale={target_width}:{individual_height}:"
+                "force_original_aspect_ratio=decrease,"
+                f"pad={target_width}:{individual_height}:(ow-iw)/2:(oh-ih)/2[outv]",
+                "-map",
+                "[outv]",
+                "-map",
+                "0:a?",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-c:a",
+                "aac",
+                "-pix_fmt",
+                "yuv420p",
+                output_path,
+            ]
         )
+    else:
+        filter_complex = ""
+        for i in range(N):
+            filter_complex += (
+                f"[{i}:v]scale={target_width}:{individual_height}:"
+                "force_original_aspect_ratio=decrease,"
+                f"pad={target_width}:{individual_height}:(ow-iw)/2:(oh-ih)/2[v{i}];"
+            )
 
-    inputs_v = "".join([f"[v{i}]" for i in range(N)])
-    filter_complex += f"{inputs_v}vstack=inputs={N}[outv];"
+        inputs_v = "".join([f"[v{i}]" for i in range(N)])
+        filter_complex += f"{inputs_v}vstack=inputs={N}[outv];"
 
-    inputs_a = "".join([f"[{i}:a]" for i in range(N)])
-    filter_complex += f"{inputs_a}amix=inputs={N}:duration=first[outa]"
+        inputs_a = "".join([f"[{i}:a]" for i in range(N)])
+        filter_complex += f"{inputs_a}amix=inputs={N}:duration=first[outa]"
 
-    cmd.extend(
-        [
-            "-filter_complex",
-            filter_complex,
-            "-map",
-            "[outv]",
-            "-map",
-            "[outa]",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",
-            "-c:a",
-            "aac",
-            "-pix_fmt",
-            "yuv420p",
-            output_path,
-        ]
-    )
+        cmd.extend(
+            [
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "[outv]",
+                "-map",
+                "[outa]",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-c:a",
+                "aac",
+                "-pix_fmt",
+                "yuv420p",
+                output_path,
+            ]
+        )
 
     subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 

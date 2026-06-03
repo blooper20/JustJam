@@ -19,6 +19,7 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=3600,  # 1 hour limit for demucs
     worker_concurrency=1,  # GPU OOM 방지를 위한 단일 컨커런시 제한
+    imports=["src.api.services.project_service"],
 )
 
 # Auto-discover tasks

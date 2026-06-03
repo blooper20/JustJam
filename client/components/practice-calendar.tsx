@@ -15,6 +15,9 @@ import {
   Check,
   Trash2,
   Edit2,
+  Flame,
+  AlertCircle,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -292,6 +295,39 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     };
   }, []);
 
+  // Fetch Project Details
+  const { data: project } = useQuery({
+    queryKey: ['project-detail', projectId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/projects/${projectId}`);
+      return res.data;
+    },
+    enabled: !!projectId,
+    refetchInterval: (query) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = query.state.data as any;
+      return data?.merged_vlog_status === 'processing' ? 3000 : false;
+    },
+  });
+
+  // Update Deadline Mutation
+  const updateDeadlineMutation = useMutation({
+    mutationFn: async (deadline: string) => {
+      const res = await apiClient.patch(`/projects/${projectId}`, {
+        practice_deadline: deadline,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['practice-logs', projectId] });
+      toast.success('연습 마감일이 설정되었습니다.');
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || '마감일 설정에 실패했습니다.');
+    },
+  });
+
   // 1. Fetch Practice Logs
   const { data: logs, isLoading } = useQuery<PracticeLogResponse[]>({
     queryKey: ['practice-logs', projectId],
@@ -300,6 +336,9 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
       return res.data;
     },
     enabled: !!projectId,
+    refetchInterval: () => {
+      return project?.merged_vlog_status === 'processing' ? 3000 : false;
+    },
   });
 
   // Fetch Team Members
@@ -311,6 +350,27 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
     },
     enabled: !!teamId,
   });
+
+  const currentUserEmail = session?.user?.email;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentUserIdVal = currentUserId || (session?.user as any)?.id;
+  const currentMember = members?.find(
+    (m) =>
+      (currentUserIdVal && m.user_id === currentUserIdVal) ||
+      (currentUserEmail && m.email === currentUserEmail),
+  );
+  const currentUserRole = currentMember?.role || 'viewer';
+  const isManagerOrSubManager =
+    project?.is_owner || currentUserRole === 'owner' || currentUserRole === 'editor';
+
+  const isDeadlinePassed = (() => {
+    if (!project?.practice_deadline) return false;
+    const today = new Date();
+    const todayStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0];
+    return todayStr > project.practice_deadline;
+  })();
 
   const getInstrumentIcon = (userId: number) => {
     const member = members?.find((m) => m.user_id === userId);
@@ -572,15 +632,84 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
 
   return (
     <div className="space-y-6">
+      {/* 마감일이 지났고 연습 로그가 있는 경우 병합 브이로그 재생기 */}
+      {isDeadlinePassed && project?.merged_vlog_status && project.merged_vlog_status !== 'none' && (
+        <Card className="bg-zinc-950/60 border-zinc-800/80 shadow-2xl overflow-hidden backdrop-blur-xl">
+          <CardHeader className="pb-3 bg-gradient-to-r from-pink-950/10 to-zinc-950/40 border-b border-zinc-900/60">
+            <CardTitle className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <Flame className="w-4 h-4 text-pink-500 animate-pulse" />
+              합쳐진 전체 브이로그 감상하기
+            </CardTitle>
+            <CardDescription className="text-xs text-zinc-400 mt-1">
+              제출 마감일이 지나 멤버들의 개별 연습 영상들을 날짜순으로 정렬하고 분할 합성한 통합
+              비디오입니다.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-5 flex flex-col items-center justify-center min-h-[220px]">
+            {project.merged_vlog_status === 'processing' ? (
+              <div className="flex flex-col items-center justify-center space-y-3 py-10">
+                <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+                <p className="text-xs text-zinc-400 font-semibold animate-pulse">
+                  멤버들의 연습 비디오를 하나로 합성하고 있습니다. 잠시만 기다려주세요...
+                </p>
+              </div>
+            ) : project.merged_vlog_status === 'failed' ? (
+              <div className="text-center py-8 space-y-3">
+                <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
+                <div>
+                  <p className="text-xs font-bold text-zinc-300">
+                    통합 비디오 병합에 실패했습니다.
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    마감일을 다시 연장하여 연습 영상을 추가 제출하거나 서버 환경을 점검해 주세요.
+                  </p>
+                </div>
+              </div>
+            ) : project.merged_vlog_status === 'completed' && project.merged_vlog_url ? (
+              <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-zinc-800/80 relative shadow-inner">
+                <video
+                  src={`${API_BASE_URL.replace('/api/v1', '')}${project.merged_vlog_url}`}
+                  controls
+                  className="w-full h-full object-contain"
+                  playsInline
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500 italic">합성 비디오 파일이 존재하지 않습니다.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Practice Calendar Grid */}
       <Card className="bg-zinc-950/40 border-zinc-800/80 shadow-lg backdrop-blur-xl">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-md font-bold text-zinc-100 flex items-center gap-2">
-            <CalendarIcon size={16} className="text-pink-500" /> {t('calendar')}
-          </CardTitle>
-          <CardDescription>
-            {year}년 {month + 1}월
-          </CardDescription>
+        <CardHeader className="pb-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-md font-bold text-zinc-100 flex items-center gap-2">
+              <CalendarIcon size={16} className="text-pink-500" /> {t('calendar')}
+            </CardTitle>
+            <CardDescription className="flex items-center gap-2 mt-1">
+              <span>
+                {year}년 {month + 1}월
+              </span>
+              {project?.practice_deadline && (
+                <span className="text-[10px] bg-pink-950/30 text-pink-400 border border-pink-900/50 px-2 py-0.5 rounded-full font-bold">
+                  마감일: {project.practice_deadline}
+                </span>
+              )}
+            </CardDescription>
+          </div>
+          {isManagerOrSubManager && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-zinc-400 font-medium">마감일 설정:</span>
+              <input
+                type="date"
+                value={project?.practice_deadline || ''}
+                onChange={(e) => updateDeadlineMutation.mutate(e.target.value)}
+                className="bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800 focus:border-pink-500/80 rounded px-2.5 py-1 text-zinc-200 focus:outline-none text-xs w-36 cursor-pointer transition-colors shadow-inner"
+              />
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-zinc-500 mb-2">
@@ -785,7 +914,15 @@ export function PracticeCalendar({ projectId, teamId }: PracticeCalendarProps) {
           )}
 
           {/* Upload Form */}
-          {hasUploadedToday ? (
+          {isDeadlinePassed ? (
+            <div className="pt-4 border-t border-zinc-800/80 text-center py-8 text-xs text-zinc-400 bg-zinc-950/20 rounded-lg flex flex-col items-center justify-center gap-2 border border-dashed border-zinc-800">
+              <Lock size={16} className="text-zinc-500 animate-pulse" />
+              <span>
+                연습 영상 제출 마감일({project?.practice_deadline})이 지나 동영상을 등록할 수
+                없습니다.
+              </span>
+            </div>
+          ) : hasUploadedToday ? (
             <div className="pt-4 border-t border-zinc-800/80 text-center py-6 text-xs text-zinc-500 italic bg-zinc-950/20 rounded-lg">
               해당 날짜의 연습 영상 업로드가 완료되었습니다.
             </div>

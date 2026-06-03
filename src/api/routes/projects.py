@@ -122,7 +122,9 @@ async def update_project(
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
-    return ProjectService.update_project(db, project_id, project_update.name, current_user)
+    return ProjectService.update_project(
+        db, project_id, project_update.name, project_update.practice_deadline, current_user
+    )
 
 
 @router.delete("/{project_id}")

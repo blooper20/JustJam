@@ -115,6 +115,11 @@ class ProjectModel(Base):
     structure = Column(String, nullable=True)  # JSON formatted string
     thumbnail_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 연습 영상 관리용 컬럼
+    practice_deadline = Column(String, nullable=True)  # YYYY-MM-DD
+    merged_vlog_url = Column(String, nullable=True)
+    merged_vlog_status = Column(String, default="none")  # none, processing, completed, failed
 
     # 사용자 연결
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)

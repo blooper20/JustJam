@@ -1,6 +1,6 @@
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -537,6 +537,27 @@ async def list_practice_logs(
         raise HTTPException(status_code=404, detail="Project or Team not found")
     check_team_access(db, project.team_id, current_user)
 
+    # 마감일 경과 여부 확인하여 자동 병합 트리거
+    if project.practice_deadline and project.merged_vlog_status in ["none", "failed"]:
+        today_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")
+        if today_str > project.practice_deadline:
+            # 먼저 연습 영상이 최소 1개는 존재하는지 체크
+            log_count = db.query(PracticeLog).filter(PracticeLog.project_id == project_id).count()
+            if log_count > 0:
+                project.merged_vlog_status = "processing"
+                db.commit()
+                
+                # Celery 작업 호출
+                try:
+                    # Circular import 방지를 위해 여기서 import
+                    from src.api.services.project_service import merge_practice_videos_task
+                    merge_practice_videos_task.delay(project_id)
+                except Exception as e:
+                    from src.api.logging_config import logger
+                    logger.warning(f"Celery merge task trigger failed, setting state to failed: {e}")
+                    project.merged_vlog_status = "failed"
+                    db.commit()
+
     logs = (
         db.query(PracticeLog)
         .filter(PracticeLog.project_id == project_id)
@@ -569,6 +590,12 @@ async def create_practice_log(
     if not project or not project.team_id:
         raise HTTPException(status_code=404, detail="Project or Team not found")
     check_team_access(db, project.team_id, current_user)
+
+    # 마감일 제한 체크
+    if project.practice_deadline:
+        today_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")
+        if today_str > project.practice_deadline:
+            raise HTTPException(status_code=400, detail="연습 영상 제출 마감일이 지났습니다.")
 
     # Limit to video uploads
     if not file.content_type.startswith("video/"):

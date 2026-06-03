@@ -22,6 +22,7 @@ class ProjectCreate(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = Field(None, example="Updated Project Name")
+    practice_deadline: Optional[str] = Field(None, example="2026-06-30")
 
 
 class ProjectMemberBase(BaseModel):
@@ -66,6 +67,9 @@ class Project(ProjectBase):
     stems_path: Optional[str] = Field(None, example="/static/separated/htdemucs_6s/123")
     members: List[ProjectMember] = []
     is_owner: bool = Field(False, example=True)  # Helper for frontend
+    practice_deadline: Optional[str] = Field(None, example="2026-06-30")
+    merged_vlog_url: Optional[str] = Field(None, example="/static/uploads/vlogs/merged_123.mp4")
+    merged_vlog_status: Optional[str] = Field("none", example="completed")
 
     class Config:
         from_attributes = True

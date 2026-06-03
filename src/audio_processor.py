@@ -196,6 +196,27 @@ def separate_audio(
                 chunk_base_output = Path(output_dir) / model_name / chunk_name
                 shutil.rmtree(str(chunk_base_output), ignore_errors=True)
 
+        # WAV → MP3 변환 (스트리밍 최적화: 파일 크기 ~90% 감소)
+        logger.info("Transcoding stems from WAV to MP3 for streaming optimization...")
+        mp3_result_paths = {}
+        for stem_name, wav_path_str in result_paths.items():
+            wav_path = Path(wav_path_str)
+            mp3_path = wav_path.with_suffix(".mp3")
+            try:
+                seg = AudioSegment.from_wav(str(wav_path))
+                seg.export(str(mp3_path), format="mp3", bitrate="192k")
+                mp3_result_paths[stem_name] = str(mp3_path)
+                wav_mb = wav_path.stat().st_size // 1024 // 1024
+                mp3_mb = mp3_path.stat().st_size // 1024 // 1024
+                logger.info(f"Transcoded {stem_name}: {wav_mb}MB -> {mp3_mb}MB")
+            except Exception as transcode_err:
+                logger.warning(
+                    f"MP3 transcode failed for {stem_name}, keeping WAV: {transcode_err}"
+                )
+                mp3_result_paths[stem_name] = wav_path_str
+
+        result_paths = mp3_result_paths
+
         logger.info("Source separation completed successfully.")
         if progress_callback:
             progress_callback(100)
@@ -203,19 +224,23 @@ def separate_audio(
         import librosa
         import numpy as np
 
-        # Verify result lengths (skip silent stems logic)
+        # Verify result lengths (prefer .mp3 over .wav, skip silent stems)
         final_result_paths = {}
         if base_output.exists():
-            for f in base_output.glob("*.wav"):
-                try:
-                    y, _ = librosa.load(str(f), sr=8000, duration=30)
-                    if np.max(np.abs(y)) < 0.01:
-                        logger.info(f"Skipping silent stem: {f.name}")
-                        continue
-                except Exception:
-                    pass
-
-                final_result_paths[f.stem] = str(f)
+            # MP3 파일 우선, 없으면 WAV 폴백
+            for ext in (".mp3", ".wav"):
+                for f in base_output.glob(f"*{ext}"):
+                    stem_key = f.stem
+                    if stem_key in final_result_paths:
+                        continue  # 이미 더 좋은 포맷(mp3)이 있으면 건너뜀
+                    try:
+                        y, _ = librosa.load(str(f), sr=8000, duration=30)
+                        if np.max(np.abs(y)) < 0.01:
+                            logger.info(f"Skipping silent stem: {f.name}")
+                            continue
+                    except Exception:
+                        pass
+                    final_result_paths[stem_key] = str(f)
 
         if not final_result_paths:
             logger.warning("No stems found after separation.")

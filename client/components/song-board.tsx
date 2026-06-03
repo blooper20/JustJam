@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UploadCloud, Music, Loader2, Play, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { fetchProjects, createProject, deleteProject } from '@/lib/api';
+import { fetchProjects, createProject, deleteProject, createProjectFromYoutube } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 
@@ -15,6 +15,8 @@ interface SongBoardProps {
 export function SongBoard({ teamId }: SongBoardProps) {
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [activeTab, setActiveTab] = useState<'file' | 'youtube'>('file');
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects', teamId],
@@ -32,6 +34,22 @@ export function SongBoard({ teamId }: SongBoardProps) {
     onError: () => {
       setUploading(false);
       toast.error('업로드에 실패했습니다.');
+    },
+  });
+
+  const youtubeMutation = useMutation({
+    mutationFn: (url: string) => createProjectFromYoutube(url, teamId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', teamId] });
+      setUploading(false);
+      setYoutubeUrl('');
+      toast.success('유튜브 프로젝트가 생성되었습니다.');
+    },
+    onError: (err: unknown) => {
+      setUploading(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (err as any).response?.data?.detail || '유튜브 음원 추출에 실패했습니다.';
+      toast.error(detail);
     },
   });
 
@@ -53,6 +71,17 @@ export function SongBoard({ teamId }: SongBoardProps) {
     }
   };
 
+  const handleYoutubeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!youtubeUrl.trim()) return;
+    if (!youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be')) {
+      toast.error('올바른 유튜브 링크를 입력해주세요.');
+      return;
+    }
+    setUploading(true);
+    youtubeMutation.mutate(youtubeUrl.trim());
+  };
+
   const handleDeleteClick = (e: React.MouseEvent, projectId: string) => {
     e.preventDefault(); // Link 이동 방지
     e.stopPropagation();
@@ -71,32 +100,111 @@ export function SongBoard({ teamId }: SongBoardProps) {
 
   return (
     <div className="space-y-8">
-      {/* Upload Section */}
-      <div className="flex justify-center mb-12">
-        <div className="relative">
-          <input
-            type="file"
-            id="file-upload"
-            className="hidden"
-            accept="audio/*"
-            onChange={handleFileChange}
-            disabled={uploading}
-          />
-          <label
-            htmlFor="file-upload"
-            className={`flex flex-col items-center justify-center w-64 h-32 border-2 border-dashed rounded-xl cursor-pointer hover:border-primary transition-colors ${
-              uploading ? 'opacity-50 pointer-events-none' : 'border-muted-foreground/50'
-            }`}
-          >
-            {uploading ? (
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      {/* Upload & Youtube Tabs Section */}
+      <div className="flex flex-col items-center mb-12">
+        <div className="w-full max-w-md bg-zinc-950/40 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-6 shadow-2xl">
+          {/* Tab Headers */}
+          <div className="flex bg-zinc-900/60 p-1 rounded-xl mb-6">
+            <button
+              onClick={() => !uploading && setActiveTab('file')}
+              disabled={uploading}
+              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'file'
+                  ? 'bg-zinc-800 text-white shadow'
+                  : 'text-muted-foreground hover:text-white'
+              } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              파일 업로드
+            </button>
+            <button
+              onClick={() => !uploading && setActiveTab('youtube')}
+              disabled={uploading}
+              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'youtube'
+                  ? 'bg-zinc-800 text-white shadow'
+                  : 'text-muted-foreground hover:text-white'
+              } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              유튜브 링크
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="min-h-[140px] flex items-center justify-center">
+            {activeTab === 'file' ? (
+              <div className="w-full relative flex justify-center">
+                <input
+                  type="file"
+                  id="file-upload"
+                  className="hidden"
+                  accept="audio/*"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer hover:border-primary/80 transition-all ${
+                    uploading
+                      ? 'opacity-50 pointer-events-none'
+                      : 'border-zinc-800 bg-zinc-900/20 hover:bg-zinc-900/40'
+                  }`}
+                >
+                  {uploading ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+                      <span className="text-xs text-muted-foreground animate-pulse">
+                        업로드 중...
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-8 h-8 text-muted-foreground mb-2" />
+                      <span className="text-sm font-medium text-zinc-300">
+                        음원 파일 드래그 또는 클릭 (MP3/WAV)
+                      </span>
+                    </>
+                  )}
+                </label>
+              </div>
             ) : (
-              <UploadCloud className="w-10 h-10 text-muted-foreground mb-2" />
+              <form onSubmit={handleYoutubeSubmit} className="w-full space-y-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="youtube-url"
+                    className="text-xs text-muted-foreground font-medium block"
+                  >
+                    YouTube 또는 YouTube Music 동영상 URL
+                  </label>
+                  <input
+                    id="youtube-url"
+                    type="url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    disabled={uploading}
+                    className="w-full bg-zinc-900/80 border border-zinc-850 focus:border-zinc-700 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder:text-zinc-650 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-all disabled:opacity-50"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={uploading || !youtubeUrl.trim()}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-medium py-3 px-4 rounded-xl text-sm transition-all shadow-lg hover:shadow-red-950/20 disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>유튜브 음원 추출 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Music className="w-4 h-4" />
+                      <span>음원 추출하여 생성</span>
+                    </>
+                  )}
+                </button>
+              </form>
             )}
-            <span className="text-sm font-medium">
-              {uploading ? '업로드 중...' : '새 프로젝트 업로드 (MP3/WAV)'}
-            </span>
-          </label>
+          </div>
         </div>
       </div>
 

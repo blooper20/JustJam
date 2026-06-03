@@ -39,6 +39,52 @@ UPLOAD_DIR = os.path.join(PROJECT_ROOT, "temp", "uploads")
 SEPARATED_DIR = os.path.join(PROJECT_ROOT, "temp", "separated")
 
 
+def _sanitize_youtube_url(url: str) -> str:
+    """유튜브 URL에서 플레이리스트 파라미터를 제거하여 단독 영상 URL로 변환"""
+    from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+
+    # list / start_radio 파라미터 제거 (라디오/믹스/재생목록)
+    qs.pop("list", None)
+    qs.pop("index", None)
+    qs.pop("start_radio", None)
+
+    clean_query = urlencode({k: v[0] for k, v in qs.items()})
+    return urlunparse(parsed._replace(query=clean_query))
+
+
+def download_youtube_audio(youtube_url: str, output_dir: str, project_id: str) -> str:
+    """yt-dlp를 사용하여 유튜브에서 최고 품질 오디오를 다운로드하고 mp3로 변환"""
+    import yt_dlp
+
+    # 라디오/믹스 등의 플레이리스트 URL을 단독 영상 URL로 정규화
+    clean_url = _sanitize_youtube_url(youtube_url)
+    logger.info(f"Sanitized YouTube URL: {clean_url}")
+
+    outtmpl = os.path.join(output_dir, f"{project_id}.%(ext)s")
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": outtmpl,
+        "noplaylist": True,  # 재생목록이더라도 첫 번째 영상만 다운로드
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }
+        ],
+        "quiet": True,
+        "no_warnings": True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(clean_url, download=True)
+        title = info.get("title", "YouTube Audio")
+        return str(title)
+
+
 def generate_thumbnail(audio_path: str, output_path: str):
     """오디오 파일을 기반으로 스펙트로그램 썸네일 생성"""
     try:
@@ -200,6 +246,53 @@ class ProjectService:
         project = ProjectModel(
             id=project_id,
             name=file_name,
+            original_filename=saved_filename,
+            status=TaskStatus.PENDING.value,
+            progress=0,
+            user_id=current_user.id if current_user else None,
+            team_id=team_id,
+            created_at=datetime.utcnow(),
+        )
+
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
+        return project, file_path
+
+    @staticmethod
+    def create_project_from_youtube(
+        db: Session,
+        youtube_url: str,
+        current_user: Optional[User] = None,
+        team_id: Optional[int] = None,
+    ):
+        """유튜브 URL로부터 프로젝트 생성"""
+        project_id = str(uuid.uuid4())
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+        try:
+            title = download_youtube_audio(youtube_url, UPLOAD_DIR, project_id)
+        except Exception as e:
+            logger.error(f"YouTube download failed: {e}")
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=400,
+                detail=f"유튜브 음원 다운로드 실패: {str(e)}",
+            )
+
+        saved_filename = f"{project_id}.mp3"
+        file_path = os.path.join(UPLOAD_DIR, saved_filename)
+
+        if not os.path.exists(file_path):
+            from src.api.exceptions import AudioProcessingError
+
+            raise AudioProcessingError(detail="유튜브 음원 변환 결과를 찾을 수 없습니다.")
+
+        project = ProjectModel(
+            id=project_id,
+            name=title,
             original_filename=saved_filename,
             status=TaskStatus.PENDING.value,
             progress=0,
@@ -453,17 +546,25 @@ class ProjectService:
 
             raise HTTPException(status_code=400, detail="아직 처리가 완료되지 않았습니다.")
 
+        base_dir = os.path.join(SEPARATED_DIR, "htdemucs_6s", project_id)
         base_url = f"/static/separated/htdemucs_6s/{project_id}"
         from src.api.schemas.project import StemFiles
 
+        def _stem_url(name: str) -> str:
+            """MP3가 있으면 MP3, 없으면 WAV URL 반환 (스트리밍 최적화)"""
+            mp3 = os.path.join(base_dir, f"{name}.mp3")
+            if os.path.exists(mp3):
+                return f"{base_url}/{name}.mp3"
+            return f"{base_url}/{name}.wav"
+
         return StemFiles(
-            vocals=f"{base_url}/vocals.wav",
-            bass=f"{base_url}/bass.wav",
-            drums=f"{base_url}/drums.wav",
-            guitar=f"{base_url}/guitar.wav",
-            piano=f"{base_url}/piano.wav",
-            other=f"{base_url}/other.wav",
-            master=f"{base_url}/master.wav",
+            vocals=_stem_url("vocals"),
+            bass=_stem_url("bass"),
+            drums=_stem_url("drums"),
+            guitar=_stem_url("guitar"),
+            piano=_stem_url("piano"),
+            other=_stem_url("other"),
+            master=_stem_url("master"),
         )
 
     @staticmethod
@@ -698,6 +799,7 @@ class ProjectService:
 def create_placeholder_card(instrument: str, output_path: str):
     """연습 영상 미제출자를 위한 카드 이미지 생성 (Pillow)"""
     import os
+
     from PIL import Image, ImageDraw, ImageFont
 
     img = Image.new("RGB", (640, 360), color="#0d0e12")
@@ -851,6 +953,7 @@ def merge_practice_videos_logic(project_id: str):
     """연습 비디오 병합 메인 로직"""
     import os
     import tempfile
+
     from src.api.database import SessionLocal
     from src.api.logging_config import logger
     from src.api.models import PracticeLog, ProjectModel, TeamMember

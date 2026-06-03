@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { Play, Pause, Volume2, Download, Loader2, Plus, Music, Info } from 'lucide-react';
+import { Play, Pause, Volume2, Loader2, Plus, Music, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '../lib/utils';
-import { downloadMix } from '@/lib/api';
+
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { useProjectStore } from '@/store/project-store';
@@ -258,7 +258,6 @@ class MetronomeEngine {
 // ==================== 메인 컴포넌트 ====================
 export function MultiTrackPlayer({
   stems,
-  projectId,
   initialBpm,
   onTimeUpdate,
   chordProgression,
@@ -313,7 +312,7 @@ export function MultiTrackPlayer({
   } = useProjectStore();
 
   // 로컬 컴포넌트 상태
-  const [isDownloading, setIsDownloading] = useState(false);
+
   const [tracks, setTracks] = useState<TrackControl[]>([]);
   const [loadedTracks, setLoadedTracks] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -987,59 +986,6 @@ export function MultiTrackPlayer({
     }
   };
 
-  // 믹스 다운로드
-  const handleDownloadMix = async () => {
-    setIsDownloading(true);
-    const newWindow = window.open('', '_blank');
-    if (newWindow) {
-      newWindow.document.write(
-        '<html><body style="background:#18181b;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;"><h2>믹스 생성 중... 잠시만 기다려주세요...</h2></body></html>',
-      );
-    }
-
-    try {
-      const volumes: Record<string, number> = {};
-      const hasSolo = Object.values(trackSolos).some((s) => s);
-
-      tracks.forEach((t) => {
-        const isMuted = trackMutes[t.name] ?? false;
-        const isSolo = trackSolos[t.name] ?? false;
-        const vol = trackVolumes[t.name] ?? 0.8;
-
-        if (hasSolo) {
-          volumes[t.name] = isSolo ? vol : 0;
-        } else if (isMuted) {
-          volumes[t.name] = 0;
-        } else {
-          volumes[t.name] = vol;
-        }
-      });
-
-      const downloadMetronomeVolume = metronomeEnabled ? metronomeVolume : 0;
-      const { url } = await downloadMix(
-        projectId,
-        volumes,
-        bpm,
-        downloadMetronomeVolume,
-        startOffsetSeconds,
-      );
-
-      if (newWindow) {
-        newWindow.location.href = url;
-      } else {
-        window.open(url, '_blank');
-      }
-
-      toast.success('믹스 준비 완료!');
-    } catch (error) {
-      console.error(error);
-      toast.error('믹스 다운로드 실패');
-      if (newWindow) newWindow.close();
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   if (!isMounted) {
     return (
       <div className="flex h-64 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950/50 backdrop-blur-xl">
@@ -1368,21 +1314,6 @@ export function MultiTrackPlayer({
               >
                 <Music size={16} className={cn(metronomeEnabled && 'animate-pulse')} />
               </button>
-
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleDownloadMix}
-                disabled={isDownloading}
-                className="h-8 md:h-9 rounded-lg font-bold gap-1.5 md:gap-2 active:scale-95 px-2 md:px-3"
-              >
-                {isDownloading ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Download className="w-3 h-3 md:w-4 md:h-4" />
-                )}
-                <span className="hidden xs:inline text-xs md:text-sm">{t('downloadMix')}</span>
-              </Button>
             </div>
           </div>
         </div>
@@ -1440,15 +1371,6 @@ export function MultiTrackPlayer({
                           >
                             S
                           </button>
-                          {/* 개별 다운로드 */}
-                          <a
-                            href={track.url}
-                            download={`${track.name}.wav`}
-                            className="px-1.5 md:px-2 py-0.5 text-[9px] md:text-[10px] rounded border font-mono transition-colors border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-                            title="스템 다운로드"
-                          >
-                            <Download className="w-3 h-3 inline" />
-                          </a>
                         </div>
                       </div>
 

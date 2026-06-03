@@ -204,14 +204,29 @@ async def log_requests(request, call_next):
     return response
 
 
-# 스템 파일을 위한 정적 파일 서빙
-class CacheStaticFiles(StaticFiles):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# 스템 파일을 위한 정적 파일 서빙 (Range Request 지원으로 오디오 스트리밍 최적화)
+class RangeStaticFiles(StaticFiles):
+    """HTTP Range Request를 지원하는 정적 파일 서버.
+    브라우저가 오디오 파일을 처음부터 끝까지 다운로드하지 않고
+    필요한 구간만 스트리밍할 수 있도록 한다.
+    """
+
+    AUDIO_EXTENSIONS = {".wav", ".mp3", ".ogg", ".webm", ".opus", ".flac", ".aac", ".m4a"}
 
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+
+        ext = os.path.splitext(path)[1].lower()
+        if ext in self.AUDIO_EXTENSIONS:
+            # 오디오 파일: 브라우저가 범위 요청(Range)으로 스트리밍할 수 있도록 허용
+            response.headers["Accept-Ranges"] = "bytes"
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Range"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Range, Accept-Ranges"
+        else:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+
         return response
 
 
@@ -219,7 +234,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 temp_dir = os.path.join(project_root, "temp")
 os.makedirs(temp_dir, exist_ok=True)
 
-app.mount("/static", CacheStaticFiles(directory=temp_dir), name="static")
+app.mount("/static", RangeStaticFiles(directory=temp_dir), name="static")
 
 
 @app.get("/")

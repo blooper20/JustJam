@@ -3,13 +3,12 @@
 import { useProject } from '@/hooks/use-project';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Play, AlertCircle, ArrowLeft, Users } from 'lucide-react';
+import { Loader2, Play, AlertCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ShareModal } from '@/components/share-modal';
 
 const MultiTrackPlayer = dynamic(
   () => import('@/components/multitrack-player').then((mod) => mod.MultiTrackPlayer),
@@ -30,7 +29,6 @@ export default function ProjectPage() {
 
   const [loadMixer, setLoadMixer] = useState(false);
 
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const activeTab = (searchParams.get('tab') as 'mixer' | 'collab') || 'mixer';
   // Removed local progress state
 
@@ -83,26 +81,9 @@ export default function ProjectPage() {
             >
               {project.status.toUpperCase()}
             </span>
-            {project.status === 'completed' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsShareModalOpen(true)}
-                className="gap-2 transition-all hover:bg-zinc-800 border-zinc-700 h-8 font-medium bg-zinc-900/50"
-              >
-                <Users size={14} /> 공유/협업
-              </Button>
-            )}
           </div>
         </div>
       </div>
-
-      <ShareModal
-        projectId={id}
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        isOwner={true}
-      />
 
       {project.status === 'pending' && (
         <Card className="bg-zinc-900 border-zinc-800">

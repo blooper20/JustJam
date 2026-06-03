@@ -312,14 +312,16 @@ class ProjectService:
         # 2. 팀 소유자 혹은 팀 매니저/부매니저인 경우
         if project.team_id:
             from src.api.models import Team, TeamMember
+
             team = db.query(Team).filter(Team.id == project.team_id).first()
             if team and team.owner_id == user.id:
                 return True
-            
-            member = db.query(TeamMember).filter(
-                TeamMember.team_id == project.team_id,
-                TeamMember.user_id == user.id
-            ).first()
+
+            member = (
+                db.query(TeamMember)
+                .filter(TeamMember.team_id == project.team_id, TeamMember.user_id == user.id)
+                .first()
+            )
             if member and member.role in ["owner", "editor"]:
                 return True
         return False
@@ -345,18 +347,24 @@ class ProjectService:
             project.name = name
 
         if practice_deadline is not None:
-            if not current_user or not ProjectService.check_manager_permission(db, project, current_user):
+            if not current_user or not ProjectService.check_manager_permission(
+                db, project, current_user
+            ):
                 from fastapi import HTTPException
 
-                raise HTTPException(status_code=403, detail="프로젝트 마감일 설정 권한이 없습니다 (매니저/부매니저만 가능).")
-            
+                raise HTTPException(
+                    status_code=403,
+                    detail="프로젝트 마감일 설정 권한이 없습니다 (매니저/부매니저만 가능).",
+                )
+
             # 마감일 업데이트 (만약 빈 문자열이면 None 처리)
             deadline_val = practice_deadline if practice_deadline.strip() else None
             project.practice_deadline = deadline_val
-            
+
             # 새 마감일이 오늘 날짜보다 미래이거나 같으면 비디오 병합 초기화
             if deadline_val:
                 from datetime import datetime, timedelta
+
                 today_str = (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d")
                 if deadline_val >= today_str:
                     project.merged_vlog_status = "none"
@@ -705,7 +713,9 @@ def create_placeholder_card(instrument: str, output_path: str):
         "other": ("OTHER", "🎵"),
     }
 
-    label, emoji = instrument_map.get(instrument.lower() if instrument else "other", ("OTHER", "🎵"))
+    label, emoji = instrument_map.get(
+        instrument.lower() if instrument else "other", ("OTHER", "🎵")
+    )
 
     font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
     if not os.path.exists(font_path):
@@ -781,6 +791,8 @@ def create_daily_vstack_video(video_paths: list, output_path: str):
             "[outa]",
             "-c:v",
             "libx264",
+            "-preset",
+            "ultrafast",
             "-c:a",
             "aac",
             "-pix_fmt",
@@ -912,39 +924,56 @@ def merge_practice_videos_logic(project_id: str):
                     abs_path = os.path.join(PROJECT_ROOT, "temp", rel_path)
                     day_member_videos.append(abs_path)
                 else:
-                    temp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
                     temp_vid = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
-                    temp_files_to_clean.extend([temp_img, temp_vid])
+                    temp_files_to_clean.append(temp_vid)
 
                     try:
-                        create_placeholder_card(inst, temp_img)
-                        import subprocess
-
-                        cmd = [
-                            "ffmpeg",
-                            "-y",
-                            "-loop",
-                            "1",
-                            "-i",
-                            temp_img,
-                            "-f",
-                            "lavfi",
-                            "-i",
-                            "anullsrc=channel_layout=stereo:sample_rate=44100",
-                            "-t",
-                            "5",
-                            "-c:v",
-                            "libx264",
-                            "-c:a",
-                            "aac",
-                            "-pix_fmt",
-                            "yuv420p",
-                            "-shortest",
-                            temp_vid,
-                        ]
-                        subprocess.run(
-                            cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                        placeholder_dir = os.path.join(
+                            PROJECT_ROOT, "temp", "uploads", "vlogs", "placeholders"
                         )
+                        os.makedirs(placeholder_dir, exist_ok=True)
+                        cached_vid = os.path.join(placeholder_dir, f"{inst.lower()}.mp4")
+
+                        if not os.path.exists(cached_vid):
+                            temp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
+                            try:
+                                create_placeholder_card(inst, temp_img)
+                                import subprocess
+
+                                cmd = [
+                                    "ffmpeg",
+                                    "-y",
+                                    "-loop",
+                                    "1",
+                                    "-i",
+                                    temp_img,
+                                    "-f",
+                                    "lavfi",
+                                    "-i",
+                                    "anullsrc=channel_layout=stereo:sample_rate=44100",
+                                    "-t",
+                                    "5",
+                                    "-c:v",
+                                    "libx264",
+                                    "-preset",
+                                    "ultrafast",
+                                    "-c:a",
+                                    "aac",
+                                    "-pix_fmt",
+                                    "yuv420p",
+                                    "-shortest",
+                                    cached_vid,
+                                ]
+                                subprocess.run(
+                                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                                )
+                            finally:
+                                if os.path.exists(temp_img):
+                                    os.remove(temp_img)
+
+                        import shutil
+
+                        shutil.copy(cached_vid, temp_vid)
                         day_member_videos.append(temp_vid)
                     except Exception as e:
                         logger.error(

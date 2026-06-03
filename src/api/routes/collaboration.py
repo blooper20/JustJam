@@ -546,15 +546,19 @@ async def list_practice_logs(
             if log_count > 0:
                 project.merged_vlog_status = "processing"
                 db.commit()
-                
+
                 # Celery 작업 호출
                 try:
                     # Circular import 방지를 위해 여기서 import
                     from src.api.services.project_service import merge_practice_videos_task
+
                     merge_practice_videos_task.delay(project_id)
                 except Exception as e:
                     from src.api.logging_config import logger
-                    logger.warning(f"Celery merge task trigger failed, setting state to failed: {e}")
+
+                    logger.warning(
+                        f"Celery merge task trigger failed, setting state to failed: {e}"
+                    )
                     project.merged_vlog_status = "failed"
                     db.commit()
 
@@ -594,9 +598,11 @@ async def trigger_practice_logs_merge(
 
     try:
         from src.api.services.project_service import merge_practice_videos_task
+
         merge_practice_videos_task.delay(project_id)
     except Exception as e:
         from src.api.logging_config import logger
+
         logger.warning(f"Celery merge task trigger failed: {e}")
         project.merged_vlog_status = "failed"
         db.commit()

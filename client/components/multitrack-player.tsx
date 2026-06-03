@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import WaveSurfer from 'wavesurfer.js';
+import type WaveSurfer from 'wavesurfer.js';
 import { Play, Pause, Volume2, Loader2, Plus, Music, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -598,7 +598,9 @@ export function MultiTrackPlayer({
       const container = containerRefs.current[track.name];
       if (!container) return;
 
-      setTimeout(() => {
+      setTimeout(async () => {
+        const WaveSurferModule = await import('wavesurfer.js');
+        const WaveSurfer = WaveSurferModule.default;
         const ws = WaveSurfer.create({
           container,
           waveColor: TRACK_COLORS[track.name] || '#9ca3af',
@@ -689,34 +691,41 @@ export function MultiTrackPlayer({
       masterInstanceRef.current = null;
     }
 
-    const ws = WaveSurfer.create({
-      container: masterContainerRef.current,
-      waveColor: '#a1a1aa',
-      progressColor: '#facc15',
-      url: masterUrl,
-      height: 96,
-      barWidth: 2,
-      barGap: 1,
-      barRadius: 2,
-      cursorWidth: 2,
-      cursorColor: '#facc15',
-      normalize: true,
-      interact: false,
-      autoScroll: false,
-      minPxPerSec: 0,
-      fillParent: true,
-      audioContext: audioContext,
-      partialRender: true,
-    } as Parameters<typeof WaveSurfer.create>[0]);
+    const initMaster = async () => {
+      const WaveSurferModule = await import('wavesurfer.js');
+      const WaveSurfer = WaveSurferModule.default;
+      const ws = WaveSurfer.create({
+        container: masterContainerRef.current!,
+        waveColor: '#a1a1aa',
+        progressColor: '#facc15',
+        url: masterUrl as string,
+        height: 96,
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 2,
+        cursorWidth: 2,
+        cursorColor: '#facc15',
+        normalize: true,
+        interact: false,
+        autoScroll: false,
+        minPxPerSec: 0,
+        fillParent: true,
+        audioContext: audioContext,
+        partialRender: true,
+      } as Parameters<typeof WaveSurfer.create>[0]);
 
-    ws.on('ready', () => {
-      ws.setVolume(0);
-    });
+      ws.on('ready', () => {
+        ws.setVolume(0);
+      });
 
-    masterInstanceRef.current = ws;
+      masterInstanceRef.current = ws;
+    };
+    initMaster();
 
     return () => {
-      ws.destroy();
+      if (masterInstanceRef.current) {
+        masterInstanceRef.current.destroy();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stems.master, tracks.length, audioContext]);

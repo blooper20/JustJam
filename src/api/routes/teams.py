@@ -149,12 +149,14 @@ async def update_member_instrument(
         .first()
     )
     is_owner_or_editor = (
-        (current_member and current_member.role in ["owner", "editor"])
-        or team.owner_id == current_user.id
-    )
+        current_member and current_member.role in ["owner", "editor"]
+    ) or team.owner_id == current_user.id
 
     if not is_owner_or_editor and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Only team owner, editor or the member themselves can change instruments")
+        raise HTTPException(
+            status_code=403,
+            detail="Only team owner, editor or the member themselves can change instruments",
+        )
 
     member = (
         db.query(TeamMember)
@@ -199,9 +201,8 @@ async def invite_team_member(
         .first()
     )
     is_owner_or_editor = (
-        (current_member and current_member.role in ["owner", "editor"])
-        or team.owner_id == current_user.id
-    )
+        current_member and current_member.role in ["owner", "editor"]
+    ) or team.owner_id == current_user.id
 
     if not is_owner_or_editor:
         raise HTTPException(status_code=403, detail="Only team owner or editor can invite members")
@@ -235,7 +236,9 @@ async def invite_team_member(
     }
 
 
-@router.get("/{team_id}/search-users", response_model=List[UserResponse], summary="초대할 사용자 검색")
+@router.get(
+    "/{team_id}/search-users", response_model=List[UserResponse], summary="초대할 사용자 검색"
+)
 async def search_team_users(
     team_id: int,
     q: str,
@@ -252,9 +255,8 @@ async def search_team_users(
         .first()
     )
     is_owner_or_editor = (
-        (current_member and current_member.role in ["owner", "editor"])
-        or team.owner_id == current_user.id
-    )
+        current_member and current_member.role in ["owner", "editor"]
+    ) or team.owner_id == current_user.id
 
     if not is_owner_or_editor:
         raise HTTPException(status_code=403, detail="Only team owner or editor can invite members")
@@ -294,13 +296,13 @@ async def delete_team_member(
         .first()
     )
     is_owner_or_editor = (
-        (current_member and current_member.role in ["owner", "editor"])
-        or team.owner_id == current_user.id
-    )
+        current_member and current_member.role in ["owner", "editor"]
+    ) or team.owner_id == current_user.id
 
     if not is_owner_or_editor and current_user.id != user_id:
         raise HTTPException(
-            status_code=403, detail="Only team owner, editor or the member themselves can remove members"
+            status_code=403,
+            detail="Only team owner, editor or the member themselves can remove members",
         )
 
     member = (

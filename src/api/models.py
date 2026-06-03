@@ -42,9 +42,7 @@ class User(Base):
     availabilities = relationship(
         "UserAvailability", back_populates="user", cascade="all, delete-orphan"
     )
-    practice_logs = relationship(
-        "PracticeLog", back_populates="user", cascade="all, delete-orphan"
-    )
+    practice_logs = relationship("PracticeLog", back_populates="user", cascade="all, delete-orphan")
     practice_log_comments = relationship(
         "PracticeLogComment", back_populates="user", cascade="all, delete-orphan"
     )
@@ -115,7 +113,7 @@ class ProjectModel(Base):
     structure = Column(String, nullable=True)  # JSON formatted string
     thumbnail_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # 연습 영상 관리용 컬럼
     practice_deadline = Column(String, nullable=True)  # YYYY-MM-DD
     merged_vlog_url = Column(String, nullable=True)

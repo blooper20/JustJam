@@ -88,11 +88,9 @@ def download_youtube_audio(youtube_url: str, output_dir: str, project_id: str) -
             "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
             "Sec-Fetch-Mode": "navigate",
         },
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["web", "android"]
-            }
-        },
+        "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
+        # Node.js를 JS 런타임으로 명시 지정 (yt-dlp는 기본으로 deno만 자동 감지)
+        "js_runtimes": "node",
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:

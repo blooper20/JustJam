@@ -214,17 +214,19 @@ export function BandMembersSidebar({ teamId }: { teamId: number }) {
                 key={member.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-primary">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-primary shrink-0">
                     <InstrumentIcon className="w-5 h-5" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{member.nickname || member.email}</p>
-                    <p className="text-xs text-zinc-500 capitalize">{member.role}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {member.nickname || member.email}
+                    </p>
+                    <p className="text-xs text-zinc-500 capitalize truncate">{member.role}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {(() => {
                     const isOwnCard =
                       (currentUserId && String(member.user_id) === String(currentUserId)) ||

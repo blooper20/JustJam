@@ -21,7 +21,6 @@ export default function LoginPage() {
         <CardContent className="space-y-4 px-8 pb-10">
           <Button
             onClick={() => signIn('google', { callbackUrl: '/' })}
-            variant="outline"
             className="w-full h-12 flex items-center justify-center gap-3 bg-white text-black hover:bg-gray-100 border-none text-base font-medium transition-transform hover:scale-[1.02]"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
@@ -59,21 +58,6 @@ export default function LoginPage() {
               <path d="M12 3C5.9 3 1 6.5 1 10.8c0 2.6 1.7 4.9 4.5 6.3l-1.2 4.3c-.1.3 0 .5.3.5.1 0 .2 0 .3-.1L9.6 19c.8.1 1.6.2 2.4.2 6.1 0 11-3.5 11-7.8S18.1 3 12 3z" />
             </svg>
             카카오 계정으로 계속하기
-          </Button>
-
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-zinc-800"></div>
-            <span className="flex-shrink mx-4 text-zinc-500 text-sm">개발용 로그인</span>
-            <div className="flex-grow border-t border-zinc-800"></div>
-          </div>
-
-          <Button
-            onClick={() => signIn('credentials', { callbackUrl: '/' })}
-            variant="outline"
-            className="w-full h-12 flex items-center justify-center gap-3 bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white border-zinc-700 text-base font-medium transition-transform hover:scale-[1.02]"
-          >
-            <Music className="w-5 h-5 text-purple-400" />
-            테스트 계정으로 로그인 (간편 로그인)
           </Button>
         </CardContent>
       </Card>

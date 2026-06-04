@@ -88,9 +88,9 @@ def download_youtube_audio(youtube_url: str, output_dir: str, project_id: str) -
             "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
             "Sec-Fetch-Mode": "navigate",
         },
-        "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
-        # Node.js를 JS 런타임으로 명시 지정 (yt-dlp는 기본으로 deno만 자동 감지)
-        "js_runtimes": "node",
+        # android_vr 클라이언트는 JS 런타임 없이도 작동하며 서버 환경에서 가장 안정적
+        # web/ios 클라이언트는 PO Token 또는 JS challenge solver가 필요하여 서버에서 불안정
+        "extractor_args": {"youtube": {"player_client": ["android_vr", "android"]}},
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:

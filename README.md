@@ -1,176 +1,74 @@
-# 🎸 JustJam: Band-Mate AI Platform
+# 🎸 JustJam - AI-Powered Band Collaboration & Practice Platform
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Next.js 16](https://img.shields.io/badge/Next.js-16.1.2-black.svg)](https://nextjs.org/)
-
-**JustJam** is an AI-powered smart band practice and music arrangement collaboration platform. Utilizing local deep learning models, it separates user-uploaded audio into individual tracks (Stems) in real time. It also integrates a WaveSurfer.js-based multitrack mixer and a Web Audio API-based precision metronome to provide the ultimate practice environment.
-
-[English Document](./README.md) | [한국어 문서](./README_KR.md)
+> **From individual practice stems to unified band vlogs, the smartest hub for bands.**
+>
+> 🔗 **Official Website**: [https://just-jam.vercel.app](https://just-jam.vercel.app)
+> 🔗 **Backend API Server**: [https://justjam.onrender.com](https://justjam.onrender.com)
 
 ---
 
-## ✨ 6 Core Features
+## 🎵 What is JustJam?
 
-### 1. 🎧 AI-Based Audio Source Separation
-- Equips the **Facebook Demucs v4 (htdemucs_6s)** model to precisely separate a single imported audio file into multiple individual tracks (Vocals, Drums, Bass, Guitar, Piano, and Other instruments) in real time.
-- The separated audio tracks are immediately available as stems for practicing individual parts.
-
-### 2. 🎹 AI-Based MIDI Transcription (Legacy / Excluded from Production Deployment)
-- **Note**: This feature and its dependencies (`basic-pitch`, `music21`, etc.) are legacy and excluded from the production backend deployment to maintain a lightweight, performant container image.
-- Converts transcribed notes into standard MIDI files and supports quantizing to a 16th-note grid for alignment (available in experimental local mode only).
-
-### 3. 🗓️ Band Setlog & Collaboration Board
-- **Setlog (Practice Logs)**: Supports capturing a 15-second practice clip, trimming it down to a 5-second window using an iOS-style trimmer UI, overlaying text (up to 20 chars), and merging them into a unified vlog (Auto-Vlog).
-- **Communication & Scheduling**: Contains an interactive scheduling board to coordinate rehearsal slots and announcement/poll pages with comments and real-time polling synchronization.
-
-### 4. 🎛️ Interactive Multitrack Mixer
-- Leverages the **WaveSurfer.js** engine to visualize separated multitrack waveforms in the browser and provides fully synchronized playback.
-- Supports individual track volume controls, Solo and Mute functions, and pitch-preserved playback speed (BPM) adjustments.
-
-### 5. ⏱️ Precision Audio-Synced Metronome
-- Introduces a **Web Audio API**-based look-ahead scheduling technique to run an ultra-precise metronome engine that matches the audio playback clock and corrects for timing drift.
-- Synchronizes with the rhythm grid of the playing track and allows flexible tempo adjustments via manual tap tempo (TAP BPM) controls.
-
-### 6. 🤝 Real-Time Collaboration Workspace
-- Provides a real-time project sharing and permission management system for band members.
-- Differentiates permissions based on roles:
-  - **Manager (Owner)** and **Sub-Manager (Editor)**: Full control to invite members, update any member's position (instrument), and remove members.
-  - **Member (Viewer)**: Only allowed to update their own position (instrument); other positions and administrative actions are locked.
+JustJam is an **AI-driven collaboration platform** built specifically for bands. 
+It seamlessly bridges the gap between individual session practice and team coordination. Powered by advanced audio source separation (Demucs v4), it isolates instrument tracks so you can customize your practice environment. In addition, team members can verify their daily practices via video check-ins and merge them into a cohesive band vlog!
 
 ---
 
-## 🛠 Tech Stack
+## 🚀 Key Features to Elevate Your Band Experience
 
-### Frontend
-- **Framework**: Next.js 16.1.2 (App Router) & React 19.2.3
-- **Styling**: Tailwind CSS v4 & Radix UI / Shadcn UI
-- **Audio Playback**: WaveSurfer.js 7.x
-- **State Management & Fetching**: Zustand 5.0.10 & TanStack React Query v5
-- **Internationalization (i18n)**: next-intl 4.8.2 (Korean & English support)
-- **Authentication**: NextAuth.js 4.24.13
+### 1. 🎧 AI-Based Audio Source Separation (Stem Player)
+* **Custom Mix Stem Player**: Upload your favorite track, and our AI will instantly isolate it into **Vocals, Drums, Bass, Guitar, Piano, and Other** stems.
+* **Make Your Own Backing Tracks (MR)**: Mute specific sessions (like the guitar or bass line you play) or Solo your own track to practice along without tab sheets.
+* **YouTube & Local File Imports**: Simply paste a YouTube video link or upload your own audio files (MP3/WAV) to begin separation.
 
-### Backend
-- **Framework**: FastAPI 0.128.0 (ASGI Web Framework)
-- **Audio Engine & DSP**:
-  - Librosa 0.11.0 (Tempo/BPM tracking, beat grid alignment)
-  - Facebook Demucs 4.0.1 (Neural audio source separation engine)
-  - PyTorch 2.8.0 & torchaudio 2.8.0 (Deep learning inference engines)
-  - [Legacy - Excluded from Deployment] Spotify Basic Pitch 0.4.0 (Audio-to-MIDI neural network transcription)
-  - [Legacy - Excluded from Deployment] music21 8.3.0 (Harmonic analysis and key detection)
-- **Queue & Workers**: Celery 5.4+ (backed by Redis broker for async queue processing)
-- **Database & ORM**: SQLite (local dev) / PostgreSQL (production) & SQLAlchemy 2.0.25
-- **DB Migration**: Alembic 1.13.1
+### 2. 👥 Band Team Assembly & Instrument Assignment
+* **Invite Bandmates**: Set up your band space and bring in your team.
+* **Live Session Setup**: Assign roles (Vocals, Lead Guitar, Bass, Drums, Keyboard, etc.) to each member and keep track of everyone's practice status.
+
+### 3. 🗓️ Setlog Practice Logs & Automatic Vlog Compilation
+* **Practice Clip Trimmer & Text Overlay**: Upload a 15-second video clip of your practice, crop it down to a highlight 5-second window using our yellow iOS-style frame trimmer, and overlay a short note (up to 20 chars).
+* **Auto-Vlog Merge**: When team members submit their 5-second logs, click a button to merge them into a single **Band Vlog** - perfect for sharing on Instagram Reels or YouTube Shorts!
 
 ---
 
-## 🚀 Getting Started
+## 🏁 Step-by-Step Onboarding for New Users
 
-### Prerequisites
-Before installation and execution, ensure you have the following programs installed:
-- **Python 3.10+**: [Python Official Website](https://www.python.org/downloads/)
-- **Node.js 18+**: [Node.js Official Website](https://nodejs.org/)
-- **FFmpeg**: Mandatory for audio parsing, parallel slicing, and Demucs separation.
-  - **macOS**: `brew install ffmpeg`
-  - **Ubuntu**: `sudo apt-get install ffmpeg`
-  - **Windows**: Download from the [FFmpeg Download Page](https://ffmpeg.org/download.html) and add to your PATH environment variable.
+### Step 1: Sign in and Spawn Your Band
+1. Go to [JustJam](https://just-jam.vercel.app) and sign in using Google or Kakao credentials.
+2. Select **[Create New Team]** on your dashboard and name your band.
+3. Invite your team members using the invite URL.
 
----
+### Step 2: Claim Your Session Instrument
+1. Find your card in the members sidebar on the right.
+2. Select your designated instrument (e.g. `Guitar`, `Drums`, `Bass`) from the session list.
 
-### Execution Guide
+### Step 3: Add Songs and Split Stems
+1. Click **[Add New Song]** inside your project room.
+2. Provide a YouTube link or upload an audio file.
+3. Once the AI source separation finishes, adjust the faders to mute/solo your part and jam!
 
-#### 0. 🐳 Docker (Recommended) — One-Command Setup
-The easiest way to run JustJam is via Docker Compose, which starts all services (backend, Celery worker, frontend, Redis, PostgreSQL) with a single command.
-
-```bash
-# Build and start all services
-docker-compose up --build
-
-# Access the application
-# Frontend: http://localhost:3001
-# Backend API: http://localhost:8000
-# API Docs: http://localhost:8000/docs
-```
-
-> **Note**: The `justjam-data` Docker volume is shared between the `backend` and `worker` containers, ensuring separated audio stems are accessible to both services.
-
-To stop all services:
-```bash
-docker-compose down
-```
-
-To stop and remove all data volumes (full reset):
-```bash
-docker-compose down -v
-```
-
-#### 1. Backend Server Setup & Run
-```bash
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Apply database migrations
-alembic upgrade head
-
-# Launch FastAPI development server (Port: 8000)
-uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### 2. Celery & Redis Async Worker Run (For audio separation)
-A Redis server and a Celery worker are required to process audio separation tasks. Make sure a local Redis server is running.
-```bash
-# Run Celery async worker
-celery -A src.api.services.project_service.celery_app worker --loglevel=info --concurrency=1
-```
-
-#### 3. Frontend Client Run
-```bash
-# Navigate to the client directory
-cd client
-
-# Install dependencies
-npm install
-
-# Start Next.js development server (Port: 3000)
-npm run dev
-```
+### Step 4: Validate Your Practice with a 5s Vlog
+1. After practicing, upload a recording of your performance.
+2. Crop the best 5 seconds and type in a status message.
+3. Once everyone uploads their clips, hit **[Merge Vlog]** to watch a compiled band memory.
 
 ---
 
-## 🏗 Directory Structure
+## 🛠️ Technical Architecture & Stack
 
-```
-JustJam/
-├── client/                     # Next.js frontend application
-│   ├── app/                    # Next.js App Router (App directory structure)
-│   │   ├── [locale]/           # Localized routing (dashboard, projects, settings)
-│   │   └── globals.css         # Tailwind v4 globals & custom styles
-│   ├── components/             # Reusable UI Components
-│   │   ├── multitrack-player.tsx # WaveSurfer multimixer and Web Audio metronome
-│   │   └── mixer.tsx           # Multi-track audio player
-│   ├── hooks/                  # React custom hooks
-│   │   └── use-project.ts      # Project polling API hook integrated with Zustand
-│   └── package.json            # Frontend dependency specifications
-├── src/                        # FastAPI backend application
-│   ├── api/                    # Web API Layer
-│   │   ├── database.py         # DB connection pool & engine setup
-│   │   ├── main.py             # FastAPI App definition & CORS/middleware configuration
-│   │   ├── models.py           # SQLAlchemy DB models
-│   │   ├── routes/             # Route controllers (projects, auth, etc.)
-│   │   └── services/           # Async audio processing & core business logic
-│   ├── audio_processor.py      # Core stem extraction logic
-│   ├── transcriber.py          # Basic Pitch wrapper and quantized cleaning
-│   └── config.py               # YAML configuration loader
-└── README_KR.md                # Korean specification document
+JustJam is optimized for heavy multi-track audio overlays and deep learning tasks.
+
+```mermaid
+graph LR
+    NextJS[Frontend: Next.js] <-->|Rest API / CORS| FastAPI[Backend: FastAPI]
+    FastAPI <-->|Message Broker| Redis[(Redis)]
+    FastAPI <-->|ORM| Postgres[(PostgreSQL)]
+    Worker[Celery Worker] <-->|Task Queue| Redis
+    Worker -->|Source Separation| Demucs[Meta Demucs v4]
+    Worker -->|Audio Processing| Librosa[Librosa & PyDub]
 ```
 
----
-
-## 🤝 Contributing
-If you wish to contribute or modify code, you must adhere to the project's strict linters and test suite. For details, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md).
-- **Python Formatting**: Must pass `black -l 100 src/ tests/` & `flake8 src/ tests/`.
-- **TypeScript & React**: Must successfully pass `cd client && npm run lint` and `npm run build`.
+- **Frontend**: Next.js 16 (App Router), Tailwind CSS, Vanilla CSS, Web Audio API, Sentry. (Hosted on Vercel)
+- **Backend**: FastAPI (Python 3.10), SQLAlchemy. (Docker container hosted on Render)
+- **Database & Queue**: PostgreSQL, Redis, Celery (optimized with `concurrency=1` for OOM protection).
+- **Audio Engine**: Meta Demucs v4 (htdemucs_6s), Librosa, PyDub.

@@ -19,20 +19,28 @@
 ### Backend (.env)
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@host:port/dbname
+DATABASE_URL=postgresql://justjam:justjam@localhost:5432/justjam
+POSTGRES_USER=justjam
+POSTGRES_PASSWORD=justjam
+POSTGRES_DB=justjam
 
-# JWT
-JWT_SECRET=your-secret-key-at-least-32-chars
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+# JWT (Production 필수 설정)
+JWT_SECRET_KEY=your-secret-key-at-least-32-chars
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Redis (Celery)
-REDIS_URL=redis://your-redis-host:6379/0
+# Redis (Celery Broker & Backend)
+REDIS_URL=redis://localhost:6379/0
 
 # Sentry
 SENTRY_DSN=your-backend-sentry-dsn
 
 # App Environment
 APP_ENV=production
+
+# CORS Allowed Origins (쉼표로 구분된 프론트엔드 주소)
+ALLOWED_ORIGINS=https://yourdomain.com,http://localhost:3000
 ```
 
 ### Frontend (.env.production)
@@ -51,32 +59,57 @@ KAKAO_CLIENT_SECRET=your-kakao-secret
 
 ---
 
-## 2. 백엔드 배포 (Fly.io 예시)
+## 2. 백엔드 배포 (AWS EC2 추천)
 
-백엔드는 Docker를 사용하여 배포하는 것을 권장합니다.
+백엔드는 `FastAPI`, `Celery Worker`, `PostgreSQL`, `Redis` 총 4개의 컨테이너를 요구하며 Demucs 오디오 처리를 위해 메모리가 많이 필요합니다. 따라서 클라우드 PaaS(Fly.io 등)보다는 단일 가상 서버(AWS EC2, t3.large 권장)에 **Docker Compose**로 통합 배포하는 것을 강력히 권장합니다.
 
-### Dockerfile 준비
-이미 `Dockerfile`이 프로젝트 루트에 존재해야 합니다.
+### 배포 환경 구성 (원클릭 쉘 스크립트 활용)
+EC2 인스턴스(Ubuntu 22.04 LTS 권장) 접속 후 프로젝트를 클론하고, 배포 스크립트를 실행하면 즉시 구동됩니다.
 
-### 배포 환경 구성
-1. `fly launch` 실행하여 앱 생성.
-2. `fly secrets set DATABASE_URL=... REDIS_URL=...` 등으로 비밀 정보 설정.
-3. `fly deploy` 실행.
+1. **프로젝트 클론 및 이동**
+   ```bash
+   git clone https://github.com/blooper20/JustJam.git
+   cd JustJam
+   ```
+2. **배포 스크립트 권한 부여 및 실행**
+   ```bash
+   chmod +x deploy.sh
+   ./deploy.sh
+   ```
+3. **환경 변수(.env) 설정**
+   스크립트 실행 후 생성된 `.env` 파일을 열어 `JWT_SECRET_KEY` 및 `DATABASE_URL` 등 운영 환경에 맞는 비밀번호와 `ALLOWED_ORIGINS`(프론트엔드 URL)를 수정합니다.
+4. **재가동 (Docker Compose V2 사용)**
+   ```bash
+   sudo docker compose -f docker-compose.prod.yml restart
+   ```
 
-### 데이터베이스 마이그레이션
-배포 시 `alembic upgrade head`가 자동으로 실행되도록 `Dockerfile`의 ENTRYPOINT에 추가하거나, 배포 후 수동 실행합니다.
+### 데이터베이스 마이그레이션 (Database Migrations)
+`docker-compose.prod.yml`의 `backend` 컨테이너 시작 명령어로 `alembic upgrade head`가 기본 내장되어 있어, 서비스 가동 시 DB 스키마가 자동으로 마이그레이션됩니다. 
+수동으로 마이그레이션을 다시 적용하고 싶은 경우 아래 명령어를 활용하세요:
+```bash
+sudo docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+```
+
+### Nginx 및 HTTPS 설정 (필수)
+Vercel에 배포된 프론트엔드와 통신하기 위해선 백엔드도 HTTPS 통신이 강제됩니다. 
+스크립트를 통해 설치된 Nginx를 설정하고, `certbot`으로 인증서를 발급받으세요.
+```bash
+sudo certbot --nginx -d api.yourdomain.com
+```
 
 ---
 
-## 3. 셀러리(Celery) 워커 실행
+## 3. 셀러리(Celery) 워커 및 레거시 종속성 배포 제외
 
-백엔드와 동일한 환경에서 별도의 프로세스로 워커를 실행해야 합니다.
+### 1) 워커 동시성 설정
+프로덕션 `docker-compose.prod.yml` 파일에는 Celery 워커가 이미 정의되어 함께 실행됩니다.
+VRAM 초과(OOM)를 방지하기 위해 반드시 `concurrency=1` (`-c 1`)로 설정되어 실행되도록 보장해야 합니다.
 
-```bash
-celery -A src.api.celery_app worker --loglevel=info --concurrency=1
-```
+### 2) 레거시 전사/악보 생성 종속성 배포 제외
+JustJam은 가벼운 전송 및 안정적인 오디오 처리를 위해 레거시 악보/타브 전사 기능의 종속성을 프로덕션 배포에서 제외하였습니다:
+- `basic-pitch` (Spotify Basic Pitch), `music21` 등의 대용량 패키지는 프로덕션 빌드 의존성(`requirements.txt` / Docker 이미지)에서 제외되어 빌드 속도와 컨테이너 용량이 대폭 축소되었습니다.
+- 분리된 오디오 트랙을 기반으로 한 스마트 음원 분리 및 믹서 재생 기능에 집중하도록 경량화되었습니다.
 
-환경에 따라 Docker 컨테이너를 하나 더 띄워 워커를 실행하는 것이 좋습니다.
 
 ---
 

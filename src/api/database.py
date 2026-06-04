@@ -6,6 +6,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Use DATABASE_URL from env if available, otherwise default to sqlite in temp dir
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 if not SQLALCHEMY_DATABASE_URL:
     DB_PATH = os.path.join(PROJECT_ROOT, "temp", "justjam.db")
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

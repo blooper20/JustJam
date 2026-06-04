@@ -16,9 +16,9 @@
 - **Facebook Demucs v4 (htdemucs_6s)** 모델을 탑재하여 임포트된 단일 음원 파일을 여러 개의 개별 트랙(보컬, 드럼, 베이스, 기타, 피아노, 기타 악기 등)으로 정밀하게 실시간 분리합니다.
 - 분리된 음원은 각각의 파트별 연습용 스템(Stem) 파일로 즉시 사용 가능합니다.
 
-### 2. 🎹 AI 기반 멜로디 채보 및 MIDI 변환 (MIDI Transcription)
-- **Spotify Basic Pitch** 오디오 전사 인공지능 모델을 활용하여 음원 트랙에서 멜로디 노트를 추출합니다.
-- 추출된 음표를 표준 MIDI 파일로 변환하여 다운로드할 수 있으며, 16분음표 단위로 그리드 정렬(Quantization)을 지원합니다.
+### 2. 🎹 AI 기반 멜로디 채보 및 MIDI 변환 (MIDI Transcription) [레거시 / 배포 제외]
+- **참고**: 이 기능 및 관련 종속성(`basic-pitch`, `music21` 등)은 가볍고 빠른 컨테이너 이미지 유지 및 성능 최적화를 위해 프로덕션 배포에서 제외되었습니다.
+- 추출된 음표를 표준 MIDI 파일로 변환하여 다운로드하고 16분음표 단위로 그리드 정렬하는 기능은 로컬 개발/실험 모드에서만 사용 가능합니다.
 
 ### 3. 🗓️ 셋로그(Setlog) 연습 인증 및 합주 일정 관리 (Band Setlog & Scheduler)
 - **셋로그**: 15초 연습 영상 촬영, 썸네일 노란색 프레임 조절박스를 활용한 5초 구간 윈도우 크롭, 텍스트 오버레이 삽입, 그리고 연습 비디오 병합(Auto-Vlog) 기능을 지원합니다.
@@ -54,10 +54,10 @@
 - **Framework**: FastAPI 0.128.0 (ASGI 웹 프레임워크)
 - **Audio Engine & DSP**:
   - Librosa 0.11.0 (BPM 템포 감지 및 비트 그리드 정렬)
-  - Spotify Basic Pitch 0.4.0 (Audio-to-MIDI 오디오 전사 신경망)
   - Facebook Demucs 4.0.1 (신경망 기반 음원 분리 엔진)
-  - music21 8.3.0 (화성 분석 및 키 감지)
   - PyTorch 2.8.0 & torchaudio 2.8.0 (딥러닝 모델 추론 엔진)
+  - [레거시 - 배포 제외] Spotify Basic Pitch 0.4.0 (Audio-to-MIDI 오디오 전사 신경망)
+  - [레거시 - 배포 제외] music21 8.3.0 (화성 분석 및 키 감지)
 - **Queue & Workers**: Celery 5.4+ (Redis Message Broker 기반 비동기 큐 처리)
 - **Database & ORM**: SQLite (로컬 개발용) / PostgreSQL (프로덕션용) & SQLAlchemy 2.0.25
 - **DB Migration**: Alembic 1.13.1

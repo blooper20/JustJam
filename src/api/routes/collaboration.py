@@ -29,9 +29,9 @@ from src.api.schemas.collaboration import (
     ConfirmTimeRequest,
     PostOptionCreate,
     PostOptionResponse,
-    PracticeLogResponse,
     PracticeLogCommentCreate,
     PracticeLogCommentResponse,
+    PracticeLogResponse,
 )
 from src.api.schemas.user import UserResponse
 

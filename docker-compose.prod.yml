@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: justjam-backend:prod
+    container_name: justjam-backend-prod
+    shm_size: '2gb'
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - justjam-data:/app/temp
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-justjam}:${POSTGRES_PASSWORD:-justjam}@postgres:5432/${POSTGRES_DB:-justjam}
+      - REDIS_URL=redis://redis:6379/0
+      - APP_ENV=production
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://justjam.ai}
+      - SENTRY_DSN=${SENTRY_DSN}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - justjam-network
+    command: >
+      sh -c "alembic upgrade head && uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: justjam-backend:prod
+    container_name: justjam-worker-prod
+    shm_size: '2gb'
+    restart: always
+    volumes:
+      - justjam-data:/app/temp
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-justjam}:${POSTGRES_PASSWORD:-justjam}@postgres:5432/${POSTGRES_DB:-justjam}
+      - REDIS_URL=redis://redis:6379/0
+      - APP_ENV=production
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - justjam-network
+    command: celery -A src.api.celery_app worker --loglevel=info -c 1
+
+  redis:
+    image: redis:alpine
+    container_name: justjam-redis-prod
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - justjam-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: justjam-postgres-prod
+    restart: always
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-justjam}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-justjam}
+      - POSTGRES_DB=${POSTGRES_DB:-justjam}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-justjam}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - justjam-network
+
+volumes:
+  justjam-data:
+  postgres_data:
+
+networks:
+  justjam-network:
+    driver: bridge

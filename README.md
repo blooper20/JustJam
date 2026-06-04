@@ -16,9 +16,9 @@
 - Equips the **Facebook Demucs v4 (htdemucs_6s)** model to precisely separate a single imported audio file into multiple individual tracks (Vocals, Drums, Bass, Guitar, Piano, and Other instruments) in real time.
 - The separated audio tracks are immediately available as stems for practicing individual parts.
 
-### 2. 🎹 AI-Based MIDI Transcription
-- Utilizes the **Spotify Basic Pitch** neural network to transcribe melodies from separated vocal, guitar, bass, or piano stems.
-- Converts the transcribed notes into standard MIDI files and supports quantizing to a 16th-note grid for alignment.
+### 2. 🎹 AI-Based MIDI Transcription (Legacy / Excluded from Production Deployment)
+- **Note**: This feature and its dependencies (`basic-pitch`, `music21`, etc.) are legacy and excluded from the production backend deployment to maintain a lightweight, performant container image.
+- Converts transcribed notes into standard MIDI files and supports quantizing to a 16th-note grid for alignment (available in experimental local mode only).
 
 ### 3. 🗓️ Band Setlog & Collaboration Board
 - **Setlog (Practice Logs)**: Supports capturing a 15-second practice clip, trimming it down to a 5-second window using an iOS-style trimmer UI, overlaying text (up to 20 chars), and merging them into a unified vlog (Auto-Vlog).
@@ -54,10 +54,10 @@
 - **Framework**: FastAPI 0.128.0 (ASGI Web Framework)
 - **Audio Engine & DSP**:
   - Librosa 0.11.0 (Tempo/BPM tracking, beat grid alignment)
-  - Spotify Basic Pitch 0.4.0 (Audio-to-MIDI neural network transcription)
   - Facebook Demucs 4.0.1 (Neural audio source separation engine)
-  - music21 8.3.0 (Harmonic analysis and key detection)
   - PyTorch 2.8.0 & torchaudio 2.8.0 (Deep learning inference engines)
+  - [Legacy - Excluded from Deployment] Spotify Basic Pitch 0.4.0 (Audio-to-MIDI neural network transcription)
+  - [Legacy - Excluded from Deployment] music21 8.3.0 (Harmonic analysis and key detection)
 - **Queue & Workers**: Celery 5.4+ (backed by Redis broker for async queue processing)
 - **Database & ORM**: SQLite (local dev) / PostgreSQL (production) & SQLAlchemy 2.0.25
 - **DB Migration**: Alembic 1.13.1

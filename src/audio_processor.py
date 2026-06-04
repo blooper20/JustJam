@@ -83,7 +83,7 @@ def separate_audio(
         chunk_length_sec = 45
 
         if duration_sec <= chunk_length_sec:
-            chunks = [(audio, input_path)]
+            chunks = [input_path]
         else:
             chunks = []
             temp_chunk_dir = tempfile.mkdtemp(prefix="demucs_chunks_")
@@ -91,12 +91,12 @@ def separate_audio(
                 chunk = audio[i : i + chunk_length_sec * 1000]
                 chunk_path = os.path.join(temp_chunk_dir, f"chunk_{i // 1000}.wav")
                 chunk.export(chunk_path, format="wav")
-                chunks.append((chunk, chunk_path))
+                chunks.append(chunk_path)
 
         total_chunks = len(chunks)
-        separated_chunks_stems = {name: [] for name in expected_stems}
+        separated_chunks_stems: Dict[str, list] = {name: [] for name in expected_stems}
 
-        for i, (chunk_audio, chunk_path) in enumerate(chunks):
+        for i, chunk_path in enumerate(chunks):
             cmd = [
                 sys.executable,
                 "-m",
@@ -170,7 +170,7 @@ def separate_audio(
             for stem_name in expected_stems:
                 stem_file = chunk_base_output / f"{stem_name}.wav"
                 if stem_file.exists():
-                    separated_chunks_stems[stem_name].append(AudioSegment.from_wav(str(stem_file)))
+                    separated_chunks_stems[stem_name].append(stem_file)
 
         # Concatenate chunks and save
         base_output.mkdir(parents=True, exist_ok=True)
@@ -180,18 +180,29 @@ def separate_audio(
             if not separated_chunks_stems[stem_name]:
                 continue
 
-            combined = separated_chunks_stems[stem_name][0]
-            for chunk_stem in separated_chunks_stems[stem_name][1:]:
-                combined += chunk_stem
+            if len(separated_chunks_stems[stem_name]) == 1:
+                # If only one chunk, it's already at the final location!
+                final_stem_path = separated_chunks_stems[stem_name][0]
+                result_paths[stem_name] = str(final_stem_path)
+            else:
+                combined = None
+                for stem_file_path in separated_chunks_stems[stem_name]:
+                    segment = AudioSegment.from_wav(str(stem_file_path))
+                    if combined is None:
+                        combined = segment
+                    else:
+                        combined += segment
 
-            final_stem_path = base_output / f"{stem_name}.wav"
-            combined.export(str(final_stem_path), format="wav")
-            result_paths[stem_name] = str(final_stem_path)
+                if combined is not None:
+                    final_stem_path = base_output / f"{stem_name}.wav"
+                    combined.export(str(final_stem_path), format="wav")
+                    result_paths[stem_name] = str(final_stem_path)
+                    del combined
 
         # Clean up chunks
         if duration_sec > chunk_length_sec:
             shutil.rmtree(temp_chunk_dir, ignore_errors=True)
-            for _, chunk_path in chunks:
+            for chunk_path in chunks:
                 chunk_name = Path(chunk_path).stem
                 chunk_base_output = Path(output_dir) / model_name / chunk_name
                 shutil.rmtree(str(chunk_base_output), ignore_errors=True)
@@ -229,18 +240,18 @@ def separate_audio(
         if base_output.exists():
             # MP3 파일 우선, 없으면 WAV 폴백
             for ext in (".mp3", ".wav"):
-                for f in base_output.glob(f"*{ext}"):
-                    stem_key = f.stem
+                for stem_file_path in base_output.glob(f"*{ext}"):
+                    stem_key = stem_file_path.stem
                     if stem_key in final_result_paths:
                         continue  # 이미 더 좋은 포맷(mp3)이 있으면 건너뜀
                     try:
-                        y, _ = librosa.load(str(f), sr=8000, duration=30)
+                        y, _ = librosa.load(str(stem_file_path), sr=8000, duration=30)
                         if np.max(np.abs(y)) < 0.01:
-                            logger.info(f"Skipping silent stem: {f.name}")
+                            logger.info(f"Skipping silent stem: {stem_file_path.name}")
                             continue
                     except Exception:
                         pass
-                    final_result_paths[stem_key] = str(f)
+                    final_result_paths[stem_key] = str(stem_file_path)
 
         if not final_result_paths:
             logger.warning("No stems found after separation.")

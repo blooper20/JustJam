@@ -12,6 +12,7 @@ const authMiddleware = withAuth(
     return intlMiddleware(req);
   },
   {
+    secret: process.env.NEXTAUTH_SECRET,
     callbacks: {
       authorized: ({ token }) => !!token,
     },

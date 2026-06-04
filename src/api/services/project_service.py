@@ -90,7 +90,7 @@ def download_youtube_audio(youtube_url: str, output_dir: str, project_id: str) -
         },
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web"]
+                "player_client": ["web", "android"]
             }
         },
     }

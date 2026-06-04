@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     build-essential \
     fonts-nanum \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -22,6 +24,9 @@ RUN pip install --no-cache-dir \
     prometheus-fastapi-instrumentator \
     slowapi \
     python-multipart
+
+# Upgrade yt-dlp to latest stable version for best YouTube compatibility
+RUN pip install --no-cache-dir --upgrade yt-dlp
 
 # Copy the rest of the code
 COPY . .

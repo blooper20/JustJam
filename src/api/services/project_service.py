@@ -39,66 +39,6 @@ UPLOAD_DIR = os.path.join(PROJECT_ROOT, "temp", "uploads")
 SEPARATED_DIR = os.path.join(PROJECT_ROOT, "temp", "separated")
 
 
-def _sanitize_youtube_url(url: str) -> str:
-    """유튜브 URL에서 플레이리스트 파라미터를 제거하여 단독 영상 URL로 변환"""
-    from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
-
-    parsed = urlparse(url)
-    qs = parse_qs(parsed.query, keep_blank_values=True)
-
-    # list / start_radio 파라미터 제거 (라디오/믹스/재생목록)
-    qs.pop("list", None)
-    qs.pop("index", None)
-    qs.pop("start_radio", None)
-
-    clean_query = urlencode({k: v[0] for k, v in qs.items()})
-    return urlunparse(parsed._replace(query=clean_query))
-
-
-def download_youtube_audio(youtube_url: str, output_dir: str, project_id: str) -> str:
-    """yt-dlp를 사용하여 유튜브에서 최고 품질 오디오를 다운로드하고 mp3로 변환"""
-    import yt_dlp
-
-    # 라디오/믹스 등의 플레이리스트 URL을 단독 영상 URL로 정규화
-    clean_url = _sanitize_youtube_url(youtube_url)
-    logger.info(f"Sanitized YouTube URL: {clean_url}")
-
-    outtmpl = os.path.join(output_dir, f"{project_id}.%(ext)s")
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": outtmpl,
-        "noplaylist": True,  # 재생목록이더라도 첫 번째 영상만 다운로드
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }
-        ],
-        "quiet": True,
-        "no_warnings": True,
-        # 유튜브 봇 감지 우회 설정
-        "nocheckcertificate": True,
-        "http_headers": {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Sec-Fetch-Mode": "navigate",
-        },
-        # android_vr 클라이언트는 JS 런타임 없이도 작동하며 서버 환경에서 가장 안정적
-        # web/ios 클라이언트는 PO Token 또는 JS challenge solver가 필요하여 서버에서 불안정
-        "extractor_args": {"youtube": {"player_client": ["android_vr", "android"]}},
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(clean_url, download=True)
-        title = info.get("title", "YouTube Audio")
-        return str(title)
-
-
 def generate_thumbnail(audio_path: str, output_path: str):
     """오디오 파일을 기반으로 스펙트로그램 썸네일 생성"""
     try:
@@ -260,53 +200,6 @@ class ProjectService:
         project = ProjectModel(
             id=project_id,
             name=file_name,
-            original_filename=saved_filename,
-            status=TaskStatus.PENDING.value,
-            progress=0,
-            user_id=current_user.id if current_user else None,
-            team_id=team_id,
-            created_at=datetime.utcnow(),
-        )
-
-        db.add(project)
-        db.commit()
-        db.refresh(project)
-
-        return project, file_path
-
-    @staticmethod
-    def create_project_from_youtube(
-        db: Session,
-        youtube_url: str,
-        current_user: Optional[User] = None,
-        team_id: Optional[int] = None,
-    ):
-        """유튜브 URL로부터 프로젝트 생성"""
-        project_id = str(uuid.uuid4())
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-        try:
-            title = download_youtube_audio(youtube_url, UPLOAD_DIR, project_id)
-        except Exception as e:
-            logger.error(f"YouTube download failed: {e}")
-            from fastapi import HTTPException
-
-            raise HTTPException(
-                status_code=400,
-                detail=f"유튜브 음원 다운로드 실패: {str(e)}",
-            )
-
-        saved_filename = f"{project_id}.mp3"
-        file_path = os.path.join(UPLOAD_DIR, saved_filename)
-
-        if not os.path.exists(file_path):
-            from src.api.exceptions import AudioProcessingError
-
-            raise AudioProcessingError(detail="유튜브 음원 변환 결과를 찾을 수 없습니다.")
-
-        project = ProjectModel(
-            id=project_id,
-            name=title,
             original_filename=saved_filename,
             status=TaskStatus.PENDING.value,
             progress=0,

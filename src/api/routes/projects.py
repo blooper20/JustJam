@@ -21,32 +21,23 @@ router = APIRouter()
     "/",
     # response_model=Project, # Remove to avoid circular dependency
     summary="새 프로젝트 생성",
-    description="음원 파일 혹은 유튜브 링크를 입력받아 새로운 프로젝트를 생성합니다.",
+    description="음원 파일을 입력받아 새로운 프로젝트를 생성합니다.",
 )
 async def create_project(
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
-    youtube_url: Optional[str] = Form(None),
     team_id: Optional[int] = Form(None),
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ) -> Project:
     from fastapi import HTTPException
 
-    if not file and not youtube_url:
-        raise HTTPException(status_code=400, detail="음원 파일 또는 유튜브 링크가 필요합니다.")
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="음원 파일이 필요합니다.")
 
-    if youtube_url:
-        project, file_path = ProjectService.create_project_from_youtube(
-            db, youtube_url, current_user, team_id
-        )
-    else:
-        # file is not None since we validated both cannot be None
-        if not file or not file.filename:
-            raise HTTPException(status_code=400, detail="음원 파일 또는 유튜브 링크가 필요합니다.")
-        project, file_path = ProjectService.create_project(
-            db, file.filename, file.file, current_user, team_id
-        )
+    project, file_path = ProjectService.create_project(
+        db, file.filename, file.file, current_user, team_id
+    )
 
     # 썸네일 생성 백그라운드 작업
     import os

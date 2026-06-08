@@ -90,25 +90,6 @@ export const createProject = async (file: File, teamId?: number): Promise<Projec
   return response.data;
 };
 
-export const createProjectFromYoutube = async (
-  youtubeUrl: string,
-  teamId?: number,
-): Promise<Project> => {
-  const formData = new FormData();
-  formData.append('youtube_url', youtubeUrl);
-  if (teamId) {
-    formData.append('team_id', teamId.toString());
-  }
-
-  const response = await apiClient.post('/projects/', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-    timeout: 120000, // 유튜브 다운로드는 최대 2분까지 허용
-  });
-  return response.data;
-};
-
 export interface ProcessResponse {
   message: string;
   status: 'processing';

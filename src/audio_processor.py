@@ -16,7 +16,7 @@ def separate_audio(
     input_path: str,
     output_dir: Optional[str] = None,
     model_name: Optional[str] = None,
-    progress_callback: Optional[Callable[[int], None]] = None,
+    progress_callback: Optional[Callable] = None,
 ) -> Dict[str, str]:
     """
     Separate audio into stems using Demucs and return paths to stems.
@@ -141,13 +141,22 @@ def separate_audio(
 
                 if line:
                     stderr_lines.append(line)
+
+                    if "Downloading" in line or "Downloading:" in line:
+                        if progress_callback:
+                            progress_callback(
+                                0, "AI 모델 초기화 및 다운로드 중... (최초 1회, 수 분 소요)"
+                            )
+
                     match = progress_pattern.search(line)
                     if match:
                         percent = int(match.group(1))
                         if progress_callback:
                             # Calculate overall progress
                             overall_percent = int(((i * 100) + percent) / total_chunks)
-                            progress_callback(overall_percent)
+                            progress_callback(
+                                overall_percent, f"오디오 분리 중... ({overall_percent}%)"
+                            )
 
             stdout_out, _ = process.communicate()
 

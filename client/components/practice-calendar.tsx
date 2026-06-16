@@ -57,14 +57,14 @@ export interface PracticeLogResponse {
 }
 
 import { TeamMember } from '@/lib/api';
-import { Mic2, Guitar, Music, Drum, Keyboard } from 'lucide-react';
+import { MicVocal, Guitar, Music, Drum, Piano } from 'lucide-react';
 
 const INSTRUMENTS = [
-  { id: 'vocal', icon: Mic2 },
+  { id: 'vocal', icon: MicVocal },
   { id: 'guitar', icon: Guitar },
-  { id: 'bass', icon: Music },
+  { id: 'bass', icon: Guitar },
   { id: 'drum', icon: Drum },
-  { id: 'keyboard', icon: Keyboard },
+  { id: 'keyboard', icon: Piano },
   { id: 'other', icon: Music },
 ];
 

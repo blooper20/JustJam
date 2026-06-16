@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
-import { Loader2, Mic2, Music, Drum, Guitar, Keyboard, Users, Plus, Trash2 } from 'lucide-react';
+import { Loader2, MicVocal, Music, Drum, Guitar, Piano, Users, Plus, Trash2 } from 'lucide-react';
 import { TeamMember, inviteTeamMember, updateTeamMemberInstrument } from '@/lib/api';
 import apiClient from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -19,11 +19,11 @@ import {
 } from '@/components/ui/select';
 
 const INSTRUMENTS = [
-  { id: 'vocal', name: 'Vocal', icon: Mic2 },
+  { id: 'vocal', name: 'Vocal', icon: MicVocal },
   { id: 'guitar', name: 'Guitar', icon: Guitar },
-  { id: 'bass', name: 'Bass', icon: Music }, // or a custom bass icon
+  { id: 'bass', name: 'Bass', icon: Guitar },
   { id: 'drum', name: 'Drum', icon: Drum },
-  { id: 'keyboard', name: 'Keyboard', icon: Keyboard },
+  { id: 'keyboard', name: 'Keyboard', icon: Piano },
   { id: 'other', name: 'Other', icon: Music },
 ];
 
